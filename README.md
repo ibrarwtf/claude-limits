@@ -4,7 +4,7 @@ Your Anthropic usage at a glance, in the macOS menu bar.
 
 ```
 ┌─────────────────────────────────────┐
-│ ...   18% ▆▇█▇▆▆▅▅▄▃ 4:32   ...    │  ← always visible
+│ ...   18% ▆▇█▇▆▆▅▅▄▃ 4:32   ...     │  ← always visible
 └─────────────────────────────────────┘
             │       │       │
             │       │       └── time until your 5-hour quota resets

@@ -577,6 +577,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     var rateLimitCycleTimer: Timer?
     var rateLimitAnimFrame: Int = 0
 
+    // Width ceiling for the status item, computed once from the worst-case
+    // "all three on" content (% + sparkline + countdown). The status item
+    // is allowed to shrink below this when sub-toggles hide parts, but no
+    // render path may grow it past this — that's why each render path ends
+    // with a clampWidth() call.
+    var maxStatusItemWidth: CGFloat = 0
+    var marqueeWindowChars: Int = 22
+
     // Live "Last updated: Xs ago" line — refreshed once per second while the
     // dropdown is open so the counter visibly ticks up.
     weak var lastUpdatedMenuItem: NSMenuItem?
@@ -586,10 +594,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     var nextPollAt: Date?
 
     func applicationDidFinishLaunching(_ note: Notification) {
-        // Auto-size the slot to its content. Errors with prior data don't
-        // trigger the marquee anymore, so the marquee only runs at cold-start
-        // (rare) — accepting the minor resize there beats wasting space in the
-        // 99% case.
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         statusItem.autosaveName = "claude-limits"
         statusItem.isVisible = true
@@ -597,6 +601,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusItem.button?.target = self
         statusItem.button?.action = #selector(clicked(_:))
         statusItem.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
+
+        computeWidthBudget()
+        clampWidth()
 
         // Restore the last successful response from disk so we render real
         // data immediately, even before the first poll completes.
@@ -649,6 +656,44 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 self?.openSettings()
             }
         }
+    }
+
+    // ── Width budget ─────────────────────────────────────────────────────────
+
+    /// Measure the worst-case "all three on" content once at startup so every
+    /// later render can clamp to it. The 100% / 99:59 sample is the largest
+    /// realistic title; the all-█ sparkline is the widest bar set.
+    func computeWidthBudget() {
+        let normalFont = NSFont.menuBarFont(ofSize: NSFont.systemFontSize)
+        let sparkFont = NSFont.monospacedSystemFont(ofSize: 8, weight: .regular)
+        let sample = NSMutableAttributedString()
+        sample.append(NSAttributedString(string: "100% ", attributes: [.font: normalFont]))
+        sample.append(NSAttributedString(string: "██████████",
+            attributes: [.font: sparkFont, .baselineOffset: 1.0]))
+        sample.append(NSAttributedString(string: " 9:59", attributes: [.font: normalFont]))
+        maxStatusItemWidth = ceil(sample.size().width) + 6
+
+        // Marquee window in monospaced chars that fit the same budget.
+        let mono = NSFont.monospacedSystemFont(ofSize: NSFont.systemFontSize - 1, weight: .regular)
+        let monoSample = NSAttributedString(string: String(repeating: "M", count: 50),
+            attributes: [.font: mono])
+        let charWidth = monoSample.size().width / 50.0
+        marqueeWindowChars = max(8, Int(floor((maxStatusItemWidth - 6) / charWidth)))
+    }
+
+    /// Resize the slot to fit the current title, capped at maxStatusItemWidth.
+    /// Called at the end of every render path so the slot can shrink when
+    /// sub-toggles hide parts but never overflows the cap.
+    func clampWidth() {
+        var width: CGFloat = 0
+        if let attr = statusItem.button?.attributedTitle, attr.length > 0 {
+            width = ceil(attr.size().width) + 6
+        } else if let plain = statusItem.button?.title, !plain.isEmpty {
+            let f = NSFont.menuBarFont(ofSize: NSFont.systemFontSize)
+            width = ceil(NSAttributedString(string: plain, attributes: [.font: f]).size().width) + 6
+        }
+        // Floor at a small minimum so a "—" placeholder still has a click target.
+        statusItem.length = min(max(width, 24), maxStatusItemWidth)
     }
 
     /// Returns true if we may issue a fetch right now.
@@ -762,6 +807,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if let err = lastError, lastResponse == nil {
             // Pure-error state: no prior successful response. Show only the error.
             statusItem.button?.title = err.titleSymbol
+            statusItem.button?.attributedTitle = NSAttributedString(string: "")
+            clampWidth()
             return
         }
         if let r = lastResponse, let f = r.fiveHour {
@@ -803,12 +850,16 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             // (UI keeps master and sub toggles consistent — this is defensive.)
             if !prevAdded {
                 statusItem.button?.title = "·"
+                statusItem.button?.attributedTitle = NSAttributedString(string: "")
+                clampWidth()
                 return
             }
             statusItem.button?.attributedTitle = title
         } else {
             statusItem.button?.title = "—"
+            statusItem.button?.attributedTitle = NSAttributedString(string: "")
         }
+        clampWidth()
     }
 
     /// User clicked the .app from Finder/Spotlight while the app is already
@@ -947,6 +998,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             } else {
                 self.statusItem.button?.attributedTitle = title
             }
+            self.clampWidth()
             self.animationFrame += 1
         }
     }
@@ -1048,28 +1100,21 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             ofSize: NSFont.systemFontSize - 1, weight: .regular)
 
         if cyclePos < AppDelegate.errorPhaseAFrames {
-            // Phase A: dim placeholders flanking an animated wave palindrome.
-            // Layout: "--  <10-char wave>   --:--" (22 chars total, mono).
+            // Phase A: bouncing-peak wave only, no flanking dashes — keeps
+            // the slot inside the "all three on" width budget.
             let palIdx = AppDelegate.errorWavePalindrome[
                 cyclePos % AppDelegate.errorWavePalindrome.count]
             let wave = AppDelegate.errorWaveFrames[palIdx]
-            let title = NSMutableAttributedString()
-            let dim: [NSAttributedString.Key: Any] = [
-                .font: mono, .foregroundColor: NSColor.tertiaryLabelColor,
-            ]
-            let bright: [NSAttributedString.Key: Any] = [
-                .font: mono, .foregroundColor: NSColor.labelColor,
-            ]
-            title.append(NSAttributedString(string: "--  ",     attributes: dim))
-            title.append(NSAttributedString(string: wave,       attributes: bright))
-            title.append(NSAttributedString(string: "   --:--", attributes: dim))
-            statusItem.button?.attributedTitle = title
+            statusItem.button?.attributedTitle = NSAttributedString(
+                string: wave,
+                attributes: [.font: mono, .foregroundColor: NSColor.labelColor])
         } else {
-            // Phase B: marquee scroll of friendly message in 22-char window.
+            // Phase B: marquee scroll of friendly message. Window is sized to
+            // the same width budget so the slot never grows past the cap.
             // ~1.17 chars/frame at 12 fps → ~14 chars/sec.
             let phaseFrame = cyclePos - AppDelegate.errorPhaseAFrames
             let core = rateLimitTypewriterText() + "    "
-            let windowWidth = 22
+            let windowWidth = self.marqueeWindowChars
             let cycleText = String(repeating: " ", count: windowWidth) + core
             let chars = Array(cycleText)
             let charPos = Int(Double(phaseFrame) * 1.17) % chars.count
@@ -1081,6 +1126,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 string: visible,
                 attributes: [.font: mono, .foregroundColor: NSColor.labelColor])
         }
+        clampWidth()
         rateLimitAnimFrame += 1
     }
 
