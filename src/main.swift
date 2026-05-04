@@ -380,9 +380,21 @@ func loadTokenFromShell(_ cmd: String) throws -> String {
     throw AppError.parseFailed("shell command output didn't contain a token")
 }
 
+/// Read Claude Code's credentials from the macOS Keychain. This is the
+/// default storage on stock Mac installs — the file paths in
+/// `knownCredentialPaths` are only used in Docker/Linux/WSL/custom setups.
+/// First call triggers a system Allow / Always-Allow prompt; subsequent
+/// calls from the same signed bundle are silent.
+func loadTokenFromKeychain() throws -> String {
+    let output = try runShell("security find-generic-password -s 'Claude Code-credentials' -w 2>/dev/null")
+    if let tok = extractTokenFromText(output) { return tok }
+    throw AppError.tokenNotFound
+}
+
 func loadAccessToken() throws -> String {
     switch Settings.shared.tokenSource {
     case .auto:
+        if let tok = try? loadTokenFromKeychain() { return tok }
         for path in knownCredentialPaths {
             if let tok = try? loadTokenFromFile(path) { return tok }
         }
@@ -1926,7 +1938,7 @@ class SettingsViewController: NSViewController {
         let mode = TokenSource(rawValue: modePopup.indexOfSelectedItem) ?? .auto
         switch mode {
         case .auto:
-            hintLabel.stringValue = "We'll try common locations like " + knownCredentialPaths.first! + " and pick the first one that has a valid token."
+            hintLabel.stringValue = "We check the macOS Keychain (where Claude Code stores credentials by default), then fall back to common file paths like " + knownCredentialPaths.first! + "."
             fileRow.isHidden = true
             shellRow.isHidden = true
         case .file:
