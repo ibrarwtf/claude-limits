@@ -391,20 +391,41 @@ func loadTokenFromKeychain() throws -> String {
     throw AppError.tokenNotFound
 }
 
+/// Track which source produced the most recent token so we only log on
+/// change — keeps /tmp/claude-limits.log free of repetition while still
+/// recording when auto-detect falls through to a different path.
+private var lastLoggedTokenSource: String?
+private func logTokenSourceOnce(_ source: String) {
+    if lastLoggedTokenSource != source {
+        NSLog("claude-limits token from: \(source)")
+        lastLoggedTokenSource = source
+    }
+}
+
 func loadAccessToken() throws -> String {
     switch Settings.shared.tokenSource {
     case .auto:
-        if let tok = try? loadTokenFromKeychain() { return tok }
+        if let tok = try? loadTokenFromKeychain() {
+            logTokenSourceOnce("keychain (auto)")
+            return tok
+        }
         for path in knownCredentialPaths {
-            if let tok = try? loadTokenFromFile(path) { return tok }
+            if let tok = try? loadTokenFromFile(path) {
+                logTokenSourceOnce("file \(path) (auto)")
+                return tok
+            }
         }
         throw AppError.tokenNotFound
     case .file:
         let path = Settings.shared.customFilePath
         if path.isEmpty { throw AppError.tokenNotFound }
-        return try loadTokenFromFile(path)
+        let tok = try loadTokenFromFile(path)
+        logTokenSourceOnce("file \(path) (custom)")
+        return tok
     case .shell:
-        return try loadTokenFromShell(Settings.shared.customShellCommand)
+        let tok = try loadTokenFromShell(Settings.shared.customShellCommand)
+        logTokenSourceOnce("shell command (custom)")
+        return tok
     }
 }
 
@@ -1075,7 +1096,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 return "rate limit reached, retry in \(when)"
             }
             return "rate limit reached"
-        case .authFailed:        return "token expired · sign in to claude"
+        case .authFailed:        return "sign in: run `claude` in terminal"
         case .tokenNotFound:     return "token not configured · open settings"
         case .forbidden:         return "access forbidden · check account access"
         case .networkUnavailable: return "cannot reach api.anthropic.com"
@@ -1235,10 +1256,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(topItem)
         lastUpdatedMenuItem = topItem
 
-        // Quick action for actionable errors.
+        // Quick action only when Settings can actually fix the error.
+        // .authFailed needs the user to re-auth in Claude Code itself, not
+        // change settings here, so no quick action for that case.
         if let err = lastError {
             if case .tokenNotFound = err { menu.addItem(openSettingsItem("Open Settings")) }
-            if case .authFailed   = err { menu.addItem(openSettingsItem("Open Settings")) }
         }
         menu.addItem(.separator())
 
