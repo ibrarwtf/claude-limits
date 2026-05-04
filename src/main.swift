@@ -494,7 +494,10 @@ func parseISO(_ s: String?) -> Date? {
 /// faking a countdown when there's none is misleading.
 func formatTimeRemaining(_ resetsAt: String?) -> String? {
     guard let d = parseISO(resetsAt) else { return nil }
-    let total = max(0, Int(d.timeIntervalSinceNow))
+    let total = Int(d.timeIntervalSinceNow)
+    // Window crossed but next poll hasn't landed yet — drop the piece rather
+    // than render a dishonest "0m" against a now-stale resets_at.
+    guard total > 0 else { return nil }
     let h = total / 3600, m = (total % 3600) / 60
     return h > 0 ? "\(h):\(String(format: "%02d", m))" : "\(m)m"
 }
@@ -1095,6 +1098,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // exactly what's happening rather than guessing a clock time.
         guard let resetDate = parseISO(f.resetsAt) else {
             return "No active 5-hour window — starts on your next Claude request"
+        }
+        // Same staleness as formatTimeRemaining: the cached resets_at has already
+        // passed, but the next poll hasn't refreshed it yet. Show that explicitly
+        // instead of computing pace/projection against a window that's gone.
+        guard resetDate > Date() else {
+            return "Window just reset — refreshing soon"
         }
         let df = DateFormatter()
         df.timeStyle = .short
