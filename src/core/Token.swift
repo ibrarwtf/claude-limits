@@ -1,0 +1,112 @@
+import Foundation
+
+let knownCredentialPaths: [String] = [
+    "~/.claude/.credentials.json",
+    "~/Library/Application Support/Claude/claude-code/.credentials.json",
+    "~/Library/Application Support/Claude/.credentials.json",
+]
+
+let shellCommandExample = "ssh devbox 'cat ~/.claude/.credentials.json'"
+
+func extractTokenFromText(_ text: String) -> String? {
+    if let data = text.data(using: .utf8),
+       let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+        if let oauth = obj["claudeAiOauth"] as? [String: Any],
+           let tok = oauth["accessToken"] as? String, !tok.isEmpty { return tok }
+        if let tok = obj["accessToken"] as? String, !tok.isEmpty { return tok }
+    }
+    let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+    if !trimmed.isEmpty && !trimmed.contains(" ") && !trimmed.contains("\n") && trimmed.hasPrefix("sk-") {
+        return trimmed
+    }
+    return nil
+}
+
+func loadTokenFromFile(_ rawPath: String) throws -> String {
+    let path = (rawPath as NSString).expandingTildeInPath
+    guard FileManager.default.fileExists(atPath: path) else {
+        throw AppError.tokenNotFound
+    }
+    let text = try String(contentsOfFile: path, encoding: .utf8)
+    if let tok = extractTokenFromText(text) { return tok }
+    throw AppError.parseFailed("no accessToken in \(path)")
+}
+
+func runShell(_ cmd: String, timeout: TimeInterval = 10.0) throws -> String {
+    let task = Process()
+    task.launchPath = "/bin/zsh"
+    task.arguments = ["-l", "-c", cmd]
+    let outPipe = Pipe(); let errPipe = Pipe()
+    task.standardOutput = outPipe
+    task.standardError = errPipe
+    try task.run()
+    let group = DispatchGroup()
+    group.enter()
+    DispatchQueue.global().async { task.waitUntilExit(); group.leave() }
+    if group.wait(timeout: .now() + timeout) == .timedOut {
+        task.terminate()
+        throw AppError.commandFailed("timed out after \(Int(timeout))s")
+    }
+    let out = String(data: outPipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+    if task.terminationStatus != 0 {
+        let err = String(data: errPipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+        throw AppError.commandFailed("exit \(task.terminationStatus): \(err.prefix(200))")
+    }
+    return out
+}
+
+func loadTokenFromShell(_ cmd: String) throws -> String {
+    if cmd.trimmingCharacters(in: .whitespaces).isEmpty {
+        throw AppError.tokenNotFound
+    }
+    let output = try runShell(cmd)
+    if let tok = extractTokenFromText(output) { return tok }
+    throw AppError.parseFailed("shell command output didn't contain a token")
+}
+
+/// Read Claude Code's credentials from the macOS Keychain. This is the default
+/// storage on stock Mac installs — `knownCredentialPaths` are only used in
+/// Docker/Linux/WSL/custom setups. First call triggers a system Always-Allow
+/// prompt; subsequent calls from the same signed bundle are silent.
+func loadTokenFromKeychain() throws -> String {
+    let output = try runShell("security find-generic-password -s 'Claude Code-credentials' -w 2>/dev/null")
+    if let tok = extractTokenFromText(output) { return tok }
+    throw AppError.tokenNotFound
+}
+
+/// Track which source produced the most recent token so we only log on change —
+/// keeps the log free of repetition while still recording fall-through events.
+private var lastLoggedTokenSource: String?
+private func logTokenSourceOnce(_ source: String) {
+    if lastLoggedTokenSource != source {
+        NSLog("claude-limits token from: \(source)")
+        lastLoggedTokenSource = source
+    }
+}
+
+func loadAccessToken() throws -> String {
+    switch Settings.shared.tokenSource {
+    case .auto:
+        if let tok = try? loadTokenFromKeychain() {
+            logTokenSourceOnce("keychain (auto)")
+            return tok
+        }
+        for path in knownCredentialPaths {
+            if let tok = try? loadTokenFromFile(path) {
+                logTokenSourceOnce("file \(path) (auto)")
+                return tok
+            }
+        }
+        throw AppError.tokenNotFound
+    case .file:
+        let path = Settings.shared.customFilePath
+        if path.isEmpty { throw AppError.tokenNotFound }
+        let tok = try loadTokenFromFile(path)
+        logTokenSourceOnce("file \(path) (custom)")
+        return tok
+    case .shell:
+        let tok = try loadTokenFromShell(Settings.shared.customShellCommand)
+        logTokenSourceOnce("shell command (custom)")
+        return tok
+    }
+}
