@@ -122,6 +122,7 @@ class SettingsViewController: NSViewController {
     var mockBars: NSTextField!
     var mockReset: NSTextField!
     var launchSwitch: NSSwitch!
+    var credentialsDot: NSView?  // green-pulsing when token is reachable
 
     override func loadView() {
         let WIDTH: CGFloat = 720
@@ -215,43 +216,40 @@ class SettingsViewController: NSViewController {
         buttonStack.translatesAutoresizingMaskIntoConstraints = false
 
         // ── Footer (author | version) ───────────────────────────────────────
-        // "Made by ibr" rendered as a clickable link to the maintainer's GitHub.
-        // Using attributedStringValue + .link is the AppKit-native way; an
-        // NSTextField with isSelectable=true + allowsEditingTextAttributes=true
-        // makes the link respond to clicks without needing an NSButton.
-        let byAttr = NSMutableAttributedString(string: "Made by ibr")
+        // "made by ibr" — clickable link to the maintainer's GitHub.
+        // Rendered as a borderless NSButton (not an NSTextField) so it paints
+        // correctly into the offscreen bitmap context used for snapshots —
+        // NSTextField's selectable+attributedString-link trick uses NSTextView
+        // under the hood, which doesn't honour cacheDisplay.
+        let byAttr = NSMutableAttributedString(string: "made by ibr")
         byAttr.addAttributes([
-            .link: URL(string: "https://github.com/ibrarwtf")!,
-            .foregroundColor: NSColor.tertiaryLabelColor,
+            .foregroundColor: NSColor.linkColor,
+            .underlineStyle: NSUnderlineStyle.single.rawValue,
             .font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize),
-            .cursor: NSCursor.pointingHand,
         ], range: NSRange(location: 0, length: byAttr.length))
-        let by = NSTextField(labelWithAttributedString: byAttr)
-        by.isSelectable = true
-        by.allowsEditingTextAttributes = true
-        by.alignment = .center
+        let by = NSButton(title: "", target: self, action: #selector(openMaintainerGitHub))
+        by.attributedTitle = byAttr
+        by.isBordered = false
+        by.bezelStyle = .inline
+        by.setButtonType(.momentaryChange)
+        by.contentTintColor = nil  // let attributedTitle drive color
 
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0"
         let ver = NSTextField(labelWithString: "v\(version)")
         ver.textColor = .tertiaryLabelColor
         ver.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
 
-        let leftPad = NSView()
-        leftPad.translatesAutoresizingMaskIntoConstraints = false
-        let footerStack = NSStackView(views: [leftPad, by, ver])
-        footerStack.orientation = .horizontal
-        footerStack.distribution = .fill
-        footerStack.alignment = .centerY
-        footerStack.spacing = 8
-        footerStack.translatesAutoresizingMaskIntoConstraints = false
-        by.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        // Equal-width left/right ensures `by` is centred. Activate AFTER the
-        // stack is constructed so leftPad and ver share a common ancestor.
-        leftPad.widthAnchor.constraint(equalTo: ver.widthAnchor).isActive = true
+        // Dead-centre `by` in the container; `ver` rides the trailing edge.
+        // (NSStackView .fill distribution wasn't centring the text inside the
+        // expanded NSTextField — explicit constraints are simpler than fighting
+        // NSStackView's intrinsic-size logic.)
+        by.translatesAutoresizingMaskIntoConstraints = false
+        ver.translatesAutoresizingMaskIntoConstraints = false
 
         container.addSubview(sectionStack)
         container.addSubview(buttonStack)
-        container.addSubview(footerStack)
+        container.addSubview(by)
+        container.addSubview(ver)
 
         NSLayoutConstraint.activate([
             sectionStack.topAnchor.constraint(equalTo: wave.bottomAnchor, constant: 12),
@@ -260,11 +258,13 @@ class SettingsViewController: NSViewController {
 
             buttonStack.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 24),
             buttonStack.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -24),
-            buttonStack.bottomAnchor.constraint(equalTo: footerStack.topAnchor, constant: -12),
+            buttonStack.bottomAnchor.constraint(equalTo: by.topAnchor, constant: -12),
 
-            footerStack.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 24),
-            footerStack.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -24),
-            footerStack.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -14),
+            by.centerXAnchor.constraint(equalTo: container.centerXAnchor),
+            by.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -14),
+
+            ver.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -24),
+            ver.bottomAnchor.constraint(equalTo: by.bottomAnchor),
         ])
         view = container
 
@@ -341,7 +341,48 @@ class SettingsViewController: NSViewController {
             label.bottomAnchor.constraint(equalTo: v.bottomAnchor, constant: -8),
             label.centerXAnchor.constraint(equalTo: v.centerXAnchor),
         ])
+        credentialsDot = dot
         return v
+    }
+
+    /// Toggles the credentials.json glyph dot between a static gray (unknown
+    /// / disconnected) and a slow-pulsing green (token verified reachable).
+    private func setCredentialsDotConnected(_ connected: Bool) {
+        guard let dot = credentialsDot, let layer = dot.layer else { return }
+        layer.removeAnimation(forKey: "pulse")
+        if connected {
+            layer.backgroundColor = NSColor.systemGreen.cgColor
+            let anim = CABasicAnimation(keyPath: "opacity")
+            anim.fromValue = 1.0
+            anim.toValue = 0.25
+            anim.duration = 1.4
+            anim.autoreverses = true
+            anim.repeatCount = .infinity
+            anim.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            layer.add(anim, forKey: "pulse")
+        } else {
+            layer.opacity = 1
+            layer.backgroundColor = NSColor.secondaryLabelColor.cgColor
+        }
+    }
+
+    /// Quick token-reachability probe; updates the dot. Called on Settings
+    /// open and after Test fetch / Save.
+    private func refreshCredentialsDot() {
+        fetchUsage { [weak self] r in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                switch r {
+                case .success: self.setCredentialsDotConnected(true)
+                case .failure: self.setCredentialsDotConnected(false)
+                }
+            }
+        }
+    }
+
+    override func viewDidAppear() {
+        super.viewDidAppear()
+        refreshCredentialsDot()
     }
 
     private func makeMenubarArt() -> NSView {
@@ -489,6 +530,12 @@ class SettingsViewController: NSViewController {
         }
     }
 
+    @objc func openMaintainerGitHub() {
+        if let url = URL(string: "https://github.com/ibrarwtf") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
     @objc func save() {
         collect()
         onSave?()
@@ -510,9 +557,11 @@ class SettingsViewController: NSViewController {
                         self.statusLabel.stringValue = "Connected, but no five_hour data."
                     }
                     self.statusLabel.textColor = .labelColor
+                    self.setCredentialsDotConnected(true)
                 case .failure(let e):
                     self.statusLabel.stringValue = "\(e.friendlyMessage)"
                     self.statusLabel.textColor = .labelColor
+                    self.setCredentialsDotConnected(false)
                 }
             }
         }

@@ -1011,10 +1011,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
         }
 
-        if let v = latestVersionAvailable {
-            menu.addItem(plainItem("Update available: \(v) — brew upgrade --cask claude-limits",
-                color: NSColor.systemOrange))
-        }
+        // Update-available hint lives in Settings (SettingsWindow renders the
+        // status line there) — keep the dropdown clean.
         menu.addItem(.separator())
 
         if let r = lastResponse, let f = r.fiveHour {
