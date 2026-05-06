@@ -1,5 +1,5 @@
 #!/bin/bash
-# Build, install, and start the LaunchAgent.
+# Build, install, start the LaunchAgent, and refresh repo snapshots.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -12,39 +12,15 @@ PLIST_SRC="$ROOT/launchd/${PLIST_LABEL}.plist"
 
 bash "$ROOT/scripts/build.sh"
 
-echo "→ Stopping any running instance (current + legacy names)…"
+echo "→ Stopping any running instance…"
 UID_VAL=$(id -u)
-# Tear down all known LaunchAgent labels (current + previous naming schemes)
-# so an old install doesn't keep restarting the wrong binary.
-for L in "${PLIST_LABEL}" "claude-limits-on-menubar" "com.claudelimits.menubar"; do
-    launchctl bootout "gui/${UID_VAL}/${L}" >/dev/null 2>&1 || true
-done
-for BIN_PATTERN in "/Contents/MacOS/${NAME}" "/Contents/MacOS/claude-limits-on-menubar" "/Contents/MacOS/ClaudeLimits"; do
-    pkill -f "$BIN_PATTERN" >/dev/null 2>&1 || true
-done
-
+launchctl bootout "gui/${UID_VAL}/${PLIST_LABEL}" >/dev/null 2>&1 || true
+pkill -f "/Contents/MacOS/${NAME}" >/dev/null 2>&1 || true
 for i in 1 2 3 4 5; do
-    if ! pgrep -f "/Contents/MacOS/${NAME}" >/dev/null && \
-       ! pgrep -f "/Contents/MacOS/claude-limits-on-menubar" >/dev/null && \
-       ! pgrep -f "/Contents/MacOS/ClaudeLimits" >/dev/null; then break; fi
+    pgrep -f "/Contents/MacOS/${NAME}" >/dev/null || break
     sleep 1
 done
-for BIN_PATTERN in "/Contents/MacOS/${NAME}" "/Contents/MacOS/claude-limits-on-menubar" "/Contents/MacOS/ClaudeLimits"; do
-    pkill -9 -f "$BIN_PATTERN" >/dev/null 2>&1 || true
-done
-
-# Remove legacy bundles + plists from previous naming schemes.
-for LEGACY in \
-    "$HOME/Applications/ClaudeLimits.app" \
-    "$HOME/Applications/Claude Limits on Menubar.app" \
-    "$HOME/Applications/claude-limits-on-menubar.app" \
-    "$HOME/Library/LaunchAgents/com.claudelimits.menubar.plist" \
-    "$HOME/Library/LaunchAgents/claude-limits-on-menubar.plist"; do
-    if [ -e "$LEGACY" ] && [ "$LEGACY" != "$APP_BUNDLE" ] && [ "$LEGACY" != "$PLIST_DST" ]; then
-        echo "→ Removing legacy: $LEGACY"
-        rm -rf "$LEGACY"
-    fi
-done
+pkill -9 -f "/Contents/MacOS/${NAME}" >/dev/null 2>&1 || true
 
 echo "→ Installing LaunchAgent → $PLIST_DST"
 mkdir -p "$HOME/Library/LaunchAgents"
@@ -61,6 +37,14 @@ if [ "$n" -eq 1 ]; then
     echo "Logs: tail -f /tmp/claude-limits.log"
 elif [ "$n" -gt 1 ]; then
     echo "WARN: multiple instances detected ($n). Check 'pgrep -fa ${NAME}'."
+    exit 0
 else
     echo "WARN: process didn't start — check /tmp/claude-limits.log"
+    exit 0
 fi
+
+# Refresh repo snapshots so the working tree always reflects the just-built UI.
+# Snapshot capture failure ≠ install failure — log and continue.
+echo "→ Refreshing snapshots/…"
+bash "$ROOT/scripts/snapshot.sh" --auto-all || \
+    echo "  (snapshot capture failed; install itself succeeded)"

@@ -8,6 +8,11 @@ APP_BUNDLE="$HOME/Applications/${NAME}.app"
 BUILD_DIR="$ROOT/build"
 ICON_SRC="$ROOT/assets/AppIcon.icns"
 
+# Single source of truth — release.sh writes here, build.sh reads from here.
+# Means a casual `bash scripts/install.sh` after a release always builds the
+# current version, not whatever was hardcoded into a heredoc.
+VERSION="$(cat "$ROOT/VERSION" | tr -d '[:space:]')"
+
 # Boundary check: src/core/* must be Foundation-only. AppKit imports leak
 # UI into the headless layer and would break a future cross-platform port.
 if grep -l "import AppKit\|import Cocoa" "$ROOT/src/core/"*.swift 2>/dev/null; then
@@ -43,8 +48,8 @@ cat > "$APP_BUNDLE/Contents/Info.plist" <<EOF
     <key>CFBundleExecutable</key>      <string>${NAME}</string>
     <key>CFBundleIconFile</key>        <string>AppIcon</string>
     <key>CFBundlePackageType</key>     <string>APPL</string>
-    <key>CFBundleVersion</key>         <string>1</string>
-    <key>CFBundleShortVersionString</key><string>0.1.5</string>
+    <key>CFBundleVersion</key>         <string>${VERSION}</string>
+    <key>CFBundleShortVersionString</key><string>${VERSION}</string>
     <key>LSMinimumSystemVersion</key>  <string>13.0</string>
     <key>LSUIElement</key>             <true/>
     <key>NSHighResolutionCapable</key> <true/>

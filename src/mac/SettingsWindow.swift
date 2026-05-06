@@ -215,9 +215,20 @@ class SettingsViewController: NSViewController {
         buttonStack.translatesAutoresizingMaskIntoConstraints = false
 
         // ── Footer (author | version) ───────────────────────────────────────
-        let by = NSTextField(labelWithString: "Made by ibr")
-        by.textColor = .tertiaryLabelColor
-        by.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
+        // "Made by ibr" rendered as a clickable link to the maintainer's GitHub.
+        // Using attributedStringValue + .link is the AppKit-native way; an
+        // NSTextField with isSelectable=true + allowsEditingTextAttributes=true
+        // makes the link respond to clicks without needing an NSButton.
+        let byAttr = NSMutableAttributedString(string: "Made by ibr")
+        byAttr.addAttributes([
+            .link: URL(string: "https://github.com/ibrarwtf")!,
+            .foregroundColor: NSColor.tertiaryLabelColor,
+            .font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize),
+            .cursor: NSCursor.pointingHand,
+        ], range: NSRange(location: 0, length: byAttr.length))
+        let by = NSTextField(labelWithAttributedString: byAttr)
+        by.isSelectable = true
+        by.allowsEditingTextAttributes = true
         by.alignment = .center
 
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0"

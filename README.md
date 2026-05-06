@@ -1,5 +1,8 @@
 # claude-limits
 
+[![Latest release](https://img.shields.io/github/v/release/ibrarwtf/claude-limits?label=brew%20cask&color=d97757)](https://github.com/ibrarwtf/claude-limits/releases/latest)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 Your Anthropic usage at a glance, in the macOS menu bar.
 
 ```
