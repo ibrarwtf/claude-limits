@@ -6,9 +6,7 @@ dist/
 *.swiftdoc
 .tmp-*
 
-# Internal working notes — Claude project context, dev/release flow, QA
-# checklist. Kept locally for the maintainer; not shared on GitHub.
-# (Claude Code's auto-context from CLAUDE.md only works when present
-# locally; clones won't see it but the public source is self-explanatory.)
+# Maintainer-only working notes (release/QA checklists, private drafts).
+# Public docs (README, CLAUDE.md, DEVELOPMENT.md, CONTRIBUTING.md) and
+# tracked UI snapshots live at the repo root.
 .claude/
-CLAUDE.md

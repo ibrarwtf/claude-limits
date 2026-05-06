@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>claude-limits — snapshots</title>
+<style>
+  body { font: 14px -apple-system, sans-serif; background: #1a1918; color: #f0eee6; margin: 0; padding: 24px; }
+  h1 { font-weight: 500; font-size: 18px; margin: 0 0 4px; }
+  p { color: #91908a; margin: 0 0 24px; }
+  h2 { font-weight: 500; font-size: 13px; color: #91908a; letter-spacing: 0.04em; text-transform: uppercase; margin: 28px 0 10px; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  figure { margin: 0; background: #262624; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; overflow: hidden; }
+  figcaption { padding: 8px 14px; color: #91908a; font-size: 12px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+  img { display: block; max-width: 100%; }
+  .empty { padding: 48px; text-align: center; color: #91908a; border: 1px dashed rgba(255,255,255,0.12); border-radius: 8px; line-height: 1.5; }
+  code { font: 12px ui-monospace, Menlo, monospace; background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 3px; color: #d97757; }
+</style>
+</head>
+<body>
+
+<h1>claude-limits — snapshots (light + dark)</h1>
+<p>1:1 from the running app. Refresh after running <code>bash scripts/snapshot.sh --auto-all</code> on your Mac (or have me trigger it via mac-exec).</p>
+
+<div id="grid"></div>
+
+<script>
+const kinds = [
+  { kind: 'menubar',  desc: 'Menu bar widget' },
+  { kind: 'dropdown', desc: 'Right-click dropdown' },
+  { kind: 'settings', desc: 'Settings window' },
+];
+
+const grid = document.getElementById('grid');
+
+async function loadAll() {
+  let any = false;
+  for (const k of kinds) {
+    const lightURL = `${k.kind}-light.png?cb=${Date.now()}`;
+    const darkURL  = `${k.kind}-dark.png?cb=${Date.now()}`;
+    const haveLight = await imageExists(lightURL);
+    const haveDark  = await imageExists(darkURL);
+    if (!haveLight && !haveDark) continue;
+    any = true;
+
+    const heading = document.createElement('h2');
+    heading.textContent = `${k.kind} — ${k.desc}`;
+    grid.appendChild(heading);
+
+    const pair = document.createElement('div');
+    pair.className = 'pair';
+    if (haveLight) {
+      const f = document.createElement('figure');
+      f.innerHTML = `<figcaption>Light</figcaption><img src="${lightURL}">`;
+      pair.appendChild(f);
+    }
+    if (haveDark) {
+      const f = document.createElement('figure');
+      f.innerHTML = `<figcaption>Dark</figcaption><img src="${darkURL}">`;
+      pair.appendChild(f);
+    }
+    grid.appendChild(pair);
+  }
+  if (!any) {
+    const e = document.createElement('div');
+    e.className = 'empty';
+    e.innerHTML = 'No screenshots yet. Trigger via <code>bash scripts/snapshot.sh --auto-all</code>.';
+    grid.appendChild(e);
+  }
+}
+
+function imageExists(url) {
+  return new Promise((res) => {
+    const img = new Image();
+    img.onload = () => res(true);
+    img.onerror = () => res(false);
+    img.src = url;
+  });
+}
+
+loadAll();
+</script>
+
+</body>
+</html>

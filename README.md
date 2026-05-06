@@ -50,7 +50,6 @@ Auto-detect works if Claude is installed normally on this Mac. For other setups 
 - No telemetry, no analytics, no third-party libraries
 - All data on your Mac: settings in UserDefaults, history in `~/Library/Application Support/claude-limits/`
 - Single ~415 KB Swift binary
-- Source is one file you can read in an evening (`src/main.swift`)
 
 ## Building from source
 
@@ -60,7 +59,11 @@ cd claude-limits
 bash scripts/install.sh
 ```
 
-Requires macOS 13+ and Xcode Command Line Tools.
+Requires macOS 13+ and Xcode Command Line Tools. Full local-dev guide in [DEVELOPMENT.md](DEVELOPMENT.md).
+
+## Contributing
+
+PRs welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for scope and conventions, [CLAUDE.md](CLAUDE.md) for codebase notes.
 
 ## License
 

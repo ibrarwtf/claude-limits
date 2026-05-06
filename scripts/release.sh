@@ -92,9 +92,12 @@ Next manual steps (run these only when you're ready to publish):
     --title "v${VERSION}" \\
     --notes "Release ${VERSION}"
 
-  # 3. Copy the cask file into your homebrew tap repo, commit, push:
-  cp "$CASK_FILE" /path/to/homebrew-lab/Casks/
+  # 3. Copy the cask file into your homebrew tap repo, commit, push.
+  #    First verify the tap clone is committing as your personal identity —
+  #    global git config defaults to your work email and will leak otherwise:
   cd /path/to/homebrew-lab
+  git config user.email   # MUST be your personal address, not a work one
+  cp "$CASK_FILE" Casks/
   git add -A
   git commit -m "claude-limits ${VERSION}"
   git push

@@ -160,14 +160,6 @@ final class MenuRowView: NSView {
     }
 }
 
-extension DateFormatter {
-    static let snapshotTS: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "yyyyMMdd-HHmmss"
-        return f
-    }()
-}
-
 class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     var statusItem: NSStatusItem!
     var pollTimer: Timer?
@@ -591,9 +583,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
             guard let data = png else { continue }
             try? FileManager.default.createDirectory(atPath: dest, withIntermediateDirectories: true)
-            let ts = DateFormatter.snapshotTS.string(from: Date())
-            try? data.write(to: URL(fileURLWithPath: "\(dest)/\(kind)-\(mode)-\(ts).png"))
-            try? data.write(to: URL(fileURLWithPath: "\(dest)/latest-\(kind)-\(mode).png"))
+            try? data.write(to: URL(fileURLWithPath: "\(dest)/\(kind)-\(mode).png"))
         }
     }
 
