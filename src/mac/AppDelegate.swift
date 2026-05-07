@@ -328,35 +328,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             width = ceil(NSAttributedString(string: plain, attributes: [.font: f]).size().width) + 6
         }
         statusItem.length = min(max(width, 24), maxStatusItemWidth)
-        writeFrames()
-    }
-
-    /// Writes the on-screen rectangles of the menubar widget + (if open)
-    /// Settings window to a file. snapshot.sh reads these to crop captures
-    /// down to just the relevant pixels instead of capturing the whole
-    /// screen. Coordinates converted to screencapture's top-left origin.
-    func writeFrames() {
-        let dir = ("~/Library/Application Support/claude-limits" as NSString).expandingTildeInPath
-        try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
-        let path = "\(dir)/frames.txt"
-        let screenH = NSScreen.main?.frame.height ?? 0
-        var output = ""
-        // Use the button's frame converted to screen coords. The button.window
-        // wrapper has zero height for status items — only the button itself
-        // gives the visible rect.
-        if let button = statusItem.button, let window = button.window {
-            let screen = window.convertToScreen(button.frame)
-            let x = Int(screen.origin.x)
-            let y = Int(screenH - screen.origin.y - screen.height)
-            output += "widget=\(x),\(y),\(Int(screen.width)),\(Int(screen.height))\n"
-        }
-        if let win = settingsWindow, win.isVisible {
-            let frame = win.frame
-            let x = Int(frame.origin.x)
-            let y = Int(screenH - frame.origin.y - frame.height)
-            output += "settings=\(x),\(y),\(Int(frame.width)),\(Int(frame.height))\n"
-        }
-        try? output.write(toFile: path, atomically: true, encoding: .utf8)
     }
 
     /// Returns true if we may issue a fetch right now.
@@ -1085,9 +1056,5 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         NSApp.activate(ignoringOtherApps: true)
         settingsWindow?.makeKeyAndOrderFront(nil)
         settingsWindow?.orderFrontRegardless()
-        // Write frame after the window has rendered so snapshot.sh can crop.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
-            self?.writeFrames()
-        }
     }
 }

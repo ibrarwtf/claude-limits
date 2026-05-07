@@ -53,6 +53,27 @@ The app captures its own views via `cacheDisplay` (no Screen Recording grant nee
 
 If you're not working with direct eyes on the menu bar (remote dev, Claude Code agent, CI), `snapshots/` is your verification step — not a post-hoc artifact. Build, snapshot, look at the PNGs, iterate.
 
+## Dev install vs brew install
+
+These don't coexist. `bash scripts/install.sh` writes the bundle to `~/Applications/`; `brew install --cask claude-limits` writes to `/Applications/`. Both register the `claude-limits://` URL scheme and the same LaunchAgent label, so running both produces double menubar icons and races snapshot capture.
+
+`install.sh` refuses to run if it detects the brew copy at `/Applications/`. Use one of:
+
+```bash
+# Switch to dev workflow
+brew uninstall --cask claude-limits
+bash scripts/install.sh
+
+# Switch back to brew (running the actually-shipped artifact)
+bash scripts/uninstall.sh                       # remove dev install
+brew install --cask claude-limits               # or: brew upgrade
+
+# Wipe everything in one shot
+bash scripts/uninstall.sh --all                 # dev + brew cask
+```
+
+`release.sh --publish` runs the second flow automatically post-ship — the maintainer Mac always ends up running the actual brew-installed release after a publish.
+
 ## Releasing
 
 Maintainer-only. See [CLAUDE.md](CLAUDE.md).

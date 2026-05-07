@@ -1,28 +1,36 @@
 #!/bin/bash
-# Remove LaunchAgent + app bundle (current and legacy locations).
+# Remove the dev install (LaunchAgent + ~/Applications bundle).
+# With --all, also uninstall the brew cask if present.
+#
+# Usage:
+#   bash scripts/uninstall.sh           # remove dev install only
+#   bash scripts/uninstall.sh --all     # remove dev install + brew cask
 set -euo pipefail
 NAME="claude-limits"
 UID_VAL=$(id -u)
+ALL_MODE=""
+[ "${1:-}" = "--all" ] && ALL_MODE=yes
 
-# Tear down all known launch labels.
-for L in "${NAME}" "claude-limits-on-menubar" "com.claudelimits.menubar"; do
-    launchctl bootout "gui/${UID_VAL}/${L}" >/dev/null 2>&1 || true
-done
-for BIN_PATTERN in "/Contents/MacOS/${NAME}" "/Contents/MacOS/claude-limits-on-menubar" "/Contents/MacOS/ClaudeLimits"; do
-    pkill -f "$BIN_PATTERN" >/dev/null 2>&1 || true
-done
+# ── Stop running instance(s) (matches both ~/Applications and /Applications) ──
+launchctl bootout "gui/${UID_VAL}/${NAME}" >/dev/null 2>&1 || true
+pkill -f "/Contents/MacOS/${NAME}" >/dev/null 2>&1 || true
 
-# Remove all known plist + bundle paths (current + legacy).
-rm -f \
-    "$HOME/Library/LaunchAgents/${NAME}.plist" \
-    "$HOME/Library/LaunchAgents/claude-limits-on-menubar.plist" \
-    "$HOME/Library/LaunchAgents/com.claudelimits.menubar.plist"
-rm -rf \
-    "$HOME/Applications/${NAME}.app" \
-    "$HOME/Applications/claude-limits-on-menubar.app" \
-    "$HOME/Applications/ClaudeLimits.app" \
-    "$HOME/Applications/Claude Limits on Menubar.app"
+# ── Remove dev install: LaunchAgent plist + ~/Applications bundle ────────────
+rm -f  "$HOME/Library/LaunchAgents/${NAME}.plist"
+rm -rf "$HOME/Applications/${NAME}.app"
 
-echo "Removed ${NAME}."
-echo "Settings + history are kept (~/Library/Preferences/${NAME}.plist,"
-echo "~/Library/Application Support/${NAME}/) — delete manually to fully reset."
+if [ -n "$ALL_MODE" ]; then
+    if command -v brew >/dev/null 2>&1 && brew list --cask 2>/dev/null | grep -q "^${NAME}$"; then
+        echo "→ --all: brew uninstalling cask"
+        brew uninstall --cask "${NAME}" || true
+    fi
+fi
+
+echo ""
+echo "Removed dev install (${NAME}.app at ~/Applications + LaunchAgent plist)."
+[ -n "$ALL_MODE" ] && echo "Brew cask also removed (--all)."
+echo ""
+echo "Kept: settings (~/Library/Preferences/${NAME}.plist),"
+echo "      history (~/Library/Application Support/${NAME}/) — delete manually to fully reset."
+[ -z "$ALL_MODE" ] && [ -d "/Applications/${NAME}.app" ] && \
+    echo "      brew install at /Applications/${NAME}.app — run with --all to remove that too."

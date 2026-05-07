@@ -10,6 +10,29 @@ PLIST_LABEL="${NAME}"
 PLIST_DST="$HOME/Library/LaunchAgents/${PLIST_LABEL}.plist"
 PLIST_SRC="$ROOT/launchd/${PLIST_LABEL}.plist"
 
+# Guard against the dev/brew dual-bundle conflict. Dev install (~/Applications)
+# and brew install (/Applications) share a URL scheme and LaunchAgent label —
+# running both produces double menubar icons and races snapshot capture.
+BREW_BUNDLE="/Applications/${NAME}.app"
+if [ -d "$BREW_BUNDLE" ]; then
+    cat <<EOF >&2
+
+ERROR: a brew-installed copy exists at $BREW_BUNDLE.
+
+Dev install + brew install of the same app conflict — same URL scheme,
+same LaunchAgent label. Pick one before continuing:
+
+  Switch to dev (removes brew install):
+    brew uninstall --cask claude-limits
+    bash scripts/install.sh
+
+  Stay on brew (skip dev workflow):
+    (nothing to do — use 'brew upgrade --cask claude-limits' to update)
+
+EOF
+    exit 2
+fi
+
 bash "$ROOT/scripts/build.sh"
 
 echo "→ Stopping any running instance…"

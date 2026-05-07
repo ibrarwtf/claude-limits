@@ -21,12 +21,6 @@ func formatTimeRemaining(_ resetsAt: String?) -> String? {
     return h > 0 ? "\(h):\(String(format: "%02d", m))" : "\(m)m"
 }
 
-func progressBar(_ pct: Double, width: Int = 18) -> String {
-    let p = max(0, min(100, pct))
-    let filled = Int(round(Double(width) * p / 100.0))
-    return String(repeating: "■", count: filled) + String(repeating: "□", count: width - filled)
-}
-
 func formatNextAttempt(_ secs: Int) -> String {
     if secs <= 0 { return "trying now…" }
     if secs < 60 { return "\(secs)s" }

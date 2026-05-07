@@ -2,6 +2,13 @@
 
 `release.sh --publish` reads the section matching the version being shipped and feeds it to `gh release create --notes-file`. So write each section as user-facing release notes — what changed, why someone running `brew upgrade` would care.
 
+## v0.1.10
+
+- `install.sh` now refuses if a brew-installed copy exists at `/Applications/claude-limits.app` — prevents the dual-bundle conflict (double menubar icons, URL-scheme race) that bit anyone running both dev install and brew install.
+- `uninstall.sh` adds an `--all` flag that also runs `brew uninstall --cask claude-limits`. Default behavior is unchanged (dev cleanup only) and the script now states explicitly what was removed and what was kept.
+- `DEVELOPMENT.md` documents the dev-install ↔ brew-install workflow.
+- Internals: removed dead `writeFrames()` and `progressBar(_:)` — the former wrote `frames.txt` for an old screen-cropping flow that no longer exists; the latter was a text-bar utility replaced by `TabularRowView`'s drawn bars long ago.
+
 ## v0.1.9
 
 - Sparkline and burn-rate / reset projection now skip error-sentinel samples — no more fake spikes in the menubar after a stretch of failed polls.
