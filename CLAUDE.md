@@ -2,7 +2,7 @@
 
 Notes for Claude Code (and humans poking under the hood). User-facing install/usage is in [README.md](README.md); local-dev setup is in [DEVELOPMENT.md](DEVELOPMENT.md); contribution rules are in [CONTRIBUTING.md](CONTRIBUTING.md).
 
-A macOS menu-bar app that shows your Anthropic API usage. Single Swift binary, no dependencies, one network call (`https://api.anthropic.com/api/oauth/usage`).
+A macOS menu-bar app that shows your Anthropic API usage. Single Swift binary, no dependencies. Usage polling calls `https://api.anthropic.com/api/oauth/usage`; update checks call GitHub Releases.
 
 ## How the parts fit together
 
@@ -10,7 +10,7 @@ A macOS menu-bar app that shows your Anthropic API usage. Single Swift binary, n
 src/core/   Foundation only — no AppKit. Headless logic, could be reused
             for a CLI or another platform.
 
-   API.swift         the one network call to /api/oauth/usage
+   API.swift         usage call to /api/oauth/usage
    Models.swift      response shapes (Codable)
    Token.swift       keychain → known credential paths fall-through;
                      plus custom file-path / shell-command modes

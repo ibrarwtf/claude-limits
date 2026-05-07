@@ -375,9 +375,28 @@ class SettingsViewController: NSViewController {
         setCredentialsState(connected ? .connected : .disconnected)
     }
 
-    /// Quick token-reachability probe; updates the dot. Called on Settings
-    /// open and after Test fetch / Save.
+    /// Quick token-reachability probe; updates the dot. Settings-open reuses
+    /// recent app state so merely opening the window doesn't burn a usage call.
     private func refreshCredentialsDot() {
+        if let delegate = NSApp.delegate as? AppDelegate {
+            if delegate.lastResponse != nil {
+                setCredentialsDotConnected(true)
+                return
+            }
+            if let last = Settings.shared.lastSuccessfulPoll,
+               Date().timeIntervalSince(last) < pollIntervalSeconds {
+                setCredentialsDotConnected(true)
+                return
+            }
+            if delegate.isRefreshing {
+                setCredentialsState(.unverified)
+                return
+            }
+            if let until = Settings.shared.nextAllowedPoll, until > Date() {
+                setCredentialsState(.unverified)
+                return
+            }
+        }
         fetchUsage { [weak self] r in
             DispatchQueue.main.async {
                 guard let self = self else { return }

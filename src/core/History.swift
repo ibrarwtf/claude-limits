@@ -37,7 +37,7 @@ final class UsageHistory {
         save()
     }
 
-    /// Record a failed poll as utilization = -1 sentinel; rendering ignores it.
+    /// Record a failed poll as utilization = -1 sentinel; renderers ignore it.
     func appendError() {
         samples.append(HistorySample(timestamp: Date(), utilization: -1))
         if samples.count > maxSamples {
@@ -62,7 +62,7 @@ final class UsageHistory {
     /// 0..3pp/sample → ▁..█; spikes above 3pp clamp to █.
     func sparkline(width: Int = 10) -> String {
         let bars = ["▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"]
-        let recent = Array(samples.suffix(width + 1))
+        let recent = Array(samples.filter { $0.utilization >= 0 }.suffix(width + 1))
         let deltaCount = max(0, recent.count - 1)
         let pad = max(0, width - deltaCount)
         let padding = String(repeating: "▁", count: pad)

@@ -49,7 +49,7 @@ Auto-detect works if Claude is installed normally on this Mac. For other setups 
 
 ## Local-only by design
 
-- One network call: `https://api.anthropic.com/api/oauth/usage`. Nothing else.
+- Usage polling only calls `https://api.anthropic.com/api/oauth/usage`; the optional update checker also calls GitHub Releases.
 - No telemetry, no analytics, no third-party libraries
 - All data on your Mac: settings in UserDefaults, history in `~/Library/Application Support/claude-limits/`
 - Single ~415 KB Swift binary

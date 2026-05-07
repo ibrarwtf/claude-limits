@@ -43,7 +43,7 @@ final class TabularRowView: NSView {
     static func paint(label: String, utilization: Double, value: String,
                       bounds: NSRect, isHighlighted: Bool, origin: NSPoint) {
         if isHighlighted {
-            NSColor.selectedMenuItemColor.setFill()
+            NSColor.selectedContentBackgroundColor.setFill()
             NSRect(origin: origin, size: bounds.size).fill()
         }
         // Faded text — these rows are info-only, not interactive.
@@ -129,7 +129,7 @@ final class MenuRowView: NSView {
         super.draw(dirtyRect)
         let isHl = (menuItem?.isHighlighted ?? false) && (menuItem?.isEnabled ?? true)
         if isHl {
-            NSColor.selectedMenuItemColor.setFill()
+            NSColor.selectedContentBackgroundColor.setFill()
             bounds.fill()
         }
         // Always force the macOS menu font (NSFont.menuFont) so every row in
@@ -814,7 +814,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             return "Capped — resets in \(when) (@ \(resetClock))"
         }
 
-        let samples = Array(UsageHistory.shared.samples.suffix(30))
+        let samples = Array(UsageHistory.shared.samples.filter { $0.utilization >= 0 }.suffix(30))
         if samples.count < 3 {
             return "Resets @ \(resetClock) · click to refresh"
         }

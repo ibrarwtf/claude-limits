@@ -2,6 +2,13 @@
 
 `release.sh --publish` reads the section matching the version being shipped and feeds it to `gh release create --notes-file`. So write each section as user-facing release notes — what changed, why someone running `brew upgrade` would care.
 
+## v0.1.9
+
+- Sparkline and burn-rate / reset projection now skip error-sentinel samples — no more fake spikes in the menubar after a stretch of failed polls.
+- Settings opening no longer burns an extra usage-API call when recent app state is already cached (or when the next poll is rate-limited). Fresh fetch only when there's nothing to reuse.
+- Removed the deprecated `NSColor.selectedMenuItemColor` usage — clean build, no warnings.
+- Docs fixed: usage polling calls Anthropic; the optional update checker also calls GitHub Releases. Previous wording undersold the second call.
+
 ## v0.1.8
 
 - Settings: the credentials.json glyph dot now also pulses **red** when the token is verified unreachable (previously it stayed gray). Three states: gray = unprobed, green-pulse = connected, red-pulse = disconnected.
