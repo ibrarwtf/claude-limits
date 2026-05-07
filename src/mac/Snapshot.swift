@@ -14,13 +14,26 @@ extension AppDelegate {
     ///   claude-limits://snapshot/menubar?dest=/abs/path/to/snapshots
     ///   claude-limits://snapshot/dropdown?dest=/abs/path/to/snapshots
     ///   claude-limits://snapshot/settings?dest=/abs/path/to/snapshots
+    ///
+    /// Retry-with-delay: cold launches via URL scheme can fire this BEFORE
+    /// applicationDidFinishLaunching has set up statusItem. Wait up to 2s for
+    /// readiness; warm launches dispatch immediately.
     func application(_ application: NSApplication, open urls: [URL]) {
-        for url in urls {
-            if url.host == "snapshot" {
-                let kind = url.path.replacingOccurrences(of: "/", with: "")
-                let dest = url.queryParam("dest") ?? defaultSnapshotsDir()
-                captureToFile(kind: kind, dest: dest)
+        handleSnapshotURLs(urls, attempt: 0)
+    }
+
+    private func handleSnapshotURLs(_ urls: [URL], attempt: Int) {
+        let ready = (statusItem != nil) && (statusItem.button != nil)
+        if !ready && attempt < 20 {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+                self?.handleSnapshotURLs(urls, attempt: attempt + 1)
             }
+            return
+        }
+        for url in urls where url.host == "snapshot" {
+            let kind = url.path.replacingOccurrences(of: "/", with: "")
+            let dest = url.queryParam("dest") ?? defaultSnapshotsDir()
+            captureToFile(kind: kind, dest: dest)
         }
     }
 

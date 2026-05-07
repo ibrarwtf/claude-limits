@@ -170,8 +170,22 @@ else
 fi
 
 echo ""
+echo "→ --publish: swapping local install to brew (so the maintainer Mac runs"
+echo "             the actual shipped artifact, not the dev build at ~/Applications)"
+cd "$ROOT"
+bash "$ROOT/scripts/uninstall.sh" >/dev/null 2>&1 || true
+TAP_LOCAL="$(brew --repository)/Library/Taps/ibrarwtf/homebrew-lab"
+if [[ -d "$TAP_LOCAL/.git" ]]; then
+    git -C "$TAP_LOCAL" fetch -q origin
+    git -C "$TAP_LOCAL" reset -q --hard origin/main
+else
+    brew tap ibrarwtf/lab
+fi
+brew reinstall --cask claude-limits 2>&1 | tail -3 || \
+    brew install --cask claude-limits 2>&1 | tail -3
+
+echo ""
 echo "✓ Published v${VERSION}."
 echo "  Source:  https://github.com/ibrarwtf/claude-limits/releases/tag/v${VERSION}"
 echo "  Tap:     https://github.com/ibrarwtf/homebrew-lab"
-echo ""
-echo "Verify with: brew update && brew info --cask claude-limits"
+echo "  Local:   /Applications/claude-limits.app (running brew-installed v${VERSION})"

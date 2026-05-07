@@ -345,13 +345,21 @@ class SettingsViewController: NSViewController {
         return v
     }
 
-    /// Toggles the credentials.json glyph dot between a static gray (unknown
-    /// / disconnected) and a slow-pulsing green (token verified reachable).
-    private func setCredentialsDotConnected(_ connected: Bool) {
+    /// Three states: gray = unverified (initial / not yet probed),
+    /// green-pulsing = token reachable, red-pulsing = token verified failed.
+    private enum CredentialsState { case unverified, connected, disconnected }
+
+    private func setCredentialsState(_ state: CredentialsState) {
         guard let dot = credentialsDot, let layer = dot.layer else { return }
         layer.removeAnimation(forKey: "pulse")
-        if connected {
-            layer.backgroundColor = NSColor.systemGreen.cgColor
+        switch state {
+        case .unverified:
+            layer.opacity = 1
+            layer.backgroundColor = NSColor.secondaryLabelColor.cgColor
+        case .connected, .disconnected:
+            layer.backgroundColor = (state == .connected
+                ? NSColor.systemGreen
+                : NSColor.systemRed).cgColor
             let anim = CABasicAnimation(keyPath: "opacity")
             anim.fromValue = 1.0
             anim.toValue = 0.25
@@ -360,10 +368,11 @@ class SettingsViewController: NSViewController {
             anim.repeatCount = .infinity
             anim.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
             layer.add(anim, forKey: "pulse")
-        } else {
-            layer.opacity = 1
-            layer.backgroundColor = NSColor.secondaryLabelColor.cgColor
         }
+    }
+
+    private func setCredentialsDotConnected(_ connected: Bool) {
+        setCredentialsState(connected ? .connected : .disconnected)
     }
 
     /// Quick token-reachability probe; updates the dot. Called on Settings

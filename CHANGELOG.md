@@ -2,6 +2,12 @@
 
 `release.sh --publish` reads the section matching the version being shipped and feeds it to `gh release create --notes-file`. So write each section as user-facing release notes — what changed, why someone running `brew upgrade` would care.
 
+## v0.1.8
+
+- Settings: the credentials.json glyph dot now also pulses **red** when the token is verified unreachable (previously it stayed gray). Three states: gray = unprobed, green-pulse = connected, red-pulse = disconnected.
+- Internals: snapshot URL handler retries up to 2s waiting for `statusItem` initialization. Fixes menubar capture failing on cold-launch via URL scheme (the previous race window was ~100ms).
+- `release.sh --publish` now ends by uninstalling the dev build and `brew reinstall`-ing the freshly published cask, so the maintainer Mac always runs the actual shipped artifact post-release (not the dev bundle at `~/Applications`).
+
 ## v0.1.7
 
 - Settings footer: "made by ibr" is now centred, lowercase, and styled as a blue underlined link to the maintainer's GitHub.
