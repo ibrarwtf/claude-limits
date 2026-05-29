@@ -2,6 +2,17 @@
 
 `release.sh --publish` reads the section matching the version being shipped and feeds it to `gh release create --notes-file`. So write each section as user-facing release notes — what changed, why someone running `brew upgrade` would care.
 
+## v0.2.0
+
+- **Update in place from Settings.** "Check for updates" now turns into "Update to vX.Y.Z" when a newer release exists; clicking it upgrades the app (via `brew upgrade --cask claude-limits`) and relaunches — no terminal needed. (Dev/self-built installs are pointed at the GitHub release instead.)
+- **Burn-rate projection is now time-weighted.** The dropdown's `%/h` and "100% in X" projection previously averaged per-poll rates with equal weight, so a single ~5-min Anthropic update landing on one poll, or a laptop-sleep gap, could read many times too high and falsely warn you were about to cap. It now divides the window's net utilization change by its net elapsed time, ignoring sleep/relaunch gaps and window rollovers. A just-reset window shows "measuring…" instead of a false "idle".
+- **Burn-rate sparkline** in the menu bar now reflects rate over time, so a sleep/relaunch gap no longer paints a misleading full-height spike next to an "idle" reset line.
+- **Weekly-limit bars** light at least one block for any nonzero usage, so a small-but-real value no longer shows an empty bar next to a "1%"/"2%" label.
+- **Window-reset detection** now keys off the API's authoritative `resets_at` advancing, not just a >5% usage drop, so resets from low utilization are caught.
+- **Polling eased 120s → 180s** to match Anthropic's ~5-minute usage-update cadence: ~⅓ fewer API calls and less rate-limit exposure, with no loss of freshness (the reset countdown is derived locally).
+- **Rate-limit & reliability hardening:** "Refresh now" now shares the menu-bar click's 5s click-storm cooldown, and Settings "Test fetch" now respects the rate-limit back-off window (a rate-limited test fetch is recorded in the back-off instead of silently resetting Anthropic's cooldown); the Settings token-reachability dot no longer fires an ungated probe on rapid reopen; shell token-source commands no longer spuriously time out on large output or leak a process when they hang; the refresh animation can't be cut short by a stale timer; 80%/95% notifications no longer re-fire when the API briefly drops `resets_at`.
+- `release.sh`: re-shipping a tag now force-pushes it (a partial-failure re-run no longer aborts after pushing `main`), and the version argument is validated as semver.
+
 ## v0.1.10
 
 - `install.sh` now refuses if a brew-installed copy exists at `/Applications/claude-limits.app` — prevents the dual-bundle conflict (double menubar icons, URL-scheme race) that bit anyone running both dev install and brew install.

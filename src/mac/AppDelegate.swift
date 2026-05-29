@@ -81,7 +81,10 @@ final class TabularRowView: NSView {
         let blockGap: CGFloat = 1
         let blockW = (barW - CGFloat(blockCount - 1) * blockGap) / CGFloat(blockCount)
         let fillFrac = max(0, min(1, utilization / 100.0))
-        let filledBlocks = Int(round(Double(blockCount) * fillFrac))
+        var filledBlocks = Int(round(Double(blockCount) * fillFrac))
+        // Any nonzero usage lights at least one block, so a small-but-real value
+        // never renders as an empty (0%) bar next to a nonzero numeric label.
+        if utilization > 0 && filledBlocks == 0 { filledBlocks = 1 }
 
         let emptyColor = isHighlighted ? NSColor.white.withAlphaComponent(0.25)
                                        : NSColor.tertiaryLabelColor.withAlphaComponent(0.4)
@@ -169,6 +172,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// One full bounce of the wave palindrome is 18 frames @ 12 fps = 1.5 s.
     /// Animation must run at least that long for the bounce to be visible.
     let minAnimationDuration: TimeInterval = 1.5
+    /// Bumped each time startAnimation() begins a cycle. Deferred stops capture
+    /// this value when scheduled and no-op if a newer cycle has since started,
+    /// so a stale asyncAfter can't tear down a fresh animation.
+    var animationGeneration = 0
     var isRefreshing = false
     var currentTask: URLSessionDataTask?
     var currentRequestToken: UUID?
@@ -317,6 +324,18 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
+    /// Breadcrumb posted just before we quit for a brew upgrade. The app must
+    /// quit so brew can replace the bundle, so the menu-bar icon briefly
+    /// vanishes — this reassures the user it's coming back. Silently no-ops if
+    /// notifications weren't authorized.
+    func notifyUpdating(to version: String) {
+        let c = UNMutableNotificationContent()
+        c.title = "Updating claude-limits"
+        c.body = "Installing \(version) — the menu bar icon will return in a few seconds."
+        UNUserNotificationCenter.current().add(
+            UNNotificationRequest(identifier: "claude-limits.updating", content: c, trigger: nil))
+    }
+
     /// Resize slot to fit current title, capped at maxStatusItemWidth.
     /// Called at the end of every render path.
     func clampWidth() {
@@ -380,8 +399,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func playClickAnimation() {
         startAnimation()
+        let gen = animationGeneration
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
-            self?.stopAnimation()
+            guard let self = self, self.animationGeneration == gen else { return }
+            self.stopAnimation()
         }
     }
 
@@ -501,6 +522,22 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     // ── Refresh + animation ──────────────────────────────────────────────────
 
+    /// Apply exponential back-off after a rate-limit response and return the
+    /// "do not poll until" deadline. Shared by the poller and the Settings
+    /// "Test fetch" button so no entry point can hammer Anthropic during a
+    /// cooldown without recording it. 1st 5min, 2nd 10min, 3rd 20min, 4th+
+    /// capped at 30min; honours a server Retry-After when it's longer.
+    @discardableResult
+    func recordRateLimit(retryAfter retry: TimeInterval?) -> Date {
+        Settings.shared.consecutiveRateLimits += 1
+        let count = Settings.shared.consecutiveRateLimits
+        let exp = min(300.0 * pow(2.0, Double(count - 1)), 1800.0)
+        let secs = max(retry ?? 0, exp)
+        let until = Date().addingTimeInterval(secs)
+        Settings.shared.nextAllowedPoll = until
+        return until
+    }
+
     func triggerRefresh(animated: Bool, force: Bool = false) {
         if isRefreshing && !force { return }
         if force, let t = currentTask { t.cancel() }
@@ -537,17 +574,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     self.lastError = e
                     UsageHistory.shared.appendError()
                     if case .rateLimited(let retry) = e {
-                        // Exponential back-off: 1st 5min, 2nd 10min, 3rd 20min,
-                        // 4th+ capped at 30min. Anthropic cooldowns can exceed
-                        // our retry interval, so retrying eagerly resets theirs.
-                        Settings.shared.consecutiveRateLimits += 1
+                        let until = self.recordRateLimit(retryAfter: retry)
                         let count = Settings.shared.consecutiveRateLimits
-                        let exp = min(300.0 * pow(2.0, Double(count - 1)), 1800.0)
-                        let secs = max(retry ?? 0, exp)
-                        let until = Date().addingTimeInterval(secs)
-                        Settings.shared.nextAllowedPoll = until
+                        let secs = Int(round(until.timeIntervalSinceNow))
                         let f = DateFormatter(); f.dateFormat = "HH:mm:ss"
-                        NSLog("claude-limits rate limited (#\(count)) — next attempt at \(f.string(from: until)) (waiting \(Int(secs))s)")
+                        NSLog("claude-limits rate limited (#\(count)) — next attempt at \(f.string(from: until)) (waiting \(secs)s)")
                     } else {
                         NSLog("claude-limits fetch error: \(e.friendlyMessage)")
                     }
@@ -567,6 +598,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         animationTimer?.invalidate()
         animationFrame = 0
         animationStartedAt = Date()
+        animationGeneration += 1
 
         let sparkFont = NSFont.monospacedSystemFont(ofSize: 8, weight: .regular)
         let normalFont = NSFont.menuBarFont(ofSize: NSFont.systemFontSize)
@@ -623,8 +655,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let remaining = max(0, minAnimationDuration - elapsed)
         if remaining <= 0 { stopAnimation() }
         else {
+            let gen = animationGeneration
             DispatchQueue.main.asyncAfter(deadline: .now() + remaining) { [weak self] in
-                self?.stopAnimation()
+                guard let self = self, self.animationGeneration == gen else { return }
+                self.stopAnimation()
             }
         }
     }
@@ -758,10 +792,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // ── Menu rendering ───────────────────────────────────────────────────────
 
     /// "Resets @ 3:10 PM · <state-dependent message>" — combines reset clock
-    /// with smoothed mileage estimate. Time-aware: each sample pair contributes
-    /// pp/sec scaled by its actual interval, so sleep gaps and Anthropic's
-    /// ~5-min API granularity (which produces zero-deltas at our 2-min poll
-    /// cadence) don't poison the average.
+    /// with a smoothed burn estimate. The burn rate is time-weighted
+    /// (Σ Δpp / Σ Δsec over the current continuous window), NOT an average of
+    /// per-pair rates — so Anthropic's lumpy ~5-min updates landing on our
+    /// faster poll cadence, sleep/relaunch gaps, and window rollovers can't
+    /// inflate it.
     func formatResetLine(_ f: UsageBucket) -> String {
         guard let resetDate = parseISO(f.resetsAt) else {
             return "No active 5-hour window — starts on your next Claude request"
@@ -789,29 +824,32 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if samples.count < 3 {
             return "Resets @ \(resetClock) · click to refresh"
         }
-        // Time-aware positive rates only. Negative deltas = window reset;
-        // zero deltas = API hadn't refreshed yet — both excluded so they
-        // don't dilute the average.
-        var rates: [Double] = []
+        // Time-weighted burn rate over the most recent continuous in-window
+        // stretch: Σ(Δpp) / Σ(Δsec), NOT a mean of per-pair rates. Dividing the
+        // window's net change by its net elapsed time is robust to Anthropic's
+        // lumpy ~5-min updates landing on our faster poll cadence (a "catch-up"
+        // jump is divided by the real elapsed time, not one poll interval). A
+        // large drop marks a window rollover and a gap far larger than the poll
+        // interval (sleep/relaunch) breaks continuity — both reset the
+        // accumulation so they can't inflate the rate.
+        let maxGap = pollIntervalSeconds * 2.5
+        var sumPp = 0.0, sumSec = 0.0
         for i in 1..<samples.count {
             let dPp = samples[i].utilization - samples[i-1].utilization
             let dSec = samples[i].timestamp.timeIntervalSince(samples[i-1].timestamp)
-            if dPp > 0, dSec > 0 { rates.append(dPp / dSec) }
+            if dSec <= 0 { continue }
+            if dPp < -5 || dSec > maxGap { sumPp = 0; sumSec = 0; continue }
+            sumPp += max(0, dPp)   // clamp small downward API jitter to 0
+            sumSec += dSec
         }
-        guard !rates.isEmpty else {
-            return "Resets @ \(resetClock) · idle"
-        }
-        // Trimmed mean (drop top/bottom 10%) for spike resistance without
-        // killing the signal at small sample counts.
-        let sorted = rates.sorted()
-        let trim = sorted.count / 10
-        let middle = sorted.count > 2 * trim
-            ? Array(sorted.dropFirst(trim).dropLast(trim))
-            : sorted
-        let burnPpHr = (middle.reduce(0, +) / Double(middle.count)) * 3600.0
-
+        let burnPpHr = sumSec > 0 ? sumPp / sumSec * 3600.0 : 0
         if burnPpHr < 0.5 {
-            return "Resets @ \(resetClock) · idle"
+            // No measurable burn. Distinguish a genuinely idle window from one
+            // that's simply too fresh to have moved yet (just after a reset the
+            // API's ~5-min value hasn't ticked, so zero deltas aren't "idle").
+            return sumSec < pollIntervalSeconds * 2
+                ? "Resets @ \(resetClock) · measuring…"
+                : "Resets @ \(resetClock) · idle"
         }
 
         // Safe pace: the rate that exactly burns the remaining headroom over
@@ -837,8 +875,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// and a relaunch mid-window won't re-notify.
     func checkAndNotifyThresholds(_ f: UsageBucket) {
         let s = Settings.shared
-        if s.lastNotifiedResetsAt != f.resetsAt {
-            s.lastNotifiedResetsAt = f.resetsAt
+        // Only roll over the dedup set on a real resets_at change. The API can
+        // intermittently drop resets_at to nil mid-window; treating that as a
+        // rollover would clear the set and re-fire the 80/95% alerts for a
+        // window we already notified.
+        if let r = f.resetsAt, r != s.lastNotifiedResetsAt {
+            s.lastNotifiedResetsAt = r
             s.notifiedThresholds = []
         }
         var fired = s.notifiedThresholds
@@ -855,7 +897,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 c.body = body
                 c.sound = .default
                 let req = UNNotificationRequest(
-                    identifier: "claude-limits.threshold.\(threshold).\(f.resetsAt ?? "")",
+                    identifier: "claude-limits.threshold.\(threshold).\(s.lastNotifiedResetsAt ?? "")",
                     content: c, trigger: nil)
                 UNUserNotificationCenter.current().add(req)
                 fired.insert(threshold)
@@ -1034,6 +1076,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc func refreshAction() {
         if let until = Settings.shared.nextAllowedPoll, until > Date() { return }
+        // Share the status-item click-storm cooldown so repeated "Refresh now"
+        // taps can't bypass the throttle clicked(_:) enforces.
+        if let last = lastManualClickAt, Date().timeIntervalSince(last) < manualClickCooldown {
+            playClickAnimation()
+            return
+        }
+        lastManualClickAt = Date()
         triggerRefresh(animated: true, force: true)
     }
 

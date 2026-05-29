@@ -35,21 +35,46 @@ func loadTokenFromFile(_ rawPath: String) throws -> String {
 func runShell(_ cmd: String, timeout: TimeInterval = 10.0) throws -> String {
     let task = Process()
     task.launchPath = "/bin/zsh"
+    // Login shell so the user's PATH / ssh config is available to custom token
+    // commands (the documented `ssh devbox '...'` case).
     task.arguments = ["-l", "-c", cmd]
     let outPipe = Pipe(); let errPipe = Pipe()
     task.standardOutput = outPipe
     task.standardError = errPipe
     try task.run()
-    let group = DispatchGroup()
-    group.enter()
-    DispatchQueue.global().async { task.waitUntilExit(); group.leave() }
-    if group.wait(timeout: .now() + timeout) == .timedOut {
+
+    // Drain both pipes concurrently with the wait — NOT after it. Reading only
+    // once the process has exited deadlocks if the child writes more than the
+    // ~64KB pipe buffer (a chatty `-l` login profile can): it blocks in write(),
+    // never exits, and we'd spuriously time out.
+    var outData = Data(); var errData = Data()
+    let ioGroup = DispatchGroup()
+    ioGroup.enter()
+    DispatchQueue.global().async {
+        outData = outPipe.fileHandleForReading.readDataToEndOfFile(); ioGroup.leave()
+    }
+    ioGroup.enter()
+    DispatchQueue.global().async {
+        errData = errPipe.fileHandleForReading.readDataToEndOfFile(); ioGroup.leave()
+    }
+
+    let waitGroup = DispatchGroup()
+    waitGroup.enter()
+    DispatchQueue.global().async { task.waitUntilExit(); waitGroup.leave() }
+    if waitGroup.wait(timeout: .now() + timeout) == .timedOut {
+        // Escalate SIGTERM → SIGKILL. A child that ignores SIGTERM (custom trap,
+        // or parked in a hung network read like a stuck ssh) would otherwise keep
+        // waitUntilExit parked forever, leaking the thread and pipe FDs for our
+        // whole lifetime — and runShell runs on every poll.
         task.terminate()
+        kill(task.processIdentifier, SIGKILL)
         throw AppError.commandFailed("timed out after \(Int(timeout))s")
     }
-    let out = String(data: outPipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+    // Process exited → the readers hit EOF and finish; join before reading.
+    ioGroup.wait()
+    let out = String(data: outData, encoding: .utf8) ?? ""
     if task.terminationStatus != 0 {
-        let err = String(data: errPipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+        let err = String(data: errData, encoding: .utf8) ?? ""
         throw AppError.commandFailed("exit \(task.terminationStatus): \(err.prefix(200))")
     }
     return out

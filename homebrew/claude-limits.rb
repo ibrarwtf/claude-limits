@@ -1,6 +1,6 @@
 cask "claude-limits" do
-  version "0.1.10"
-  sha256 "09316c5ed1802e8035141ae21c578fd7a08ec9675f3bad2f9dd6bb15bf4c041e"
+  version "0.2.0"
+  sha256 "92989f65be0cd1af5655eb976530253ab9698c2afa67f65c818c0a413c705898"
 
   url "https://github.com/ibrarwtf/claude-limits/releases/download/v#{version}/claude-limits-#{version}.zip"
   name "claude-limits"

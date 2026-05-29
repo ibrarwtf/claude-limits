@@ -20,7 +20,15 @@ if [[ $# -lt 1 ]]; then
     exit 2
 fi
 VERSION="$1"
-PUBLISH="${2:-}"
+if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    echo "ERROR: first argument must be a semver version like 0.1.6 (got '$VERSION')." >&2
+    exit 2
+fi
+# Scan all args for the publish flag rather than trusting it to be exactly $2.
+PUBLISH=""
+for arg in "$@"; do
+    [[ "$arg" == "--publish" ]] && PUBLISH="--publish"
+done
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 NAME="claude-limits"
@@ -136,7 +144,11 @@ if ! git diff --cached --quiet; then
 fi
 git tag -f "v${VERSION}"
 git push origin main
-git push origin "v${VERSION}"
+# Force-push the tag: `git tag -f` above may have moved it to a new commit
+# (re-ship of the same version). A plain push is rejected when the remote tag
+# already points elsewhere; --force-with-lease doesn't help (tag -f updates no
+# tracking ref), so use a plain force.
+git push --force origin "v${VERSION}"
 
 echo ""
 echo "→ --publish: creating GitHub release with zip asset"

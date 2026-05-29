@@ -122,6 +122,7 @@ class SettingsViewController: NSViewController {
     var mockBars: NSTextField!
     var mockReset: NSTextField!
     var launchSwitch: NSSwitch!
+    var updateBtn: NSButton!     // flips between "Check for updates" and "Update to vX"
     var credentialsDot: NSView?  // green-pulsing when token is reachable
 
     override func loadView() {
@@ -179,7 +180,7 @@ class SettingsViewController: NSViewController {
         subTogglesStack.alignment = .leading
         subTogglesStack.spacing = 4
 
-        let updateBtn = NSButton(title: "Check for updates", target: self, action: #selector(checkForUpdates))
+        updateBtn = NSButton(title: "Check for updates", target: self, action: #selector(checkForUpdates))
         updateBtn.bezelStyle = .roundRect
         let updateRow = NSStackView(views: [updateBtn])
         updateRow.orientation = .horizontal
@@ -277,6 +278,7 @@ class SettingsViewController: NSViewController {
         launchSwitch.state = Settings.shared.launchAtStartup ? .on : .off
         applyMockToToggles()
         modeChanged()
+        applyUpdateButtonState()
     }
 
     // ── Section helpers ──────────────────────────────────────────────────────
@@ -396,6 +398,15 @@ class SettingsViewController: NSViewController {
                 setCredentialsState(.unverified)
                 return
             }
+            // Throttle the probe so reopening Settings in a tight loop can't
+            // fire an ungated fetch per reopen (cold-start / prior non-429
+            // error state, where nothing above short-circuits).
+            if let last = delegate.lastManualClickAt,
+               Date().timeIntervalSince(last) < delegate.manualClickCooldown {
+                setCredentialsState(.unverified)
+                return
+            }
+            delegate.lastManualClickAt = Date()
         }
         fetchUsage { [weak self] r in
             DispatchQueue.main.async {
@@ -411,6 +422,7 @@ class SettingsViewController: NSViewController {
     override func viewDidAppear() {
         super.viewDidAppear()
         refreshCredentialsDot()
+        applyUpdateButtonState()
     }
 
     private func makeMenubarArt() -> NSView {
@@ -548,13 +560,88 @@ class SettingsViewController: NSViewController {
                 return
             }
             if let latest = latest {
-                self.statusLabel.stringValue = "Update available: \(latest) — run `brew upgrade --cask claude-limits`"
+                self.statusLabel.stringValue = "Update \(latest) available — click “Update to \(latest)”."
                 self.statusLabel.textColor = NSColor.systemOrange
             } else {
                 let v = (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "?"
                 self.statusLabel.stringValue = "You're on the latest version (v\(v))."
                 self.statusLabel.textColor = .labelColor
             }
+            self.applyUpdateButtonState()
+        }
+    }
+
+    /// Reflect known update availability on the action button: a pending update
+    /// turns "Check for updates" into "Update to vX" (which performs it). Driven
+    /// by the AppDelegate's cached latestVersionAvailable (set at launch + daily).
+    private func applyUpdateButtonState() {
+        guard updateBtn != nil else { return }
+        if let latest = (NSApp.delegate as? AppDelegate)?.latestVersionAvailable {
+            updateBtn.title = "Update to \(latest)"
+            updateBtn.action = #selector(performUpdate)
+        } else {
+            updateBtn.title = "Check for updates"
+            updateBtn.action = #selector(checkForUpdates)
+        }
+    }
+
+    /// Simplest self-update for a Homebrew-distributed app: run `brew upgrade`.
+    /// The work is DETACHED — a subshell that waits for this process to exit,
+    /// then upgrades — because the cask's own `uninstall quit:` stanza force-
+    /// quits us mid-upgrade; if brew were our child it'd die with us. The cask
+    /// postflight re-opens the freshly installed app; the trailing `open`
+    /// guarantees the app comes back even if brew was a no-op or failed, so we
+    /// never leave the user with a quit app. Dev installs (~/Applications, not a
+    /// brew cask) can't `brew upgrade`, so they're sent to the releases page.
+    @objc func performUpdate() {
+        guard let latest = (NSApp.delegate as? AppDelegate)?.latestVersionAvailable else {
+            checkForUpdates(); return
+        }
+        let brewBundle = "/Applications/claude-limits.app"
+        guard Bundle.main.bundlePath == brewBundle else {
+            statusLabel.stringValue = "Update \(latest) available — re-run install.sh or download from GitHub."
+            statusLabel.textColor = NSColor.systemOrange
+            if let url = URL(string: "https://github.com/ibrarwtf/claude-limits/releases/latest") {
+                NSWorkspace.shared.open(url)
+            }
+            return
+        }
+        statusLabel.stringValue = "Updating to \(latest)… the app will relaunch when done."
+        statusLabel.textColor = .secondaryLabelColor
+        updateBtn.isEnabled = false
+        // Breadcrumb during the brief gap where the app quits and the menu-bar
+        // icon disappears while brew swaps the bundle. Posted ~0.7s before we
+        // terminate, so it has time to deliver.
+        (NSApp.delegate as? AppDelegate)?.notifyUpdating(to: latest)
+        // Watch THIS pid, not a pgrep pattern. The watcher carries our pattern
+        // string in its own argv, so `pgrep -f '/Contents/MacOS/claude-limits'`
+        // would self-match and the loop would never exit (brew never runs).
+        // `kill -0 <pid>` polls liveness without that trap. After we quit, brew
+        // upgrades and the cask postflight reopens us; the trailing `open`
+        // covers a brew no-op/failure — it just activates the app if it's
+        // already running, never launches a duplicate.
+        let pid = getpid()
+        let cmd = """
+        ( while kill -0 \(pid) 2>/dev/null; do sleep 0.5; done; \
+          brew upgrade --cask claude-limits >/tmp/claude-limits-update.log 2>&1; \
+          sleep 1; \
+          open '\(brewBundle)' ) &
+        """
+        let task = Process()
+        task.launchPath = "/bin/zsh"
+        task.arguments = ["-lc", cmd]
+        do {
+            try task.run()
+        } catch {
+            statusLabel.stringValue = "Couldn't start update. Run `brew upgrade --cask claude-limits` manually."
+            statusLabel.textColor = NSColor.systemOrange
+            updateBtn.isEnabled = true
+            return
+        }
+        // Give the detached watcher a beat to spawn, then quit so brew can
+        // replace the bundle (LaunchAgent KeepAlive won't restart a clean exit).
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
+            NSApp.terminate(nil)
         }
     }
 
@@ -572,6 +659,13 @@ class SettingsViewController: NSViewController {
 
     @objc func testFetch() {
         collect()
+        // Respect the rate-limit cooldown — a diagnostic button shouldn't hit
+        // Anthropic during an active 429 window.
+        if let until = Settings.shared.nextAllowedPoll, until > Date() {
+            statusLabel.stringValue = "Rate limited — wait \(max(0, Int(until.timeIntervalSinceNow)))s before testing again."
+            statusLabel.textColor = .secondaryLabelColor
+            return
+        }
         statusLabel.stringValue = "Testing…"
         statusLabel.textColor = .secondaryLabelColor
         fetchUsage { [weak self] r in
@@ -587,6 +681,11 @@ class SettingsViewController: NSViewController {
                     self.statusLabel.textColor = .labelColor
                     self.setCredentialsDotConnected(true)
                 case .failure(let e):
+                    // Feed a 429 into the shared back-off so a test fetch can't
+                    // silently reset Anthropic's cooldown while the poller waits.
+                    if case .rateLimited(let retry) = e {
+                        (NSApp.delegate as? AppDelegate)?.recordRateLimit(retryAfter: retry)
+                    }
                     self.statusLabel.stringValue = "\(e.friendlyMessage)"
                     self.statusLabel.textColor = .labelColor
                     self.setCredentialsDotConnected(false)
