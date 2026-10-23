@@ -41,12 +41,6 @@ namespace ClaudeLimits.Spec
             Check("countdown", Countdown("2030-01-15T12:00:59Z", now.AddSeconds(0)), "0m");
             Check("countdown", Countdown("2030-01-15T11:59:55Z", now.AddSeconds(0)), null);
             Check("countdown", Countdown(null, now.AddSeconds(0)), null);
-            Check("status_error", Msg(StatusError(200, null, "{}")), null);
-            Check("status_error", Msg(StatusError(401, null, "")), "Your Claude token is invalid or expired. Run `claude` in a terminal to sign back in.");
-            Check("status_error", Msg(StatusError(403, null, "")), "Access forbidden. Your account may not have access to the usage API.");
-            Check("status_error", Msg(StatusError(429, 30.0, "")), "Rate limited by Anthropic — retrying in 30 seconds.");
-            Check("status_error", Msg(StatusError(429, null, "")), "Rate limited by Anthropic. Will retry shortly.");
-            Check("status_error", Msg(StatusError(500, null, "oops")), "Anthropic returned HTTP 500. oops");
             Check("newest_windows", NewestTag("[{\"assets\":[{\"name\":\"claude-limits-windows-0.3.0.zip\"}],\"tag_name\":\"v0.3.0\"},{\"assets\":[{\"name\":\"claude-limits-windows-0.3.2.zip\"}],\"draft\":true,\"tag_name\":\"v0.3.2\"},{\"assets\":[{\"name\":\"claude-limits-macos-0.3.1.zip\"},{\"name\":\"claude-limits-windows-0.3.1.zip\"}],\"tag_name\":\"v0.3.1\"},{\"assets\":[{\"name\":\"claude-limits-windows-0.4.0.zip\"}],\"prerelease\":true,\"tag_name\":\"v0.4.0\"},{\"assets\":[{\"name\":\"claude-limits-macos-0.5.0.zip\"}],\"tag_name\":\"v0.5.0\"}]"), "v0.3.1");
             Check("newest_windows", NewestTag("[{\"assets\":[{\"name\":\"Claude-Limits-Windows-0.2.0.ZIP\"}],\"draft\":false,\"tag_name\":\"v0.2.0\"}]"), "v0.2.0");
             Check("newest_windows", NewestTag("[{\"assets\":[],\"tag_name\":\"v0.1.0\"}]"), null);
@@ -76,6 +70,12 @@ namespace ClaudeLimits.Spec
             Check("rollover", Replay(new[] { (-360.0, 40.0, "2030-01-15T13:00:00Z"), (-180.0, 41.0, "2030-01-15T13:00:00Z"), (0.0, 41.0, "2030-01-15T18:00:00Z") }), "1");
             Check("rollover", Replay(new[] { (-180.0, 60.0, "2030-01-15T13:00:00Z"), (0.0, 2.0, "2030-01-15T13:00:00Z") }), "1");
             Check("rollover", Replay(new[] { (-180.0, 10.0, "2030-01-15T13:00:00Z"), (0.0, 6.0, "2030-01-15T13:00:00Z") }), "2");
+            Check("status_error", Msg(StatusError(200, null, "{}")), null);
+            Check("status_error", Msg(StatusError(401, null, "")), "Your Claude token is invalid or expired. Run `claude` in a terminal to sign back in.");
+            Check("status_error", Msg(StatusError(403, null, "")), "Access forbidden. Your account may not have access to the usage API.");
+            Check("status_error", Msg(StatusError(429, 30.0, "")), "Rate limited by Anthropic — retrying in 30 seconds.");
+            Check("status_error", Msg(StatusError(429, null, "")), "Rate limited by Anthropic. Will retry shortly.");
+            Check("status_error", Msg(StatusError(500, null, "oops")), "Anthropic returned HTTP 500. oops");
             Check("next_attempt", NextAttempt(0), "trying now…");
             Check("next_attempt", NextAttempt(45), "45s");
             Check("next_attempt", NextAttempt(125), "2m 5s");

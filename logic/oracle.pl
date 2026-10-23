@@ -26,10 +26,6 @@ main :-
 
 case(D, Now, countdown, call(countdown, [Iso, at(0)]), Got, W) :-
     member(C, D.timeRemaining), iso_in(C.resetsIn, Now, Iso), W = C.expect, once(countdown(Iso, Now, Got)).
-case(D, _, status_error, msg(call(status_error, [St, R, B])), Got, W) :-
-    member(C, D.statusError), St = C.status, B = C.body, W = C.expect,
-    ( C.retryAfter == null -> R = none ; R is float(C.retryAfter) ),
-    once(status_error(St, R, B, E)), ( E == none -> Got = none ; once(friendly_message(E, Got)) ).
 case(D, _, newest_windows, newest(J), Got, W) :-
     member(C, D.newestWindows), Rs = C.releases, W = C.expect, with_output_to(string(J), jw(Rs)),
     once(newest_windows(Rs, R)), ( R == none -> Got = none ; Got = R.tag_name ).
