@@ -28,6 +28,20 @@ enum AppError: LocalizedError {
     var errorDescription: String? { friendlyMessage(self) }
 }
 
+enum TokenStep {
+    case keychain
+    case file(String)
+    case shell(String)
+    enum Kind { case keychain, file, shell }
+    var kind: Kind {
+        switch self {
+        case .keychain: return .keychain
+        case .file: return .file
+        case .shell: return .shell
+        }
+    }
+}
+
 enum Part {
     case pct(String)
     case spark(String)
@@ -953,6 +967,59 @@ func rawToken(_ text: String) -> String? {
     } else {
         return nil
     }
+}
+
+func tokenSteps(_ src: TokenSource, _ path: String, _ cmd: String, _ known: [String], _ keychain: Bool) -> [TokenStep] {
+    let p = path.trimmingCharacters(in: .whitespacesAndNewlines)
+    let c = cmd.trimmingCharacters(in: .whitespacesAndNewlines)
+    let fs = fileSteps(known)
+    if src == TokenSource.file {
+        if p == "" {
+            return []
+        } else {
+            return [TokenStep.file(path)]
+        }
+    } else if src == TokenSource.shell {
+        if c == "" {
+            return []
+        } else {
+            return [TokenStep.shell(cmd)]
+        }
+    } else if keychain == true {
+        return [TokenStep.keychain] + fs
+    } else {
+        return fs
+    }
+}
+
+func fileSteps(_ a1: [String]) -> [TokenStep] {
+    if a1.isEmpty {
+        return []
+    }
+    if !(a1.isEmpty) {
+        let fs = fileSteps(Array(a1.dropFirst()))
+        return [TokenStep.file(a1[0])] + fs
+    }
+    fatalError("unreachable")
+}
+
+func tokenLabel(_ token_step: TokenStep, _ auto: Bool) -> String {
+    if case .keychain = token_step {
+        return "keychain (auto)"
+    }
+    if case .file(let p) = token_step {
+        let m: String
+        if auto == true {
+            m = "auto"
+        } else {
+            m = "custom"
+        }
+        return "file \(p) (\(m))"
+    }
+    if case .shell = token_step {
+        return "shell command (custom)"
+    }
+    fatalError("unreachable")
 }
 
 func titleParts(_ showP: Bool, _ showW: Bool, _ showR: Bool, _ p: String, _ w: String, _ r: String?) -> [Part] {

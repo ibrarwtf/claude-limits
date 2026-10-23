@@ -71,9 +71,6 @@ func runShell(_ cmd: String, timeout: TimeInterval = 10.0) throws -> String {
 }
 
 func loadTokenFromShell(_ cmd: String) throws -> String {
-    if cmd.trimmingCharacters(in: .whitespaces).isEmpty {
-        throw AppError.tokenNotFound
-    }
     let output = try runShell(cmd)
     if let tok = extractTokenFromText(output) { return tok }
     throw AppError.parseFailed("shell command output didn't contain a token")
@@ -100,28 +97,18 @@ private func logTokenSourceOnce(_ source: String) {
 }
 
 func loadAccessToken() throws -> String {
-    switch Settings.shared.tokenSource {
-    case .auto:
-        if let tok = try? loadTokenFromKeychain() {
-            logTokenSourceOnce("keychain (auto)")
-            return tok
-        }
-        for path in knownCredentialPaths {
-            if let tok = try? loadTokenFromFile(path) {
-                logTokenSourceOnce("file \(path) (auto)")
-                return tok
+    let s = Settings.shared, auto = s.tokenSource == .auto
+    for step in tokenSteps(s.tokenSource, s.customFilePath, s.customShellCommand, knownCredentialPaths, true) {
+        do {
+            let tok: String
+            switch step {
+            case .keychain: tok = try loadTokenFromKeychain()
+            case .file(let path): tok = try loadTokenFromFile(path)
+            case .shell(let cmd): tok = try loadTokenFromShell(cmd)
             }
-        }
-        throw AppError.tokenNotFound
-    case .file:
-        let path = Settings.shared.customFilePath
-        if path.isEmpty { throw AppError.tokenNotFound }
-        let tok = try loadTokenFromFile(path)
-        logTokenSourceOnce("file \(path) (custom)")
-        return tok
-    case .shell:
-        let tok = try loadTokenFromShell(Settings.shared.customShellCommand)
-        logTokenSourceOnce("shell command (custom)")
-        return tok
+            logTokenSourceOnce(tokenLabel(step, auto))
+            return tok
+        } catch { if !auto { throw error } }
     }
+    throw AppError.tokenNotFound
 }

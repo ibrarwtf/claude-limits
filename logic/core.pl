@@ -407,6 +407,27 @@ raw_token(Text, Out) :-
     trim(Text, T),
     ( T \== "", \+ contains(T, " "), \+ contains(T, "\n"), starts_with(T, "sk-") -> Out = T ; Out = none ).
 
+% Where to look, in order: the custom file/command, or (auto) the Keychain if
+% the platform has one, then the known paths. Auto misses fall through; a custom
+% step's error is shown. Nothing to try (or all missed) → token_not_found.
+:- enum token_step = [keychain, file(path: str), shell(cmd: str)].
+:- fn token_steps(token_source, str, str, list(str), bool) -> list(token_step).   % source, file, command, known paths, has Keychain
+token_steps(Src, Path, Cmd, Known, Keychain, Steps) :-
+    trim(Path, P), trim(Cmd, C), file_steps(Known, Fs),
+    (   Src == file -> ( P == "" -> Steps = [] ; Steps = [file(Path)] )
+    ;   Src == shell -> ( C == "" -> Steps = [] ; Steps = [shell(Cmd)] )
+    ;   Keychain == true -> Steps = [keychain|Fs]
+    ;   Steps = Fs ).
+
+:- fn file_steps(list(str)) -> list(token_step).
+file_steps([], []).
+file_steps([P|Ps], [file(P)|Fs]) :- file_steps(Ps, Fs).
+
+:- fn token_label(token_step, bool) -> str.   % for the log; bool = auto
+token_label(keychain, _, "keychain (auto)").
+token_label(file(P), Auto, S) :- ( Auto == true -> M = "auto" ; M = "custom" ), format(string(S), "file ~w (~w)", [P, M]).
+token_label(shell(_), _, "shell command (custom)").
+
 % ── Menu-bar title ───────────────────────────────────────────────────────────
 % The pieces in order, each only if its toggle is on (the countdown also needs
 % an active window). No pieces at all → the apps show a lone "·".

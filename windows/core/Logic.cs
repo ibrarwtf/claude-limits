@@ -10,10 +10,10 @@ public enum AppErrorKind { TokenNotFound, ParseFailed, CommandFailed, RateLimite
 
 public sealed class AppError : Exception
 {
-    public AppErrorKind Kind { get; private set; }
-    public int Code { get; private set; }
-    public string Detail { get; private set; }
-    public double? RetryAfter { get; private set; }
+    public readonly AppErrorKind Kind;
+    public int Code;
+    public string Detail;
+    public double? RetryAfter;
     AppError(AppErrorKind kind) : base(null) { Kind = kind; }
     public static AppError TokenNotFound() => new AppError(AppErrorKind.TokenNotFound);
     public static AppError ParseFailed(string detail) => new AppError(AppErrorKind.ParseFailed) { Detail = detail };
@@ -27,12 +27,25 @@ public sealed class AppError : Exception
     public override string Message => Logic.FriendlyMessage(this);
 }
 
+public enum TokenStepKind { Keychain, File, Shell }
+
+public sealed class TokenStep
+{
+    public readonly TokenStepKind Kind;
+    public string Cmd;
+    public string Path;
+    TokenStep(TokenStepKind kind) { Kind = kind; }
+    public static TokenStep Keychain() => new TokenStep(TokenStepKind.Keychain);
+    public static TokenStep File(string path) => new TokenStep(TokenStepKind.File) { Path = path };
+    public static TokenStep Shell(string cmd) => new TokenStep(TokenStepKind.Shell) { Cmd = cmd };
+}
+
 public enum PartKind { Pct, Spark, Reset }
 
 public sealed class Part
 {
-    public PartKind Kind { get; private set; }
-    public string Value { get; private set; }
+    public readonly PartKind Kind;
+    public string Value;
     Part(PartKind kind) { Kind = kind; }
     public static Part Pct(string value) => new Part(PartKind.Pct) { Value = value };
     public static Part Spark(string value) => new Part(PartKind.Spark) { Value = value };
@@ -43,12 +56,12 @@ public enum RowKind { Status, Reset, Separator, Header, Bar, Pair, Action }
 
 public sealed class Row
 {
-    public RowKind Kind { get; private set; }
-    public MenuAction Does { get; private set; }
-    public string Label { get; private set; }
-    public string Text { get; private set; }
-    public double Utilization { get; private set; }
-    public string Value { get; private set; }
+    public readonly RowKind Kind;
+    public MenuAction Does;
+    public string Label;
+    public string Text;
+    public double Utilization;
+    public string Value;
     Row(RowKind kind) { Kind = kind; }
     public static Row Status() => new Row(RowKind.Status);
     public static Row Reset() => new Row(RowKind.Reset);
@@ -70,102 +83,102 @@ public enum Dot { Connected, Unverified, Probe }
 [System.Runtime.Serialization.DataContract]
 public sealed class UsageBucket
 {
-    [System.Runtime.Serialization.DataMember(Name = "utilization", EmitDefaultValue = false)] public double? UtilizationRaw { get; set; }
+    [System.Runtime.Serialization.DataMember(Name = "utilization", EmitDefaultValue = false)] public double? UtilizationRaw;
     public double Utilization => UtilizationRaw ?? 0;
-    [System.Runtime.Serialization.DataMember(Name = "resets_at", EmitDefaultValue = false)] public string ResetsAt { get; set; }
+    [System.Runtime.Serialization.DataMember(Name = "resets_at", EmitDefaultValue = false)] public string ResetsAt;
 }
 
 [System.Runtime.Serialization.DataContract]
 public sealed class ExtraUsage
 {
-    [System.Runtime.Serialization.DataMember(Name = "is_enabled", EmitDefaultValue = false)] public bool? IsEnabled { get; set; }
-    [System.Runtime.Serialization.DataMember(Name = "monthly_limit", EmitDefaultValue = false)] public double? MonthlyLimit { get; set; }
-    [System.Runtime.Serialization.DataMember(Name = "used_credits", EmitDefaultValue = false)] public double? UsedCredits { get; set; }
-    [System.Runtime.Serialization.DataMember(Name = "utilization", EmitDefaultValue = false)] public double? Utilization { get; set; }
-    [System.Runtime.Serialization.DataMember(Name = "currency", EmitDefaultValue = false)] public string Currency { get; set; }
+    [System.Runtime.Serialization.DataMember(Name = "is_enabled", EmitDefaultValue = false)] public bool? IsEnabled;
+    [System.Runtime.Serialization.DataMember(Name = "monthly_limit", EmitDefaultValue = false)] public double? MonthlyLimit;
+    [System.Runtime.Serialization.DataMember(Name = "used_credits", EmitDefaultValue = false)] public double? UsedCredits;
+    [System.Runtime.Serialization.DataMember(Name = "utilization", EmitDefaultValue = false)] public double? Utilization;
+    [System.Runtime.Serialization.DataMember(Name = "currency", EmitDefaultValue = false)] public string Currency;
 }
 
 [System.Runtime.Serialization.DataContract]
 public sealed class LimitModel
 {
-    [System.Runtime.Serialization.DataMember(Name = "display_name", EmitDefaultValue = false)] public string DisplayName { get; set; }
+    [System.Runtime.Serialization.DataMember(Name = "display_name", EmitDefaultValue = false)] public string DisplayName;
 }
 
 [System.Runtime.Serialization.DataContract]
 public sealed class LimitScope
 {
-    [System.Runtime.Serialization.DataMember(Name = "model", EmitDefaultValue = false)] public LimitModel Model { get; set; }
+    [System.Runtime.Serialization.DataMember(Name = "model", EmitDefaultValue = false)] public LimitModel Model;
 }
 
 [System.Runtime.Serialization.DataContract]
 public sealed class UsageLimit
 {
-    [System.Runtime.Serialization.DataMember(Name = "kind", EmitDefaultValue = false)] public string Kind { get; set; }
-    [System.Runtime.Serialization.DataMember(Name = "group", EmitDefaultValue = false)] public string Group { get; set; }
-    [System.Runtime.Serialization.DataMember(Name = "percent", EmitDefaultValue = false)] public double? Percent { get; set; }
-    [System.Runtime.Serialization.DataMember(Name = "resets_at", EmitDefaultValue = false)] public string ResetsAt { get; set; }
-    [System.Runtime.Serialization.DataMember(Name = "scope", EmitDefaultValue = false)] public LimitScope Scope { get; set; }
+    [System.Runtime.Serialization.DataMember(Name = "kind", EmitDefaultValue = false)] public string Kind;
+    [System.Runtime.Serialization.DataMember(Name = "group", EmitDefaultValue = false)] public string Group;
+    [System.Runtime.Serialization.DataMember(Name = "percent", EmitDefaultValue = false)] public double? Percent;
+    [System.Runtime.Serialization.DataMember(Name = "resets_at", EmitDefaultValue = false)] public string ResetsAt;
+    [System.Runtime.Serialization.DataMember(Name = "scope", EmitDefaultValue = false)] public LimitScope Scope;
 }
 
 [System.Runtime.Serialization.DataContract]
 public sealed class UsageResponse
 {
-    [System.Runtime.Serialization.DataMember(Name = "five_hour", EmitDefaultValue = false)] public UsageBucket FiveHour { get; set; }
-    [System.Runtime.Serialization.DataMember(Name = "seven_day", EmitDefaultValue = false)] public UsageBucket SevenDay { get; set; }
-    [System.Runtime.Serialization.DataMember(Name = "seven_day_oauth_apps", EmitDefaultValue = false)] public UsageBucket SevenDayOauthApps { get; set; }
-    [System.Runtime.Serialization.DataMember(Name = "seven_day_opus", EmitDefaultValue = false)] public UsageBucket SevenDayOpus { get; set; }
-    [System.Runtime.Serialization.DataMember(Name = "seven_day_sonnet", EmitDefaultValue = false)] public UsageBucket SevenDaySonnet { get; set; }
-    [System.Runtime.Serialization.DataMember(Name = "seven_day_cowork", EmitDefaultValue = false)] public UsageBucket SevenDayCowork { get; set; }
-    [System.Runtime.Serialization.DataMember(Name = "seven_day_omelette", EmitDefaultValue = false)] public UsageBucket SevenDayOmelette { get; set; }
-    [System.Runtime.Serialization.DataMember(Name = "extra_usage", EmitDefaultValue = false)] public ExtraUsage ExtraUsage { get; set; }
-    [System.Runtime.Serialization.DataMember(Name = "limits", EmitDefaultValue = false)] public List<UsageLimit> Limits { get; set; }
+    [System.Runtime.Serialization.DataMember(Name = "five_hour", EmitDefaultValue = false)] public UsageBucket FiveHour;
+    [System.Runtime.Serialization.DataMember(Name = "seven_day", EmitDefaultValue = false)] public UsageBucket SevenDay;
+    [System.Runtime.Serialization.DataMember(Name = "seven_day_oauth_apps", EmitDefaultValue = false)] public UsageBucket SevenDayOauthApps;
+    [System.Runtime.Serialization.DataMember(Name = "seven_day_opus", EmitDefaultValue = false)] public UsageBucket SevenDayOpus;
+    [System.Runtime.Serialization.DataMember(Name = "seven_day_sonnet", EmitDefaultValue = false)] public UsageBucket SevenDaySonnet;
+    [System.Runtime.Serialization.DataMember(Name = "seven_day_cowork", EmitDefaultValue = false)] public UsageBucket SevenDayCowork;
+    [System.Runtime.Serialization.DataMember(Name = "seven_day_omelette", EmitDefaultValue = false)] public UsageBucket SevenDayOmelette;
+    [System.Runtime.Serialization.DataMember(Name = "extra_usage", EmitDefaultValue = false)] public ExtraUsage ExtraUsage;
+    [System.Runtime.Serialization.DataMember(Name = "limits", EmitDefaultValue = false)] public List<UsageLimit> Limits;
 }
 
 [System.Runtime.Serialization.DataContract]
 public sealed class GitHubAsset
 {
-    [System.Runtime.Serialization.DataMember(Name = "name", EmitDefaultValue = false)] public string Name { get; set; }
-    [System.Runtime.Serialization.DataMember(Name = "browser_download_url", EmitDefaultValue = false)] public string BrowserDownloadUrl { get; set; }
-    [System.Runtime.Serialization.DataMember(Name = "digest", EmitDefaultValue = false)] public string Digest { get; set; }
+    [System.Runtime.Serialization.DataMember(Name = "name", EmitDefaultValue = false)] public string Name;
+    [System.Runtime.Serialization.DataMember(Name = "browser_download_url", EmitDefaultValue = false)] public string BrowserDownloadUrl;
+    [System.Runtime.Serialization.DataMember(Name = "digest", EmitDefaultValue = false)] public string Digest;
 }
 
 [System.Runtime.Serialization.DataContract]
 public sealed class GitHubRelease
 {
-    [System.Runtime.Serialization.DataMember(Name = "tag_name", EmitDefaultValue = false)] public string TagName { get; set; }
-    [System.Runtime.Serialization.DataMember(Name = "draft", EmitDefaultValue = false)] public bool? Draft { get; set; }
-    [System.Runtime.Serialization.DataMember(Name = "prerelease", EmitDefaultValue = false)] public bool? Prerelease { get; set; }
-    [System.Runtime.Serialization.DataMember(Name = "assets", EmitDefaultValue = false)] public List<GitHubAsset> Assets { get; set; }
+    [System.Runtime.Serialization.DataMember(Name = "tag_name", EmitDefaultValue = false)] public string TagName;
+    [System.Runtime.Serialization.DataMember(Name = "draft", EmitDefaultValue = false)] public bool? Draft;
+    [System.Runtime.Serialization.DataMember(Name = "prerelease", EmitDefaultValue = false)] public bool? Prerelease;
+    [System.Runtime.Serialization.DataMember(Name = "assets", EmitDefaultValue = false)] public List<GitHubAsset> Assets;
 }
 
 [System.Runtime.Serialization.DataContract]
 public sealed class CredentialsOauth
 {
-    [System.Runtime.Serialization.DataMember(Name = "accessToken", EmitDefaultValue = false)] public string AccessToken { get; set; }
+    [System.Runtime.Serialization.DataMember(Name = "accessToken", EmitDefaultValue = false)] public string AccessToken;
 }
 
 [System.Runtime.Serialization.DataContract]
 public sealed class Credentials
 {
-    [System.Runtime.Serialization.DataMember(Name = "claudeAiOauth", EmitDefaultValue = false)] public CredentialsOauth ClaudeAiOauth { get; set; }
-    [System.Runtime.Serialization.DataMember(Name = "accessToken", EmitDefaultValue = false)] public string AccessToken { get; set; }
+    [System.Runtime.Serialization.DataMember(Name = "claudeAiOauth", EmitDefaultValue = false)] public CredentialsOauth ClaudeAiOauth;
+    [System.Runtime.Serialization.DataMember(Name = "accessToken", EmitDefaultValue = false)] public string AccessToken;
 }
 
 [System.Runtime.Serialization.DataContract]
 public sealed class FixturePoint
 {
-    [System.Runtime.Serialization.DataMember(Name = "ago", EmitDefaultValue = false)] public double? AgoRaw { get; set; }
+    [System.Runtime.Serialization.DataMember(Name = "ago", EmitDefaultValue = false)] public double? AgoRaw;
     public double Ago => AgoRaw ?? 0;
-    [System.Runtime.Serialization.DataMember(Name = "u", EmitDefaultValue = false)] public double? URaw { get; set; }
+    [System.Runtime.Serialization.DataMember(Name = "u", EmitDefaultValue = false)] public double? URaw;
     public double U => URaw ?? 0;
 }
 
 [System.Runtime.Serialization.DataContract]
 public sealed class Fixture
 {
-    [System.Runtime.Serialization.DataMember(Name = "now", EmitDefaultValue = false)] public string Now { get; set; }
-    [System.Runtime.Serialization.DataMember(Name = "response", EmitDefaultValue = false)] public UsageResponse Response { get; set; }
-    [System.Runtime.Serialization.DataMember(Name = "history", EmitDefaultValue = false)] public List<FixturePoint> History { get; set; }
+    [System.Runtime.Serialization.DataMember(Name = "now", EmitDefaultValue = false)] public string Now;
+    [System.Runtime.Serialization.DataMember(Name = "response", EmitDefaultValue = false)] public UsageResponse Response;
+    [System.Runtime.Serialization.DataMember(Name = "history", EmitDefaultValue = false)] public List<FixturePoint> History;
 }
 
 [System.Runtime.Serialization.DataContract]
@@ -1233,6 +1246,83 @@ public static partial class Logic
         {
             return null;
         }
+    }
+
+    public static IReadOnlyList<TokenStep> TokenSteps(TokenSource src, string path, string cmd, IReadOnlyList<string> known, bool keychain)
+    {
+        var p = path.Trim();
+        var c = cmd.Trim();
+        var fs = FileSteps(known);
+        if (src == TokenSource.File)
+        {
+            if (p == "")
+            {
+                return new List<TokenStep> {  };
+            }
+            else
+            {
+                return new List<TokenStep> { TokenStep.File(path) };
+            }
+        }
+         else if (src == TokenSource.Shell)
+        {
+            if (c == "")
+            {
+                return new List<TokenStep> {  };
+            }
+            else
+            {
+                return new List<TokenStep> { TokenStep.Shell(cmd) };
+            }
+        }
+         else if (keychain == true)
+        {
+            return Cons(TokenStep.Keychain(), fs);
+        }
+        else
+        {
+            return fs;
+        }
+    }
+
+    public static IReadOnlyList<TokenStep> FileSteps(IReadOnlyList<string> a1)
+    {
+        if (a1.Count == 0)
+        {
+            return new List<TokenStep> {  };
+        }
+        if (!(a1.Count == 0))
+        {
+            var fs = FileSteps(a1.Skip(1).ToList());
+            return Cons(TokenStep.File(a1[0]), fs);
+        }
+        throw new InvalidOperationException();
+    }
+
+    public static string TokenLabel(TokenStep token_step, bool auto)
+    {
+        if (token_step.Kind == TokenStepKind.Keychain)
+        {
+            return "keychain (auto)";
+        }
+        if (token_step.Kind == TokenStepKind.File)
+        {
+            string m;
+            if (auto == true)
+            {
+                m = "auto";
+            }
+            else
+            {
+                m = "custom";
+            }
+            return $"file {(token_step.Path)} ({(m)})";
+        }
+        if (token_step.Kind == TokenStepKind.Shell)
+        {
+            return "shell command (custom)";
+        }
+        throw new InvalidOperationException();
     }
 
     public static IReadOnlyList<Part> TitleParts(bool showP, bool showW, bool showR, string p, string w, string r)

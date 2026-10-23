@@ -334,9 +334,9 @@ enum_decl(swift, EN, Cases) :-
 enum_decl(csharp, EN, Cases) :-
     nat(EN, Nat), maplist([C, CN]>>(functor(C, N, _), pascal(N, CN)), Cases, CNs), atomic_list_concat(CNs, ', ', All),
     ( EN == error -> Base = ' : Exception', Ctor = ' : base(null)' ; Base = '', Ctor = '' ),
-    format("public enum ~wKind { ~w }~n~npublic sealed class ~w~w~n{~n    public ~wKind Kind { get; private set; }~n", [Nat, All, Nat, Base, Nat]),
+    format("public enum ~wKind { ~w }~n~npublic sealed class ~w~w~n{~n    public readonly ~wKind Kind;~n", [Nat, All, Nat, Base, Nat]),
     findall(F-FT, ( member(C, Cases), C =.. [_|Fs], member(F:FT, Fs) ), FTs0), sort(FTs0, FTs),
-    forall(member(F-FT, FTs), ( pascal(F, P), ty(csharp, FT, S), format("    public ~w ~w { get; private set; }~n", [S, P]) )),
+    forall(member(F-FT, FTs), ( pascal(F, P), ty(csharp, FT, S), format("    public ~w ~w;~n", [S, P]) )),
     format("    ~w(~wKind kind)~w { Kind = kind; }~n", [Nat, Nat, Ctor]),
     forall(member(C, Cases), ( C =.. [N|Fs], pascal(N, CN),
         maplist([F:FT, S]>>(ty(csharp, FT, T1), camel(F, FC), format(atom(S), '~w ~w', [T1, FC])), Fs, Ps), atomic_list_concat(Ps, ', ', PJ),
@@ -526,8 +526,8 @@ json_decl(swift, N, Fs) :-
 json_decl(csharp, N, Fs) :-
     nat(N, P), format("[System.Runtime.Serialization.DataContract]~npublic sealed class ~w~n{~n", [P]),
     forall(member(F:T, Fs), ( pascal(F, C),
-        (   T == float -> format("    [System.Runtime.Serialization.DataMember(Name = \"~w\", EmitDefaultValue = false)] public double? ~wRaw { get; set; }~n    public double ~w => ~wRaw ?? 0;~n", [F, C, C, C])
-        ;   jty(csharp, T, S), format("    [System.Runtime.Serialization.DataMember(Name = \"~w\", EmitDefaultValue = false)] public ~w ~w { get; set; }~n", [F, S, C]) ) )),
+        (   T == float -> format("    [System.Runtime.Serialization.DataMember(Name = \"~w\", EmitDefaultValue = false)] public double? ~wRaw;~n    public double ~w => ~wRaw ?? 0;~n", [F, C, C, C])
+        ;   jty(csharp, T, S), format("    [System.Runtime.Serialization.DataMember(Name = \"~w\", EmitDefaultValue = false)] public ~w ~w;~n", [F, S, C]) ) )),
     format("}~n~n").
 
 %% Choices (plain enums) and persisted settings

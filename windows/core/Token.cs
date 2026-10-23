@@ -104,7 +104,6 @@ namespace ClaudeLimits
 
         public static string LoadTokenFromShell(string cmd)
         {
-            if (string.IsNullOrWhiteSpace(cmd)) throw AppError.TokenNotFound();
             var output = RunShell(cmd);
             var tok = ExtractTokenFromText(output);
             if (tok != null) return tok;
@@ -125,37 +124,19 @@ namespace ClaudeLimits
 
         public static string LoadAccessToken()
         {
-            switch (Settings.Shared.TokenSource)
+            var s = Settings.Shared;
+            bool auto = s.TokenSource == TokenSource.Auto;
+            foreach (var step in TokenSteps(s.TokenSource, s.CustomFilePath ?? "", s.CustomShellCommand ?? "", KnownCredentialPaths, false))
             {
-                case TokenSource.File:
+                try
                 {
-                    var path = Settings.Shared.CustomFilePath;
-                    if (string.IsNullOrWhiteSpace(path)) throw AppError.TokenNotFound();
-                    var tok = LoadTokenFromFile(path);
-                    LogTokenSourceOnce($"file {path} (custom)");
+                    var tok = step.Kind == TokenStepKind.Shell ? LoadTokenFromShell(step.Cmd) : LoadTokenFromFile(step.Path);
+                    LogTokenSourceOnce(TokenLabel(step, auto));
                     return tok;
                 }
-                case TokenSource.Shell:
-                {
-                    var tok = LoadTokenFromShell(Settings.Shared.CustomShellCommand);
-                    LogTokenSourceOnce("shell command (custom)");
-                    return tok;
-                }
-                default:
-                    foreach (var path in KnownCredentialPaths)
-                    {
-                        try
-                        {
-                            var tok = LoadTokenFromFile(path);
-                            LogTokenSourceOnce($"file {path} (auto)");
-                            return tok;
-                        }
-                        catch (AppError) { }
-                        catch (IOException) { }
-                        catch (UnauthorizedAccessException) { }
-                    }
-                    throw AppError.TokenNotFound();
+                catch (Exception e) when (auto && (e is AppError || e is IOException || e is UnauthorizedAccessException)) { }
             }
+            throw AppError.TokenNotFound();
         }
     }
 }
