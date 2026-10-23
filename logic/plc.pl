@@ -549,7 +549,7 @@ settings_decl(csharp) :-
         format("    [System.Runtime.Serialization.DataMember(EmitDefaultValue = false)] public ~w ~w;~n", [FT, K]) )),
     format("}~n~npublic sealed partial class Settings~n{~n"),
     forall(setting(N, T, S), ( pascal(N, P), key(S, K0, Inv), camel(K0, K), cs_setting(T, Inv, K, Ty, G, St),
-        format("    public ~w ~w { get => Get(x => ~w); set => Set(x => ~w); }~n", [Ty, P, G, St]) )),
+        format("    public ~w ~w { get { lock (gate) return ~w; } set { lock (gate) { ~w; Save(); } } }~n", [Ty, P, G, St]) )),
     format("}~n~n").
 
 % sw_setting(Type, Inverted, Key, SwiftType, Getter, Setter)
@@ -570,19 +570,19 @@ sw_setting(C, _, K, P, G, S) :-
 cs_field(bool, bool). cs_field(int, int). cs_field(str, string). cs_field(opt(str), string). cs_field(opt(int), 'int?').
 cs_field(opt(time), 'double?'). cs_field(json, string). cs_field(set(int), 'int[]'). cs_field(C, int) :- choice(C, _).
 
-% cs_setting(Type, Inverted, Key, CSharpType, Getter, Setter) — Getter/Setter run on SettingsData x.
-cs_setting(bool, false, K, bool, G, S) :- sw(K, 'x.~w', 'x.~w = value', G, S).
-cs_setting(bool, true, K, bool, G, S) :- sw(K, '!x.~w', 'x.~w = !value', G, S).
-cs_setting(int, _, K, int, G, S) :- sw(K, 'x.~w', 'x.~w = value', G, S).
-cs_setting(str, _, K, string, G, S) :- sw(K, 'x.~w ?? ""', 'x.~w = value', G, S).
-cs_setting(opt(str), _, K, string, G, S) :- sw(K, 'x.~w', 'x.~w = value', G, S).
-cs_setting(opt(int), _, K, 'int?', G, S) :- sw(K, 'x.~w', 'x.~w = value', G, S).
-cs_setting(json, _, K, string, G, S) :- sw(K, 'x.~w', 'x.~w = value', G, S).
+% cs_setting(Type, Inverted, Key, CSharpType, Getter, Setter) — Getter/Setter run on SettingsData d.
+cs_setting(bool, false, K, bool, G, S) :- sw(K, 'd.~w', 'd.~w = value', G, S).
+cs_setting(bool, true, K, bool, G, S) :- sw(K, '!d.~w', 'd.~w = !value', G, S).
+cs_setting(int, _, K, int, G, S) :- sw(K, 'd.~w', 'd.~w = value', G, S).
+cs_setting(str, _, K, string, G, S) :- sw(K, 'd.~w ?? ""', 'd.~w = value', G, S).
+cs_setting(opt(str), _, K, string, G, S) :- sw(K, 'd.~w', 'd.~w = value', G, S).
+cs_setting(opt(int), _, K, 'int?', G, S) :- sw(K, 'd.~w', 'd.~w = value', G, S).
+cs_setting(json, _, K, string, G, S) :- sw(K, 'd.~w', 'd.~w = value', G, S).
 cs_setting(opt(time), _, K, 'DateTime?', G, S) :-
-    format(atom(G), 'x.~w.HasValue ? Format.FromUnix(x.~w.Value) : (DateTime?)null', [K, K]),
-    format(atom(S), 'x.~w = value.HasValue ? Format.ToUnix(value.Value) : (double?)null', [K]).
-cs_setting(set(int), _, K, 'HashSet<int>', G, S) :- sw(K, 'new HashSet<int>(x.~w ?? new int[0])', 'x.~w = value.ToArray()', G, S).
-cs_setting(C, _, K, P, G, S) :- choice(C, _), pascal(C, P), format(atom(G), '(~w)x.~w', [P, K]), format(atom(S), 'x.~w = (int)value', [K]).
+    format(atom(G), 'd.~w.HasValue ? Format.FromUnix(d.~w.Value) : (DateTime?)null', [K, K]),
+    format(atom(S), 'd.~w = value.HasValue ? Format.ToUnix(value.Value) : (double?)null', [K]).
+cs_setting(set(int), _, K, 'HashSet<int>', G, S) :- sw(K, 'new HashSet<int>(d.~w ?? new int[0])', 'd.~w = value.ToArray()', G, S).
+cs_setting(C, _, K, P, G, S) :- choice(C, _), pascal(C, P), format(atom(G), '(~w)d.~w', [P, K]), format(atom(S), 'd.~w = (int)value', [K]).
 
 %% Runtime helpers the C# output needs (Swift's stdlib covers the rest).
 runtime(swift).

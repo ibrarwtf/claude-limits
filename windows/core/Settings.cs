@@ -27,23 +27,19 @@ namespace ClaudeLimits
             d = d ?? new SettingsData();
         }
 
-        T Get<T>(Func<SettingsData, T> f) { lock (gate) return f(d); }
-        void Set(Action<SettingsData> f)
+        // Callers hold gate.
+        void Save()
         {
-            lock (gate)
-            {
-                f(d);
-                if (InMemory) return;
-                try { Json.WriteFileAtomic(path, Json.Write(d)); }
-                catch (Exception e) { Log.Write($"settings save failed: {e.Message}"); }
-            }
+            if (InMemory) return;
+            try { Json.WriteFileAtomic(path, Json.Write(d)); }
+            catch (Exception e) { Log.Write($"settings save failed: {e.Message}"); }
         }
 
         /// Pill position in physical screen pixels; null = default spot by the tray.
         public (int x, int y)? PillPosition
         {
-            get => Get(x => x.pillX.HasValue && x.pillY.HasValue ? (x.pillX.Value, x.pillY.Value) : ((int, int)?)null);
-            set => Set(x => { x.pillX = value?.x; x.pillY = value?.y; });
+            get { lock (gate) return d.pillX.HasValue && d.pillY.HasValue ? (d.pillX.Value, d.pillY.Value) : ((int, int)?)null; }
+            set { lock (gate) { d.pillX = value?.x; d.pillY = value?.y; Save(); } }
         }
 
         public bool LaunchAtStartup

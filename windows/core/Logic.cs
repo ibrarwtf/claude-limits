@@ -204,22 +204,22 @@ sealed class SettingsData
 
 public sealed partial class Settings
 {
-    public TokenSource TokenSource { get => Get(x => (TokenSource)x.tokenSourceMode); set => Set(x => x.tokenSourceMode = (int)value); }
-    public string CustomFilePath { get => Get(x => x.customFilePath ?? ""); set => Set(x => x.customFilePath = value); }
-    public string CustomShellCommand { get => Get(x => x.customShellCommand ?? ""); set => Set(x => x.customShellCommand = value); }
-    public DateTime? LastSuccessfulPoll { get => Get(x => x.lastSuccessfulPoll.HasValue ? Format.FromUnix(x.lastSuccessfulPoll.Value) : (DateTime?)null); set => Set(x => x.lastSuccessfulPoll = value.HasValue ? Format.ToUnix(value.Value) : (double?)null); }
-    public DateTime? NextAllowedPoll { get => Get(x => x.nextAllowedPoll.HasValue ? Format.FromUnix(x.nextAllowedPoll.Value) : (DateTime?)null); set => Set(x => x.nextAllowedPoll = value.HasValue ? Format.ToUnix(value.Value) : (double?)null); }
-    public string LastResponseJSON { get => Get(x => x.lastResponseJSON); set => Set(x => x.lastResponseJSON = value); }
-    public int ConsecutiveRateLimits { get => Get(x => x.consecutiveRateLimits); set => Set(x => x.consecutiveRateLimits = value); }
-    public HashSet<int> NotifiedThresholds { get => Get(x => new HashSet<int>(x.notifiedThresholds ?? new int[0])); set => Set(x => x.notifiedThresholds = value.ToArray()); }
-    public string LastNotifiedResetsAt { get => Get(x => x.lastNotifiedResetsAt); set => Set(x => x.lastNotifiedResetsAt = value); }
-    public bool ShowPercentage { get => Get(x => !x.hidePercentage); set => Set(x => x.hidePercentage = !value); }
-    public bool ShowWave { get => Get(x => !x.hideWave); set => Set(x => x.hideWave = !value); }
-    public bool ShowResetTime { get => Get(x => !x.hideResetTime); set => Set(x => x.hideResetTime = !value); }
-    public bool ShowPill { get => Get(x => !x.hidePill); set => Set(x => x.hidePill = !value); }
-    public int? PillX { get => Get(x => x.pillX); set => Set(x => x.pillX = value); }
-    public int? PillY { get => Get(x => x.pillY); set => Set(x => x.pillY = value); }
-    public bool DidFirstLaunch { get => Get(x => x.didFirstLaunch); set => Set(x => x.didFirstLaunch = value); }
+    public TokenSource TokenSource { get { lock (gate) return (TokenSource)d.tokenSourceMode; } set { lock (gate) { d.tokenSourceMode = (int)value; Save(); } } }
+    public string CustomFilePath { get { lock (gate) return d.customFilePath ?? ""; } set { lock (gate) { d.customFilePath = value; Save(); } } }
+    public string CustomShellCommand { get { lock (gate) return d.customShellCommand ?? ""; } set { lock (gate) { d.customShellCommand = value; Save(); } } }
+    public DateTime? LastSuccessfulPoll { get { lock (gate) return d.lastSuccessfulPoll.HasValue ? Format.FromUnix(d.lastSuccessfulPoll.Value) : (DateTime?)null; } set { lock (gate) { d.lastSuccessfulPoll = value.HasValue ? Format.ToUnix(value.Value) : (double?)null; Save(); } } }
+    public DateTime? NextAllowedPoll { get { lock (gate) return d.nextAllowedPoll.HasValue ? Format.FromUnix(d.nextAllowedPoll.Value) : (DateTime?)null; } set { lock (gate) { d.nextAllowedPoll = value.HasValue ? Format.ToUnix(value.Value) : (double?)null; Save(); } } }
+    public string LastResponseJSON { get { lock (gate) return d.lastResponseJSON; } set { lock (gate) { d.lastResponseJSON = value; Save(); } } }
+    public int ConsecutiveRateLimits { get { lock (gate) return d.consecutiveRateLimits; } set { lock (gate) { d.consecutiveRateLimits = value; Save(); } } }
+    public HashSet<int> NotifiedThresholds { get { lock (gate) return new HashSet<int>(d.notifiedThresholds ?? new int[0]); } set { lock (gate) { d.notifiedThresholds = value.ToArray(); Save(); } } }
+    public string LastNotifiedResetsAt { get { lock (gate) return d.lastNotifiedResetsAt; } set { lock (gate) { d.lastNotifiedResetsAt = value; Save(); } } }
+    public bool ShowPercentage { get { lock (gate) return !d.hidePercentage; } set { lock (gate) { d.hidePercentage = !value; Save(); } } }
+    public bool ShowWave { get { lock (gate) return !d.hideWave; } set { lock (gate) { d.hideWave = !value; Save(); } } }
+    public bool ShowResetTime { get { lock (gate) return !d.hideResetTime; } set { lock (gate) { d.hideResetTime = !value; Save(); } } }
+    public bool ShowPill { get { lock (gate) return !d.hidePill; } set { lock (gate) { d.hidePill = !value; Save(); } } }
+    public int? PillX { get { lock (gate) return d.pillX; } set { lock (gate) { d.pillX = value; Save(); } } }
+    public int? PillY { get { lock (gate) return d.pillY; } set { lock (gate) { d.pillY = value; Save(); } } }
+    public bool DidFirstLaunch { get { lock (gate) return d.didFirstLaunch; } set { lock (gate) { d.didFirstLaunch = value; Save(); } } }
 }
 
 public static partial class Logic
