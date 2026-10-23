@@ -1725,6 +1725,46 @@ public static partial class Logic
         return a1[0];
     }
 
+    public static (int, int) FlyoutOrigin(bool pill, int aL, int aT, int aR, int aB, int wL, int wT, int wR, int wB, int w, int h, int m, int g)
+    {
+        var cX = (aL + aR) / 2;
+        var cY = (aT + aB) / 2;
+        int x0;
+        int y0;
+        if (pill)
+        {
+            x0 = (aR - w) + m;
+            var y1 = ((aT - h) + m) - g;
+            if ((y1 + m) < wT)
+            {
+                y0 = (aB - m) + g;
+            }
+            else
+            {
+                y0 = y1;
+            }
+        }
+        else
+        {
+            x0 = cX - (w / 2);
+            if (cY >= wB)
+            {
+                y0 = ((wB - h) + m) - g;
+            }
+             else if (cY <= wT)
+            {
+                y0 = (wT - m) + g;
+            }
+            else
+            {
+                y0 = (cY - h) + m;
+            }
+        }
+        var x = Math.Max((wL - m) + g, Math.Min(x0, ((wR - w) + m) - g));
+        var y = Math.Max(wT - m, Math.Min(y0, (wB - h) + m));
+        return (x, y);
+    }
+
     public static string Prefix(string s, int n) => s == null ? "" : s.Length <= n ? s : s.Substring(0, n);
     static int? ToInt(string s) => int.TryParse(s, NumberStyles.None, CultureInfo.InvariantCulture, out var n) ? n : (int?)null;
     static List<T> Cons<T>(T h, IEnumerable<T> t) { var l = new List<T> { h }; l.AddRange(t); return l; }

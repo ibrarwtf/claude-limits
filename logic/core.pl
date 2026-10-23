@@ -574,3 +574,15 @@ flag_value([A|As], F, V) :- ( A == F -> first(As, V) ; flag_value(As, F, V) ).
 :- fn first(list(str)) -> opt(str).
 first([], none).
 first([X|_], X).
+
+% ── Windows flyout placement (screen pixels) ─────────────────────────────────
+% Above the pill (below it if there's no room), or centred on a tray click and
+% lifted off the taskbar edge; then clamped to the work area. The window's
+% shadow margin M may hang outside; G is the gap to the anchor.
+:- fn flyout_origin(bool, int, int, int, int, int, int, int, int, int, int, int, int) -> (int, int).   % from pill, anchor LTRB, work area LTRB, W, H, M, G
+flyout_origin(Pill, AL, AT, AR, AB, WL, WT, WR, WB, W, H, M, G, X, Y) :-
+    CX is (AL + AR) // 2, CY is (AT + AB) // 2,
+    (   Pill == true -> X0 is AR - W + M, Y1 is AT - H + M - G, ( Y1 + M < WT -> Y0 is AB - M + G ; Y0 = Y1 )
+    ;   X0 is CX - W // 2, ( CY >= WB -> Y0 is WB - H + M - G ; CY =< WT -> Y0 is WT - M + G ; Y0 is CY - H + M ) ),
+    X is max(WL - M + G, min(X0, WR - W + M - G)),
+    Y is max(WT - M, min(Y0, WB - H + M)).

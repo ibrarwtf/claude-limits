@@ -1290,3 +1290,31 @@ func first(_ a1: [String]) -> String? {
     }
     return a1[0]
 }
+
+func flyoutOrigin(_ pill: Bool, _ aL: Int, _ aT: Int, _ aR: Int, _ aB: Int, _ wL: Int, _ wT: Int, _ wR: Int, _ wB: Int, _ w: Int, _ h: Int, _ m: Int, _ g: Int) -> (Int, Int) {
+    let cX = (aL + aR) / 2
+    let cY = (aT + aB) / 2
+    let x0: Int
+    let y0: Int
+    if pill {
+        x0 = (aR - w) + m
+        let y1 = ((aT - h) + m) - g
+        if (y1 + m) < wT {
+            y0 = (aB - m) + g
+        } else {
+            y0 = y1
+        }
+    } else {
+        x0 = cX - (w / 2)
+        if cY >= wB {
+            y0 = ((wB - h) + m) - g
+        } else if cY <= wT {
+            y0 = (wT - m) + g
+        } else {
+            y0 = (cY - h) + m
+        }
+    }
+    let x = max((wL - m) + g, min(x0, ((wR - w) + m) - g))
+    let y = max(wT - m, min(y0, (wB - h) + m))
+    return (x, y)
+}

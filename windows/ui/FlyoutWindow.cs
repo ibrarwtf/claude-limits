@@ -109,9 +109,8 @@ namespace ClaudeLimits
         public static FrameworkElement TabularRow(string label, double utilization, string value)
         {
             var g = new Grid { Height = 24, Margin = new Thickness(leftPad, 0, rightPad, 0) };
-            g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(98) });
-            g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            foreach (var w in new[] { new GridLength(98), new GridLength(1, GridUnitType.Star), GridLength.Auto })
+                g.ColumnDefinitions.Add(new ColumnDefinition { Width = w });
 
             g.Children.Add(Label(label, "FgDim"));
 
@@ -231,24 +230,8 @@ namespace ClaudeLimits
             int m = (int)(shadowMargin * scale);
             var center = new Native.POINT { X = (anchor.Left + anchor.Right) / 2, Y = (anchor.Top + anchor.Bottom) / 2 };
             var work = Native.WorkAreaAt(center);
-            int gap = (int)(6 * scale);
-
-            int x, y;
-            if (fromPill)
-            {
-                x = anchor.Right - w + m;
-                y = anchor.Top - h + m - gap;
-                if (y + m < work.Top) y = anchor.Bottom - m + gap;
-            }
-            else
-            {
-                x = center.X - w / 2;
-                if (center.Y >= work.Bottom) y = work.Bottom - h + m - gap;       // taskbar at bottom
-                else if (center.Y <= work.Top) y = work.Top - m + gap;            // taskbar at top
-                else y = center.Y - h + m;
-            }
-            x = Math.Max(work.Left - m + gap, Math.Min(x, work.Right - w + m - gap));
-            y = Math.Max(work.Top - m, Math.Min(y, work.Bottom - h + m));
+            var (x, y) = FlyoutOrigin(fromPill, anchor.Left, anchor.Top, anchor.Right, anchor.Bottom,
+                                      work.Left, work.Top, work.Right, work.Bottom, w, h, m, (int)(6 * scale));
             Native.SetWindowPos(hwnd, Native.HWND_TOPMOST, x, y, 0, 0, Native.SWP_NOSIZE);
             Opacity = 1;
             tick.Start();
