@@ -41,7 +41,7 @@ case(D, Now, reset_line, call(reset_line, [U, Iso, samples(Ps), at(0)]), Got, W)
     member(C, D.resetLine), U is float(C.utilization), iso_in(C.resetsIn, Now, Iso), Ps = C.samples, W = C.expect,
     samples(Ps, Now, S), once(reset_line(U, Iso, S, Now, Got)).
 case(D, _, weekly_rows, bars(J), Got, W) :-
-    member(C, D.weeklyRows), R = C.response, W = C.expect, atom_json_dict(J, R, [as(string), width(0)]),
+    member(C, D.weeklyRows), R = C.response, W = C.expect, with_output_to(string(J), jw(R)),
     once(weekly_rows(R, Rows)),
     findall(S, ( member(bar(L, U, _), Rows), P is round(U), format(string(S), "~w=~d", [L, P]) ), Ss),
     atomic_list_concat(Ss, ', ', A), atom_string(A, Got).
@@ -68,6 +68,12 @@ norm(none, null) :- !.
 norm(X, S) :- atom(X), \+ memberchk(X, [null, true, false]), !, atom_string(X, S).
 norm(N, S) :- integer(N), !, number_string(N, S).
 norm(X, X).
+
+% Compact JSON, byte-identical across SWI-Prolog versions (json_write varies).
+jw(D) :- is_dict(D), !, dict_pairs(D, _, Ps), write("{"), foldl([K-V, Sep, ","]>>(write(Sep), jw(K), write(":"), jw(V)), Ps, "", _), write("}").
+jw(L) :- is_list(L), !, write("["), foldl([V, Sep, ","]>>(write(Sep), jw(V)), L, "", _), write("]").
+jw(X) :- ( number(X) ; memberchk(X, [null, true, false]) ), !, write(X).
+jw(X) :- format("\"~w\"", [X]).
 
 %% Emitting the app runners
 

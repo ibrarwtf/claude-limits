@@ -69,8 +69,8 @@ namespace ClaudeLimits.Spec
             Check("reset_line", ResetLine(40.0, "2030-01-15T15:00:00Z", new List<HistorySample> { S(720, 36), S(540, 37), S(360, 38), S(180, 39), S(0, 40) }, now.AddSeconds(0)), "Resets @ 3:00 PM · 20%/h · safe ≤ 20%/h");
             Check("reset_line", ResetLine(53.0, "2030-01-15T14:30:00Z", new List<HistorySample> { S(540, 47), S(360, 49), S(180, 51), S(0, 53) }, now.AddSeconds(0)), "Resets @ 2:30 PM · 40%/h over safe 19%/h · 100% in 1h 10m");
             Check("reset_line", ResetLine(30.0, "2030-01-15T14:00:00Z", new List<HistorySample> { S(2000, 10), S(360, 28), S(180, 29), S(0, 30) }, now.AddSeconds(0)), "Resets @ 2:00 PM · 20%/h · safe ≤ 35%/h");
-            Check("weekly_rows", Bars("{\"seven_day\": {\"resets_at\":null,\"utilization\":34.4},\"seven_day_opus\": {\"utilization\":12.5}}"), "Overall=34, Opus=13");
-            Check("weekly_rows", Bars("{\"limits\": [ {\"group\":\"session\",\"kind\":\"session\",\"percent\":19},  {\"group\":\"weekly\",\"kind\":\"weekly_scoped\",\"percent\":2,\"scope\": {\"model\": {\"display_name\":\"Fable\"}}},  {\"group\":\"weekly\",\"kind\":\"weekly\",\"percent\":7,\"scope\":null} ],\"seven_day\":null}"), "Fable=2, Overall=7");
+            Check("weekly_rows", Bars("{\"seven_day\":{\"resets_at\":null,\"utilization\":34.4},\"seven_day_opus\":{\"utilization\":12.5}}"), "Overall=34, Opus=13");
+            Check("weekly_rows", Bars("{\"limits\":[{\"group\":\"session\",\"kind\":\"session\",\"percent\":19},{\"group\":\"weekly\",\"kind\":\"weekly_scoped\",\"percent\":2,\"scope\":{\"model\":{\"display_name\":\"Fable\"}}},{\"group\":\"weekly\",\"kind\":\"weekly\",\"percent\":7,\"scope\":null}],\"seven_day\":null}"), "Fable=2, Overall=7");
             Check("weekly_rows", Bars("{}"), "");
             Check("rollover", Replay(new[] { (-360.0, 40.0, "2030-01-15T13:00:00Z"), (-180.0, 42.0, "2030-01-15T13:00:00Z"), (0.0, 43.0, "2030-01-15T13:00:00Z") }), "3");
             Check("rollover", Replay(new[] { (-360.0, 40.0, "2030-01-15T13:00:00Z"), (-180.0, 41.0, "2030-01-15T13:00:00Z"), (0.0, 41.0, "2030-01-15T18:00:00Z") }), "1");
