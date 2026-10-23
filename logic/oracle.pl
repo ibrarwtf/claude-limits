@@ -72,6 +72,7 @@ arg_in(_, T, V, A, choice(T, A)) :- string(V), T \== str, !, atom_string(A, V).
 arg_in(_, _, V, V, V).
 
 got([opt(error)], [E], G) :- !, ( E == none -> G = none ; once(friendly_message(E, G)) ).
+got([C], [V], G) :- choice(C, _), !, cname(swift, V, N), atom_string(N, G).
 got([_, _], [A, B], G) :- !, format(string(G), "(~w, ~w)", [A, B]).
 got([_], [V], V).
 
@@ -128,6 +129,7 @@ x(T, out([bool], E)) :- !, x(T, bool(E)).
 x(T, out([opt(error)], E)) :- !, x(T, msg(E)).
 x(swift, out([O], E)) :- O \= str, O \= opt(str), !, write("String(describing: "), x(swift, E), write(")").
 x(swift, out([_, _], E)) :- !, write("String(describing: "), x(swift, E), write(")").
+x(csharp, out([C], E)) :- choice(C, _), !, write("Case("), x(csharp, E), write(")").
 x(csharp, out(Os, E)) :- Os \= [str], Os \= [opt(str)], !, x(csharp, E), write(".ToString()").
 x(T, out(_, E)) :- !, x(T, E).
 x(swift, list(Ls)) :- !, write("["), xs(swift, Ls), write("]").
@@ -211,6 +213,7 @@ namespace ClaudeLimits.Spec
             Console.WriteLine($\"FAIL {name}\\n  got:  {got ?? \"null\"}\\n  want: {want ?? \"null\"}\");
         }
         static string Msg(AppError e) => e == null ? null : FriendlyMessage(e);
+        static string Case(Enum c) { var s = c.ToString(); return char.ToLowerInvariant(s[0]) + s.Substring(1); }
         static HistorySample S(double ago, double u) => new HistorySample { TimestampUnix = Format.ToUnix(now.AddSeconds(-ago)), Utilization = u };
         static string Bars(string json) =>
             string.Join(\", \", WeeklyRows(Json.Parse<UsageResponse>(json)).Where(r => r.Kind == RowKind.Bar).Select(r => $\"{r.Label}={Percent(r.Utilization)}\"));

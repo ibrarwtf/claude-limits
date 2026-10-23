@@ -17,6 +17,7 @@ namespace ClaudeLimits.Spec
             Console.WriteLine($"FAIL {name}\n  got:  {got ?? "null"}\n  want: {want ?? "null"}");
         }
         static string Msg(AppError e) => e == null ? null : FriendlyMessage(e);
+        static string Case(Enum c) { var s = c.ToString(); return char.ToLowerInvariant(s[0]) + s.Substring(1); }
         static HistorySample S(double ago, double u) => new HistorySample { TimestampUnix = Format.ToUnix(now.AddSeconds(-ago)), Utilization = u };
         static string Bars(string json) =>
             string.Join(", ", WeeklyRows(Json.Parse<UsageResponse>(json)).Where(r => r.Kind == RowKind.Bar).Select(r => $"{r.Label}={Percent(r.Utilization)}"));
@@ -148,6 +149,14 @@ namespace ClaudeLimits.Spec
             Check("test_status", TestStatus(null), "Connected, but no five_hour data.");
             Check("raw_token", RawToken("  sk-ant-abc  "), "sk-ant-abc");
             Check("raw_token", RawToken("not a token"), null);
+            Check("click_effect", Case(ClickEffect(now.AddSeconds(60), null, now.AddSeconds(0))), "blocked");
+            Check("click_effect", Case(ClickEffect(null, now.AddSeconds(-2), now.AddSeconds(0))), "cooling");
+            Check("click_effect", Case(ClickEffect(null, null, now.AddSeconds(0))), "fetch");
+            Check("click_effect", Case(ClickEffect(now.AddSeconds(-5), now.AddSeconds(-60), now.AddSeconds(0))), "fetch");
+            Check("dot_on_open", Case(DotOnOpen(true, now.AddSeconds(-60), false, null, null, now.AddSeconds(0))), "connected");
+            Check("dot_on_open", Case(DotOnOpen(false, null, true, null, null, now.AddSeconds(0))), "unverified");
+            Check("dot_on_open", Case(DotOnOpen(false, null, false, now.AddSeconds(120), null, now.AddSeconds(0))), "unverified");
+            Check("dot_on_open", Case(DotOnOpen(false, null, false, null, null, now.AddSeconds(0))), "probe");
             Console.WriteLine($"windows spec: {passed} passed, {failed} failed");
             return failed == 0 ? 0 : 1;
         }

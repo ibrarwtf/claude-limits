@@ -15,9 +15,11 @@
 
 % Declarations only matter to the compiler — except constants, which also
 % become arithmetic functions so rules can write `X is poll_interval * 2`, and
-% fn signatures, kept as sig(Name, Ins, Outs) for the oracle's typed calls.
-:- dynamic sig/3.
+% fn signatures and choices, kept as sig(Name, Ins, Outs) / choice(Name, Cases)
+% for the oracle's typed calls.
+:- dynamic sig/3, choice/2.
 term_expansion((:- fn (H -> O)), (:- assertz(sig(N, Is, Os)))) :- H =.. [N|Is], ( O = (_, _) -> comma_list(O, Os) ; Os = [O] ).
+term_expansion((:- choice N = Cs), (:- assertz(choice(N, Cs)))).
 term_expansion((:- const Name = Value), [Fact, (:- arithmetic_function(Name/0))]) :- Fact =.. [Name, Value].
 term_expansion((:- Decl), []) :- compound(Decl), functor(Decl, F, 1), memberchk(F, [fn, enum, record, native, setting, choice, json]).
 

@@ -171,6 +171,14 @@
     {"fn": "test_status", "args": [42.4], "expect": "OK — current session at 42%"},
     {"fn": "test_status", "args": [null], "expect": "Connected, but no five_hour data."},
     {"fn": "raw_token", "args": ["  sk-ant-abc  "], "expect": "sk-ant-abc"},
-    {"fn": "raw_token", "args": ["not a token"], "expect": null}
+    {"fn": "raw_token", "args": ["not a token"], "expect": null},
+    {"fn": "click_effect", "args": [60, null, 0], "expect": "blocked"},
+    {"fn": "click_effect", "args": [null, -2, 0], "expect": "cooling"},
+    {"fn": "click_effect", "args": [null, null, 0], "expect": "fetch"},
+    {"fn": "click_effect", "args": [-5, -60, 0], "expect": "fetch"},
+    {"fn": "dot_on_open", "args": [true, -60, false, null, null, 0], "expect": "connected"},
+    {"fn": "dot_on_open", "args": [false, null, true, null, null, 0], "expect": "unverified"},
+    {"fn": "dot_on_open", "args": [false, null, false, 120, null, 0], "expect": "unverified"},
+    {"fn": "dot_on_open", "args": [false, null, false, null, null, 0], "expect": "probe"}
   ]
 }
