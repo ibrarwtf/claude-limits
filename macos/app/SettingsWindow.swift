@@ -33,12 +33,8 @@ final class TopWaveView: NSView {
         let width = bounds.width
         let dx = width / CGFloat(samples.count - 1)
 
-        var points: [NSPoint] = []
-        for (i, v) in samples.enumerated() {
-            let x = CGFloat(i) * dx
-            let clamped = max(0.0, min(100.0, v))
-            let y = padBottom + (CGFloat(clamped) / 100.0) * usable
-            points.append(NSPoint(x: x, y: y))
+        let points = samples.enumerated().map { i, v in
+            NSPoint(x: CGFloat(i) * dx, y: padBottom + (CGFloat(max(0.0, min(100.0, v))) / 100.0) * usable)
         }
 
         let isDark = self.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
@@ -48,15 +44,11 @@ final class TopWaveView: NSView {
         let fillTop = isDark
             ? NSColor(calibratedRed: 1.0, green: 0.667, blue: 0.533, alpha: 0.30)
             : NSColor(calibratedRed: 1.0, green: 0.6,   blue: 0.4,   alpha: 0.35)
-        let fillBottom = NSColor(calibratedRed: fillTop.redComponent,
-                                 green: fillTop.greenComponent,
-                                 blue: fillTop.blueComponent,
-                                 alpha: 0.0)
+        let fillBottom = fillTop.withAlphaComponent(0)
 
         let fillPath = NSBezierPath()
         fillPath.move(to: NSPoint(x: 0, y: 0))
-        fillPath.line(to: points[0])
-        for p in points.dropFirst() { fillPath.line(to: p) }
+        for p in points { fillPath.line(to: p) }
         fillPath.line(to: NSPoint(x: width, y: 0))
         fillPath.close()
         if let grad = NSGradient(colors: [fillTop, fillBottom],
