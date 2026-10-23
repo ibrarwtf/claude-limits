@@ -6,7 +6,7 @@
 
 - **Weekly limits are back on macOS.** Anthropic's usage API stopped filling the per-model weekly fields and now reports weekly usage in a new `limits` list; the Mac dropdown showed no weekly rows. Both apps now read the new list (the Windows app already did).
 - First release built entirely by CI: one release carries both the Mac zip (for `brew upgrade`) and the Windows zip (for in-app update).
-- Internals: repo split into `mac/` and `win/`, with shared behaviour tests in `spec/` that both apps must pass, and deterministic screenshots rendered from a fixture on every PR.
+- Internals: repo split into `macos/` and `windows/`, with shared behaviour tests in `spec/` that both apps must pass, and deterministic screenshots rendered from a fixture on every PR.
 
 ## v0.3.0
 

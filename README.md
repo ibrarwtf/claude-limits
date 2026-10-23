@@ -70,8 +70,8 @@ Auto-detect works if Claude Code is signed in on this machine (macOS Keychain or
 ```bash
 git clone https://github.com/ibrarwtf/claude-limits
 cd claude-limits
-bash mac/scripts/install.sh                                     # macOS (Xcode Command Line Tools)
-powershell -ExecutionPolicy Bypass -File win\scripts\install.ps1  # Windows (.NET SDK, build-time only)
+bash macos/scripts/install.sh                                     # macOS (Xcode Command Line Tools)
+powershell -ExecutionPolicy Bypass -File windows\scripts\install.ps1  # Windows (.NET SDK, build-time only)
 ```
 
 Full local-dev guide in [DEVELOPMENT.md](DEVELOPMENT.md).

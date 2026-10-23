@@ -15,15 +15,15 @@ macOS 13 or later, with `xcode-select --install` (gives you `swiftc` — no Xcod
 ```bash
 git clone https://github.com/ibrarwtf/claude-limits
 cd claude-limits
-bash mac/scripts/install.sh
+bash macos/scripts/install.sh
 ```
 
-The icon should appear in your menu bar within a couple of seconds. `install.sh` builds, bundles into `~/Applications/claude-limits.app`, installs a LaunchAgent so it autostarts on login, starts the new build, and renders snapshots into `build/snapshots/mac/`.
+The icon should appear in your menu bar within a couple of seconds. `install.sh` builds, bundles into `~/Applications/claude-limits.app`, installs a LaunchAgent so it autostarts on login, starts the new build, and renders snapshots into `build/snapshots/macos/`.
 
 ### Dev loop
 
 ```
-edit Swift → bash mac/scripts/install.sh → check build/snapshots/mac/ (or your menu bar)
+edit Swift → bash macos/scripts/install.sh → check build/snapshots/macos/ (or your menu bar)
 ```
 
 ~5 seconds end-to-end on Apple Silicon. Useful side commands:
@@ -31,8 +31,8 @@ edit Swift → bash mac/scripts/install.sh → check build/snapshots/mac/ (or yo
 ```bash
 tail -f /tmp/claude-limits.log                  # stdout + stderr
 defaults read claude-limits                     # current persisted settings
-bash mac/scripts/snapshot.sh                    # re-render build/snapshots/mac/ from the fixture
-bash mac/scripts/uninstall.sh                   # remove .app + LaunchAgent (settings + history kept)
+bash macos/scripts/snapshot.sh                    # re-render build/snapshots/macos/ from the fixture
+bash macos/scripts/uninstall.sh                   # remove .app + LaunchAgent (settings + history kept)
 ```
 
 ### Dev install vs brew install
@@ -40,9 +40,9 @@ bash mac/scripts/uninstall.sh                   # remove .app + LaunchAgent (set
 These don't coexist. `install.sh` writes the bundle to `~/Applications/`; `brew install --cask claude-limits` writes to `/Applications/`. Both register the `claude-limits://` URL scheme and the same LaunchAgent label, so running both produces double menubar icons. `install.sh` refuses to run if it detects the brew copy:
 
 ```bash
-brew uninstall --cask claude-limits && bash mac/scripts/install.sh   # switch to dev
-bash mac/scripts/uninstall.sh && brew install --cask claude-limits    # back to brew
-bash mac/scripts/uninstall.sh --all                                   # wipe both
+brew uninstall --cask claude-limits && bash macos/scripts/install.sh   # switch to dev
+bash macos/scripts/uninstall.sh && brew install --cask claude-limits    # back to brew
+bash macos/scripts/uninstall.sh --all                                   # wipe both
 ```
 
 ## Windows
@@ -60,15 +60,15 @@ winget install Microsoft.DotNet.SDK.10
 ```powershell
 git clone https://github.com/ibrarwtf/claude-limits
 cd claude-limits
-powershell -ExecutionPolicy Bypass -File win\scripts\install.ps1
+powershell -ExecutionPolicy Bypass -File windows\scripts\install.ps1
 ```
 
-`install.ps1` builds `build\win\claude-limits.exe`, quits any running copy, installs to `%LOCALAPPDATA%\Programs\claude-limits\`, registers autostart (HKCU Run key) and the `claude-limits://` URL scheme, starts it, and renders snapshots into `build\snapshots\win\`. Look for the pill on the taskbar next to the tray; the tray icon starts in the `^` overflow.
+`install.ps1` builds `build\windows\claude-limits.exe`, quits any running copy, installs to `%LOCALAPPDATA%\Programs\claude-limits\`, registers autostart (HKCU Run key) and the `claude-limits://` URL scheme, starts it, and renders snapshots into `build\snapshots\windows\`. Look for the pill on the taskbar next to the tray; the tray icon starts in the `^` overflow.
 
 ### Dev loop
 
 ```
-edit C# → powershell -File win\scripts\install.ps1 → check build\snapshots\win\
+edit C# → powershell -File windows\scripts\install.ps1 → check build\snapshots\windows\
 ```
 
 Useful side commands:
@@ -76,10 +76,10 @@ Useful side commands:
 ```powershell
 Get-Content -Wait $env:TEMP\claude-limits.log                         # log
 Get-Content $env:APPDATA\claude-limits\settings.json                  # persisted settings
-powershell -File win\scripts\snapshot.ps1                             # re-render build\snapshots\win\ from the fixture
-build\win\claude-limits.exe --fixture spec\fixtures\snapshot.json     # run the UI on fixture data, no polling
+powershell -File windows\scripts\snapshot.ps1                             # re-render build\snapshots\windows\ from the fixture
+build\windows\claude-limits.exe --fixture spec\fixtures\snapshot.json     # run the UI on fixture data, no polling
 Start-Process claude-limits://flyout                                  # open the flyout from a script
-powershell -File win\scripts\uninstall.ps1 [-Purge]                   # remove (-Purge also wipes settings + history)
+powershell -File windows\scripts\uninstall.ps1 [-Purge]                   # remove (-Purge also wipes settings + history)
 ```
 
 ## Spec tests
@@ -88,19 +88,19 @@ powershell -File win\scripts\uninstall.ps1 [-Purge]                   # remove (
 
 ```bash
 # macOS
-swiftc -o build/spec-mac mac/core/*.swift mac/tests/main.swift && build/spec-mac spec/cases.json
+swiftc -o build/spec-macos macos/core/*.swift macos/tests/main.swift && build/spec-macos spec/cases.json
 ```
 
 ```powershell
 # Windows
-dotnet build win\tests\spec.csproj -c Release -o build\spec-win; build\spec-win\claude-limits-spec.exe spec\cases.json
+dotnet build windows\tests\spec.csproj -c Release -o build\spec-windows; build\spec-windows\claude-limits-spec.exe spec\cases.json
 ```
 
 Changing shared behaviour? Update the case first, then make both runners pass — CI runs both on every PR.
 
 ## Snapshots
 
-`snapshots/mac/` and `snapshots/win/` hold menubar / dropdown / Settings in light + dark; open `snapshots/index.html` to view them side by side. They're rendered from `spec/fixtures/snapshot.json` with a pinned clock, so they're byte-identical run to run and only change when the UI does. CI re-renders both on every PR and commits any changes back to the branch — review them in the PR diff. Local runs write to `build/snapshots/` instead, so different fonts or PNG encoders on your machine never churn the committed images.
+`snapshots/macos/` and `snapshots/windows/` hold menubar / dropdown / Settings in light + dark; open `snapshots/index.html` to view them side by side. They're rendered from `spec/fixtures/snapshot.json` with a pinned clock, so they're byte-identical run to run and only change when the UI does. CI re-renders both on every PR and commits any changes back to the branch — review them in the PR diff. Local runs write to `build/snapshots/` instead, so different fonts or PNG encoders on your machine never churn the committed images.
 
 If you're not working with direct eyes on the menu bar (remote dev, Claude Code agent, the other OS), `snapshots/` is your verification step — not a post-hoc artifact.
 

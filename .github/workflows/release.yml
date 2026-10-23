@@ -13,7 +13,7 @@ permissions:
   contents: write
 
 jobs:
-  mac:
+  macos:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -22,18 +22,18 @@ jobs:
         run: test "v$(tr -d '[:space:]' < VERSION)" = "$GITHUB_REF_NAME"
 
       - name: Build
-        run: bash mac/scripts/build.sh
+        run: bash macos/scripts/build.sh
 
       - name: Zip
         run: |
           mkdir -p dist
           # ditto preserves macOS metadata + symlinks; what Apple recommends
           # for distributing app bundles, not plain zip.
-          ditto -c -k --keepParent "$HOME/Applications/claude-limits.app" "dist/claude-limits-mac-${GITHUB_REF_NAME#v}.zip"
+          ditto -c -k --keepParent "$HOME/Applications/claude-limits.app" "dist/claude-limits-macos-${GITHUB_REF_NAME#v}.zip"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: zip-mac
+          name: zip-macos
           path: dist/*.zip
 
   windows:
@@ -43,22 +43,22 @@ jobs:
 
       - name: Build
         shell: powershell
-        run: ./win/scripts/build.ps1
+        run: ./windows/scripts/build.ps1
 
       - name: Zip
         shell: powershell
         run: |
           $v = $env:GITHUB_REF_NAME.TrimStart('v')
           New-Item -ItemType Directory -Force dist | Out-Null
-          Compress-Archive -Path build/win/claude-limits.exe -DestinationPath "dist/claude-limits-windows-$v.zip"
+          Compress-Archive -Path build/windows/claude-limits.exe -DestinationPath "dist/claude-limits-windows-$v.zip"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: zip-win
+          name: zip-windows
           path: dist/*.zip
 
   draft:
-    needs: [mac, windows]
+    needs: [macos, windows]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

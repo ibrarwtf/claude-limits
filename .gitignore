@@ -11,6 +11,6 @@ dist/
 # tracked UI snapshots live at the repo root.
 .claude/
 
-# Windows build intermediates
-src/win/bin/
-src/win/obj/
+# .NET build intermediates (any project)
+bin/
+obj/

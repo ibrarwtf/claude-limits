@@ -1,5 +1,5 @@
 {
-  "_doc": "Shared behaviour spec. mac/tests (Swift) and win/tests (C#) both run every case; CI fails if either app disagrees. Times are offsets in seconds from `now`; `samples` are [secondsAgo, utilization] pairs, oldest first. Clock text is UTC, en-US.",
+  "_doc": "Shared behaviour spec. macos/tests (Swift) and windows/tests (C#) both run every case; CI fails if either app disagrees. Times are offsets in seconds from `now`; `samples` are [secondsAgo, utilization] pairs, oldest first. Clock text is UTC, en-US.",
   "now": "2030-01-15T12:00:00Z",
 
   "timeRemaining": [

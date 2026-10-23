@@ -2,12 +2,12 @@
 
 Notes for Claude Code (and humans poking under the hood). User-facing install/usage is in [README.md](README.md); local-dev setup is in [DEVELOPMENT.md](DEVELOPMENT.md); contribution rules are in [CONTRIBUTING.md](CONTRIBUTING.md).
 
-Shows your Claude usage in the macOS menu bar and the Windows taskbar. **Two native apps, one spec**: a Swift/AppKit app in `mac/` and a C#/WPF app (.NET Framework 4.8, ships with Windows) in `win/`. No code is shared — the Swift runtime isn't on Windows — but behaviour is: both run the same test cases in `spec/` and render the same fixture in CI. Usage polling calls `https://api.anthropic.com/api/oauth/usage`; update checks call GitHub Releases.
+Shows your Claude usage in the macOS menu bar and the Windows taskbar. **Two native apps, one spec**: a Swift/AppKit app in `macos/` and a C#/WPF app (.NET Framework 4.8, ships with Windows) in `windows/`. No code is shared — the Swift runtime isn't on Windows — but behaviour is: both run the same test cases in `spec/` and render the same fixture in CI. Usage polling calls `https://api.anthropic.com/api/oauth/usage`; update checks call GitHub Releases.
 
 ## Layout
 
 ```
-mac/                          win/
+macos/                          windows/
   core/   Foundation only       core/   no WPF/WinForms
   app/    AppKit                ui/     WPF + WinForms NotifyIcon
   tests/  spec runner (Swift)   tests/  spec runner (C#)
@@ -17,13 +17,13 @@ mac/                          win/
   launchd/   LaunchAgent
 
 spec/          cases.json (behaviour tests) + fixtures/snapshot.json
-snapshots/     mac/ + win/ PNGs, index.html viewer — written by CI
+snapshots/     macos/ + windows/ PNGs, index.html viewer — written by CI
 scripts/       release.ps1 — ships both apps
 assets/        AppIcon.icns / AppIcon.ico
 VERSION, CHANGELOG.md, .github/workflows/{ci,release}.yml
 ```
 
-Files pair up by name — `mac/core/Format.swift` ↔ `win/core/Format.cs`, `mac/app/AppDelegate.swift` ↔ `win/ui/TrayApp.cs` — and method names match, so a change on one side is easy to find on the other.
+Files pair up by name — `macos/core/Format.swift` ↔ `windows/core/Format.cs`, `macos/app/AppDelegate.swift` ↔ `windows/ui/TrayApp.cs` — and method names match, so a change on one side is easy to find on the other.
 
 ```
 core (both)   API      usage call            Models   response shapes + weeklyRows
@@ -31,17 +31,17 @@ core (both)   API      usage call            Models   response shapes + weeklyRo
               History  samples + sparkline   Format   countdowns, reset/burn line
               Updates  GitHub release check  Errors   AppError + copy
               Fixture  pinned Clock + --fixture mode
-win/core only Json (DataContract helpers), Platform (data dir, Run key, URL
+windows/core only Json (DataContract helpers), Platform (data dir, Run key, URL
               scheme, theme registry), SelfUpdate (zip → swap exe), Log
 ```
 
-`mac/scripts/build.sh` greps `mac/core/` for AppKit and `win/scripts/build.ps1` greps `win/core/` for `System.Windows`; either aborts the build. That boundary is what lets the spec runners compile core on its own. Don't add protocols/abstractions to enforce it; the grep is the gate.
+`macos/scripts/build.sh` greps `macos/core/` for AppKit and `windows/scripts/build.ps1` greps `windows/core/` for `System.Windows`; either aborts the build. That boundary is what lets the spec runners compile core on its own. Don't add protocols/abstractions to enforce it; the grep is the gate.
 
 ## Keeping the two apps in step
 
 - **Behaviour lives in core and is pinned by `spec/cases.json`.** Countdown/relative-time formatting, version compare, token extraction, the sparkline, the reset/burn-rate line, weekly rows (including the `limits` fallback) and window-rollover detection. Change the behaviour → change the case → make both runners pass. CI fails if either side disagrees.
 - **UI-side logic** (polling cadence, back-off, click cooldowns, threshold alerts, animations) lives in `AppDelegate.swift` / `TrayApp.cs`. Mirror changes by hand; keep method names aligned.
-- **You don't need a Mac to change the Mac app.** Push a branch: CI compiles it, runs the spec, renders `snapshots/mac/` from the fixture and commits the PNGs back to the PR. Review the images in the diff. Same for Windows from a Mac.
+- **You don't need a Mac to change the Mac app.** Push a branch: CI compiles it, runs the spec, renders `snapshots/macos/` from the fixture and commits the PNGs back to the PR. Review the images in the diff. Same for Windows from a Mac.
 
 Deliberate platform differences: no Keychain on Windows (Claude Code writes a plain file there); PowerShell instead of zsh for the shell token source; Windows adds the taskbar pill, the number-in-tray-icon and in-place self-update (Mac updates via brew).
 
@@ -55,14 +55,14 @@ Without `--snapshot-all` the Windows app shows its tray icon + pill with the fix
 
 | Script | Does |
 |---|---|
-| `mac/scripts/build.sh` | Compile + bundle into `~/Applications/claude-limits.app`, icon from `assets/AppIcon.icns`, ad-hoc codesign. |
-| `mac/scripts/install.sh` | `build.sh`, then (re)loads the LaunchAgent; refuses if a brew copy exists in `/Applications`. Refreshes snapshots. |
-| `mac/scripts/uninstall.sh` | Stops the LaunchAgent, removes the bundle (`--all` also removes the brew cask). Keeps settings + history. |
-| `mac/scripts/snapshot.sh` | Runs the built app with `--fixture … --snapshot-all` → `build/snapshots/mac` (`snapshots/mac` under CI). |
-| `win/scripts/build.ps1` | Boundary grep, `dotnet build` → `build\win\claude-limits.exe`. |
-| `win/scripts/install.ps1` | Builds, quits the running copy, installs to `%LOCALAPPDATA%\Programs\claude-limits\`, registers HKCU Run + `claude-limits://`, starts it, refreshes snapshots. |
-| `win/scripts/uninstall.ps1` | Quits, removes exe + Run key + URL scheme. Keeps `%APPDATA%\claude-limits\` unless `-Purge`. |
-| `win/scripts/snapshot.ps1` | Runs the built exe with `--fixture … --snapshot-all` → `build\snapshots\win` (`snapshots\win` under CI). |
+| `macos/scripts/build.sh` | Compile + bundle into `~/Applications/claude-limits.app`, icon from `assets/AppIcon.icns`, ad-hoc codesign. |
+| `macos/scripts/install.sh` | `build.sh`, then (re)loads the LaunchAgent; refuses if a brew copy exists in `/Applications`. Refreshes snapshots. |
+| `macos/scripts/uninstall.sh` | Stops the LaunchAgent, removes the bundle (`--all` also removes the brew cask). Keeps settings + history. |
+| `macos/scripts/snapshot.sh` | Runs the built app with `--fixture … --snapshot-all` → `build/snapshots/macos` (`snapshots/macos` under CI). |
+| `windows/scripts/build.ps1` | Boundary grep, `dotnet build` → `build\windows\claude-limits.exe`. |
+| `windows/scripts/install.ps1` | Builds, quits the running copy, installs to `%LOCALAPPDATA%\Programs\claude-limits\`, registers HKCU Run + `claude-limits://`, starts it, refreshes snapshots. |
+| `windows/scripts/uninstall.ps1` | Quits, removes exe + Run key + URL scheme. Keeps `%APPDATA%\claude-limits\` unless `-Purge`. |
+| `windows/scripts/snapshot.ps1` | Runs the built exe with `--fixture … --snapshot-all` → `build\snapshots\windows` (`snapshots\windows` under CI). |
 | `scripts/release.ps1` | Maintainer-only, any OS with git + gh + PowerShell. See *CI and releasing*. |
 
 Run `.ps1` scripts with `powershell -ExecutionPolicy Bypass -File <path>`. They must stay **UTF-8 with BOM**: Windows PowerShell 5.1 reads BOM-less files as ANSI, and the UTF-8 bytes of `—` contain a byte it treats as a closing quote. `.gitattributes` pins `.sh`/`.swift` to LF and `.ps1` to CRLF.
@@ -70,9 +70,9 @@ Run `.ps1` scripts with `powershell -ExecutionPolicy Bypass -File <path>`. They 
 ## Daily loop
 
 ```
-mac:  edit Swift → bash mac/scripts/install.sh → check build/snapshots/mac/   (log: /tmp/claude-limits.log)
-win:  edit C#    → powershell -File win\scripts\install.ps1 → check build\snapshots\win\   (log: %TEMP%\claude-limits.log)
-spec: edit spec/cases.json → run both runners (see DEVELOPMENT.md) — or let CI do it
+macos:   edit Swift → bash macos/scripts/install.sh → check build/snapshots/macos/   (log: /tmp/claude-limits.log)
+windows: edit C#    → powershell -File windows\scripts\install.ps1 → check build\snapshots\windows\   (log: %TEMP%\claude-limits.log)
+spec:    edit spec/cases.json → run both runners (see DEVELOPMENT.md) — or let CI do it
 other OS: push a branch → CI builds, tests, commits snapshots → review the PNG diff
 ```
 
@@ -81,8 +81,8 @@ other OS: push a branch → CI builds, tests, commits snapshots → review the P
 ## CI and releasing
 
 - `.github/workflows/ci.yml` — on every PR and push to `main`: Windows + macOS jobs build, run the spec, render snapshots. On same-repo PRs a final job commits changed PNGs back to the branch (GITHUB_TOKEN pushes don't retrigger CI). The macOS runner has a non-Retina display, so Mac PNGs come out @1x.
-- `.github/workflows/release.yml` — on a `v*` tag: builds both zips (`claude-limits-mac-X.Y.Z.zip` for the cask, `claude-limits-windows-X.Y.Z.zip`) into a **draft** release, notes from the CHANGELOG section.
-- `scripts/release.ps1 X.Y.Z` — checks clean/synced `main` + a `## vX.Y.Z` CHANGELOG section, bumps `VERSION`, tags, pushes, waits for the draft, writes the Mac zip's sha256 into `mac/homebrew/claude-limits.rb` and the tap clone (`..\homebrew-lab`, or `TAP_DIR`), then publishes the draft as latest. Draft-first means neither app is offered a release before brew can install it.
+- `.github/workflows/release.yml` — on a `v*` tag: builds both zips (`claude-limits-macos-X.Y.Z.zip` for the cask, `claude-limits-windows-X.Y.Z.zip`) into a **draft** release, notes from the CHANGELOG section.
+- `scripts/release.ps1 X.Y.Z` — checks clean/synced `main` + a `## vX.Y.Z` CHANGELOG section, bumps `VERSION`, tags, pushes, waits for the draft, writes the Mac zip's sha256 into `macos/homebrew/claude-limits.rb` and the tap clone (`..\homebrew-lab`, or `TAP_DIR`), then publishes the draft as latest. Draft-first means neither app is offered a release before brew can install it.
 - The Mac app reads `/releases/latest` and updates via `brew upgrade`; the Windows app scans the release list for the newest release with a Windows zip and swaps its exe in place (sha256-checked against GitHub's asset digest).
 
 ## macOS gotchas worth knowing
@@ -112,7 +112,7 @@ other OS: push a branch → CI builds, tests, commits snapshots → review the P
 - Comments explain WHY, not WHAT. Add them only when the reasoning is non-obvious — a platform gotcha, a threading constraint, an API quirk.
 - No new dependencies: AppKit + Foundation on macOS; in-box .NET Framework 4.8 assemblies on Windows (no NuGet packages).
 - Direct platform APIs over wrappers/protocols. The codebase is small enough that boilerplate beats indirection.
-- Keep the `core/` boundaries clean. Anything UI-shaped goes in `mac/app/` or `win/ui/`.
+- Keep the `core/` boundaries clean. Anything UI-shaped goes in `macos/app/` or `windows/ui/`.
 - Match existing naming and structure — and the other platform's naming — rather than introducing a new style.
 
 ## Versioning
@@ -121,4 +121,4 @@ Pre-1.0:
 - `0.x.0 → 0.y.0` — visible feature change
 - `0.x.y → 0.x.z` — bug fix or polish
 
-One version for both apps, from the `VERSION` file: `mac/scripts/build.sh` bakes it into Info.plist, `win/claude-limits.csproj` into the exe. Only `scripts/release.ps1` bumps it. Maintainer-only; forks land changes via PRs to `main`.
+One version for both apps, from the `VERSION` file: `macos/scripts/build.sh` bakes it into Info.plist, `windows/claude-limits.csproj` into the exe. Only `scripts/release.ps1` bumps it. Maintainer-only; forks land changes via PRs to `main`.

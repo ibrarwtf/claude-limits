@@ -17,7 +17,7 @@ PRs welcome. Keep them small, focused, and dependency-free.
 
 ## Not in focus right now (but open if you want to build it)
 
-- **A Linux port.** Would sit alongside `mac/` and `win/`, run `spec/cases.json`, and render the fixture in CI. Open an issue first so we can coordinate.
+- **A Linux port.** Would sit alongside `macos/` and `windows/`, run `spec/cases.json`, and render the fixture in CI. Open an issue first so we can coordinate.
 - **Telemetry or analytics.** Not needed at the current user base.
 
 ## Sending a pull request
@@ -32,7 +32,7 @@ PRs welcome. Keep them small, focused, and dependency-free.
 
 Conventions live in [CLAUDE.md](CLAUDE.md). Things the build enforces:
 
-- `mac/core/` must not import AppKit or Cocoa, and `win/core/` must not reference WPF/WinForms — the build scripts grep for it and abort.
+- `macos/core/` must not import AppKit or Cocoa, and `windows/core/` must not reference WPF/WinForms — the build scripts grep for it and abort.
 - No new dependencies: AppKit + Foundation on macOS; in-box .NET Framework 4.8 assemblies on Windows.
 - `spec/cases.json` must pass on both apps.
 
