@@ -21,7 +21,7 @@ namespace ClaudeLimits
         DateTime flyoutClosedAt;
         SettingsWindow settingsWindow;
 
-        DispatcherTimer pollTimer, animationTimer, tickTimer, rateLimitCycleTimer, updateCheckTimer;
+        DispatcherTimer pollTimer, animationTimer, rateLimitCycleTimer;
         int animationFrame;
         DateTime? animationStartedAt;
         /// Bumped per StartAnimation(); a deferred stop from an older cycle no-ops.
@@ -89,11 +89,11 @@ namespace ClaudeLimits
             SchedulePoll();
 
             // Tick the title every 30s to update the reset countdown without a fetch.
-            tickTimer = Every(30, UpdateTitle);
+            Every(30, UpdateTitle);
 
             // Update check shortly after launch, then daily (GitHub allows 60/h anonymous).
             After(5, () => { var _ = CheckForLatestRelease(); });
-            updateCheckTimer = Every(24 * 3600, () => { var _ = CheckForLatestRelease(); });
+            Every(24 * 3600, () => { var _ = CheckForLatestRelease(); });
 
             if (!Settings.Shared.DidFirstLaunch)
             {

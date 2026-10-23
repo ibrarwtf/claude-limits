@@ -13,7 +13,6 @@ namespace ClaudeLimits
     /// drag to move — same click semantics as the Mac status item.
     sealed class PillWindow : Window
     {
-        readonly TrayApp app;
         readonly Grid root = new Grid();
         readonly DispatcherTimer zTimer;
         IntPtr hwnd;
@@ -24,7 +23,6 @@ namespace ClaudeLimits
 
         public PillWindow(TrayApp app)
         {
-            this.app = app;
             Title = "claude-limits";
             WindowStyle = WindowStyle.None;
             AllowsTransparency = true;
