@@ -56,9 +56,7 @@ extension AppDelegate {
                 v.appearance = appearance
                 // Windowless views have no background; without this dark text vanishes.
                 v.wantsLayer = true
-                v.layer?.backgroundColor = (dark
-                    ? NSColor(white: 0.18, alpha: 1.0).cgColor
-                    : NSColor(white: 0.95, alpha: 1.0).cgColor)
+                v.layer?.backgroundColor = NSColor(white: dark ? 0.18 : 0.95, alpha: 1.0).cgColor
                 v.layoutSubtreeIfNeeded()
                 png = renderViewPNG(v, with: appearance)
             case "dropdown":
@@ -94,27 +92,15 @@ extension AppDelegate {
         // Real row width so tab stops land on the same pixels.
         let width = AppDelegate.menuRowWidth
 
-        var contentH: CGFloat = padTop + padBottom
-        for item in items {
-            if item.isSeparatorItem {
-                contentH += separatorH
-            } else if let v = item.view {
-                contentH += v.bounds.height
-            } else {
-                contentH += lineHeight
-            }
-        }
+        let contentH = items.reduce(padTop + padBottom) { $0 + ($1.isSeparatorItem ? separatorH : $1.view?.bounds.height ?? lineHeight) }
 
         let canvas = NSSize(width: width, height: contentH)
         let img = NSImage(size: canvas)
         img.lockFocus()
 
         appearance.performAsCurrentDrawingAppearance {
-            if dark {
-                NSColor(calibratedRed: 0.20, green: 0.20, blue: 0.20, alpha: 0.98).setFill()
-            } else {
-                NSColor(calibratedRed: 0.97, green: 0.97, blue: 0.97, alpha: 0.99).setFill()
-            }
+            (dark ? NSColor(calibratedRed: 0.20, green: 0.20, blue: 0.20, alpha: 0.98)
+                  : NSColor(calibratedRed: 0.97, green: 0.97, blue: 0.97, alpha: 0.99)).setFill()
             NSBezierPath(roundedRect: NSRect(origin: .zero, size: canvas),
                          xRadius: 8, yRadius: 8).fill()
 
