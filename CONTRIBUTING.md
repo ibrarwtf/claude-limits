@@ -17,7 +17,7 @@ PRs welcome. Keep them small, focused, and dependency-free.
 
 ## Not in focus right now (but open if you want to build it)
 
-- **Cross-platform ports.** `src/core/` is Foundation-only on purpose. If you want to add a `win/` (or `linux/`, etc.) sibling alongside `src/mac/` that reuses the same core, go for it — open an issue first so we can coordinate the layout.
+- **More platforms.** Windows lives in `src/win/` as a C# port (see [CLAUDE.md](CLAUDE.md) for why it isn't shared Swift). A Linux port is open — open an issue first so we can coordinate the layout.
 - **Telemetry or analytics.** Not needed at the current user base. Reconsider later if it ever becomes hard to debug what's happening for users.
 
 ## Sending a pull request
@@ -32,17 +32,17 @@ PRs welcome. Keep them small, focused, and dependency-free.
 
 Conventions live in [CLAUDE.md](CLAUDE.md). Two things the build itself enforces:
 
-- `src/core/` must not import AppKit or Cocoa — `scripts/build.sh` greps for it and aborts.
-- No new dependencies. AppKit + Foundation only.
+- `src/core/` must not import AppKit or Cocoa — `scripts/build.sh` greps for it and aborts. Likewise `src/win/core/` must not reference WPF/WinForms — `scripts/build.ps1` aborts.
+- No new dependencies. AppKit + Foundation only on macOS; in-box .NET Framework 4.8 assemblies only on Windows.
+- Behaviour shared by both apps (polling, back-off, burn-rate math, alerts) is duplicated — change both, or say in the PR which one you couldn't test.
 
 ## Reporting bugs
 
 Open an issue at https://github.com/ibrarwtf/claude-limits/issues with:
 
-- macOS version (`sw_vers`)
-- Mac model — Apple Silicon vs Intel
-- App version — visible in Settings (right-click the menu bar icon)
+- macOS version (`sw_vers`) and Mac model (Apple Silicon vs Intel) — or Windows version (`winver`)
+- App version — visible in Settings
 - Steps to reproduce
-- Relevant lines from `tail /tmp/claude-limits.log`
+- Relevant lines from `tail /tmp/claude-limits.log` (macOS) or `%TEMP%\claude-limits.log` (Windows)
 
 A screenshot of the menu bar / dropdown helps if it's a layout or rendering bug.
