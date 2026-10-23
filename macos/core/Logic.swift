@@ -708,6 +708,14 @@ func rollover(_ lastU: Double?, _ u: Double, _ lastR: String?, _ r: String?, _ n
     }
 }
 
+func animationLeft(_ start: Date?, _ now: Date) -> Double {
+    if start == nil {
+        return 0.0
+    } else {
+        return max(0.0, minAnimation - now.timeIntervalSince(start!))
+    }
+}
+
 func resumedError(_ until: Date?, _ now: Date) -> AppError? {
     if (until != nil) && (until! > now) {
         let s = until!.timeIntervalSince(now)

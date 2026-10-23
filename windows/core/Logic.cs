@@ -876,6 +876,18 @@ public static partial class Logic
         }
     }
 
+    public static double AnimationLeft(DateTime? start, DateTime now)
+    {
+        if (start == null)
+        {
+            return 0.0;
+        }
+        else
+        {
+            return Math.Max(0.0, MinAnimation - (now - start.Value).TotalSeconds);
+        }
+    }
+
     public static AppError ResumedError(DateTime? until, DateTime now)
     {
         if ((until != null) && (until.Value > now))

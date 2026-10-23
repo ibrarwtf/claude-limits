@@ -363,11 +363,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func playClickAnimation() {
         startAnimation()
-        let gen = animationGeneration
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
-            guard let self = self, self.animationGeneration == gen else { return }
-            self.stopAnimation()
-        }
+        stopAnimation(after: 1.5)
     }
 
     func showDropdown() {
@@ -518,11 +514,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     } else {
                         NSLog("claude-limits fetch error: \(friendlyMessage(e))")
                     }
-                    if self.lastResponse == nil {
-                        self.startRateLimitCycle()
-                    } else {
-                        self.stopRateLimitCycle()
-                    }
+                    self.lastResponse == nil ? self.startRateLimitCycle() : self.stopRateLimitCycle()
                 }
                 self.updateTitle()
             }
@@ -547,16 +539,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    func scheduleAnimationStop() {
-        let elapsed = animationStartedAt.map { Date().timeIntervalSince($0) } ?? minAnimation
-        let remaining = max(0, minAnimation - elapsed)
-        if remaining <= 0 { stopAnimation() }
-        else {
-            let gen = animationGeneration
-            DispatchQueue.main.asyncAfter(deadline: .now() + remaining) { [weak self] in
-                guard let self = self, self.animationGeneration == gen else { return }
-                self.stopAnimation()
-            }
+    func scheduleAnimationStop() { stopAnimation(after: animationLeft(animationStartedAt, Date())) }
+
+    /// Unless a newer cycle has started by then.
+    private func stopAnimation(after seconds: TimeInterval) {
+        if seconds <= 0 { return stopAnimation() }
+        let gen = animationGeneration
+        DispatchQueue.main.asyncAfter(deadline: .now() + seconds) { [weak self] in
+            guard let self = self, self.animationGeneration == gen else { return }
+            self.stopAnimation()
         }
     }
 

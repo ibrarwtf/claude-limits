@@ -297,6 +297,9 @@ rollover(LastU, U, LastR, R, Now, Out) :-
     ;   Out = false ).
 
 % ── Polling policy ─────────────────────────────────────────────────────────
+:- fn animation_left(opt(time), time) -> float.   % the refresh animation runs at least min_animation: seconds still to go
+animation_left(Start, Now, S) :- ( Start == none -> S = 0.0 ; S is max(0.0, min_animation - secs(Start, Now)) ).
+
 :- fn resumed_error(opt(time), time) -> opt(error).   % at launch: a 429 back-off still running from the last process
 resumed_error(Until, Now, E) :- ( Until \== none, Until > Now -> S is secs(Now, Until), E = rate_limited(S) ; E = none ).
 

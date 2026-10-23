@@ -207,8 +207,7 @@ namespace ClaudeLimits
         void PlayClickAnimation()
         {
             StartAnimation();
-            int gen = animationGeneration;
-            After(1.5, () => { if (animationGeneration == gen) StopAnimation(); });
+            StopAnimationAfter(1.5);
         }
 
         public void ToggleFlyout(Native.RECT anchor, bool fromPill)
@@ -367,16 +366,14 @@ namespace ClaudeLimits
             });
         }
 
-        void ScheduleAnimationStop()
+        void ScheduleAnimationStop() => StopAnimationAfter(AnimationLeft(animationStartedAt, Now));
+
+        /// Unless a newer cycle has started by then.
+        void StopAnimationAfter(double seconds)
         {
-            double elapsed = animationStartedAt.HasValue ? (Now - animationStartedAt.Value).TotalSeconds : MinAnimation;
-            double remaining = Math.Max(0, MinAnimation - elapsed);
-            if (remaining <= 0) StopAnimation();
-            else
-            {
-                int gen = animationGeneration;
-                After(remaining, () => { if (animationGeneration == gen) StopAnimation(); });
-            }
+            if (seconds <= 0) { StopAnimation(); return; }
+            int gen = animationGeneration;
+            After(seconds, () => { if (animationGeneration == gen) StopAnimation(); });
         }
 
         void StopAnimation()
