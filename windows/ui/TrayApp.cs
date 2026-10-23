@@ -26,9 +26,7 @@ namespace ClaudeLimits
         DispatcherTimer pollTimer, animationTimer, tickTimer, rateLimitCycleTimer, updateCheckTimer;
         int animationFrame;
         DateTime? animationStartedAt;
-        /// Bumped each time StartAnimation() begins a cycle. Deferred stops capture
-        /// this value when scheduled and no-op if a newer cycle has since started,
-        /// so a stale timer can't tear down a fresh animation.
+        /// Bumped per StartAnimation(); a deferred stop from an older cycle no-ops.
         int animationGeneration;
         public bool IsRefreshing { get; private set; }
         CancellationTokenSource currentTask;
@@ -37,21 +35,13 @@ namespace ClaudeLimits
         public DateTime? LastUpdated { get; private set; }
         public AppError LastError { get; private set; }
 
-        // Error animation cycle (cold-start only — runs only when there's no
-        // prior successful data). Monotonic 12 fps counter; cyclePos picks phase.
-        int rateLimitAnimFrame;
+        int rateLimitAnimFrame;   // cold-start error animation (error_tick in logic/core.pl)
         int marqueeWindowChars = 22;
 
         public GitHubRelease LatestVersionAvailable { get; private set; }
 
-        /// Click-storm cooldown: rapid manual clicks each previously cancelled the
-        /// in-flight task and started a new fetch — so 10 clicks in 1s could hit
-        /// Anthropic 10 times before any cancellation took effect. With this gate,
-        /// manual fetches are throttled to one per `ManualClickCooldown` seconds;
-        /// excess clicks just play the acknowledgement wave.
-        public DateTime? LastManualClickAt { get; set; }
-        /// Used for "next in Xs" rendering.
-        DateTime? nextPollAt;
+        public DateTime? LastManualClickAt { get; set; }   // click-storm guard (click_effect)
+        DateTime? nextPollAt;                              // for "next in Xs"
 
         MenuBarTitle currentTitle = new MenuBarTitle { Plain = "—" };
         string trayIconKey;
@@ -70,24 +60,16 @@ namespace ClaudeLimits
 
             tray = new Forms.NotifyIcon { Text = "claude-limits", Visible = true };
             tray.Icon = TrayIcon.AppIcon(Forms.SystemInformation.SmallIconSize.Width);
-            tray.MouseClick += (_, e) =>
-            {
-                // Windows convention: either button opens the flyout from the
-                // tray; refresh is the pill's left-click and a flyout row.
-                if (e.Button == Forms.MouseButtons.Left || e.Button == Forms.MouseButtons.Right)
-                {
-                    Native.GetCursorPos(out var p);
-                    ToggleFlyout(new Native.RECT { Left = p.X, Top = p.Y, Right = p.X, Bottom = p.Y }, fromPill: false);
-                }
-            };
+            // Windows convention: either button opens the flyout from the tray;
+            // refresh is the pill's left-click and a flyout row.
+            tray.MouseClick += (_, e) => { if (e.Button == Forms.MouseButtons.Left || e.Button == Forms.MouseButtons.Right) ToggleFlyoutAtCursor(); };
 
             pill = new PillWindow(this);
             if (Settings.Shared.ShowPill) pill.ShowPill();
 
             ComputeWidthBudget();
 
-            // Restore last successful response from disk so we render real data
-            // immediately, even before the first poll completes.
+            // Show the last response straight away, before the first poll lands.
             var json = Settings.Shared.LastResponseJSON;
             if (!string.IsNullOrEmpty(json))
             {
@@ -100,8 +82,7 @@ namespace ClaudeLimits
                 catch { }
             }
 
-            // Still inside a rate-limit window from the previous process? Mirror
-            // the error state. Marquee only runs when there's no prior data.
+            // Still inside a 429 back-off from the previous process: mirror it.
             var until = Settings.Shared.NextAllowedPoll;
             if (until.HasValue && until.Value > Now)
             {
@@ -116,16 +97,14 @@ namespace ClaudeLimits
             // Tick the title every 30s to update the reset countdown without a fetch.
             tickTimer = Every(30, UpdateTitle);
 
-            // Update check: once at launch (small delay so the first poll lands
-            // first), then daily. GitHub anonymous limit is 60/h, so daily is fine.
+            // Update check shortly after launch, then daily (GitHub allows 60/h anonymous).
             After(5, () => { var _ = CheckForLatestRelease(); });
             updateCheckTimer = Every(24 * 3600, () => { var _ = CheckForLatestRelease(); });
 
             if (!Settings.Shared.DidFirstLaunch)
             {
                 Settings.Shared.DidFirstLaunch = true;
-                // Auto-enable autostart on first launch so zip-installed users
-                // get a working Run entry without flipping a setting.
+                // Zip installs get autostart without flipping a setting.
                 Settings.Shared.LaunchAtStartup = true;
                 UI.BeginInvoke(new Action(OpenSettings));
             }
@@ -148,11 +127,7 @@ namespace ClaudeLimits
                 return;
             }
             tray = new Forms.NotifyIcon { Text = "claude-limits (fixture)", Visible = true };
-            tray.MouseClick += (_, e) =>
-            {
-                Native.GetCursorPos(out var p);
-                ToggleFlyout(new Native.RECT { Left = p.X, Top = p.Y, Right = p.X, Bottom = p.Y }, fromPill: false);
-            };
+            tray.MouseClick += (_, e) => ToggleFlyoutAtCursor();
             pill = new PillWindow(this);
             pill.ShowPill();
             UpdateTitle();
@@ -182,8 +157,7 @@ namespace ClaudeLimits
             marqueeWindowChars = Math.Max(8, (int)Math.Floor(max / charWidth));
         }
 
-        /// Hit the GitHub Releases API and remember whether a newer version is
-        /// available. UI consumers read `LatestVersionAvailable` to render hints.
+        /// Remembers a newer release in LatestVersionAvailable (Settings shows it).
         public async Task<(GitHubRelease, Exception)> CheckForLatestRelease()
         {
             try
@@ -195,8 +169,7 @@ namespace ClaudeLimits
             catch (Exception e) { return (null, e); }
         }
 
-        /// Breadcrumb posted just before we quit for a self-update — the tray icon
-        /// briefly vanishes while the new exe starts.
+        /// Posted just before quitting for a self-update, while the tray icon is gone.
         public void NotifyUpdating(string version) =>
             tray.ShowBalloonTip(4000, "Updating claude-limits",
                 UpdatingNotice(version, "tray icon"), Forms.ToolTipIcon.Info);
@@ -214,10 +187,7 @@ namespace ClaudeLimits
         }
 
         /// Pill left-click — the Mac status item's left-click.
-        public void PrimaryClick()
-        {
-            ManualRefresh(fromClick: true);
-        }
+        public void PrimaryClick() => ManualRefresh(fromClick: true);
 
         /// See click_effect in logic/core.pl. "Refresh now" shares the click-storm
         /// cooldown but stays silent during a 429 back-off.
@@ -256,6 +226,12 @@ namespace ClaudeLimits
             flyout.ShowAt(anchor, fromPill);
         }
 
+        void ToggleFlyoutAtCursor()
+        {
+            Native.GetCursorPos(out var p);
+            ToggleFlyout(new Native.RECT { Left = p.X, Top = p.Y, Right = p.X, Bottom = p.Y }, fromPill: false);
+        }
+
         // ── Title rendering ──────────────────────────────────────────────────
 
         /// Current data as a title. respectToggles=false is the flyout header,
@@ -276,8 +252,7 @@ namespace ClaudeLimits
 
         public void UpdateTitle()
         {
-            if (IsRefreshing || animationTimer != null) return;
-            if (rateLimitCycleTimer != null) return;
+            if (IsRefreshing || animationTimer != null || rateLimitCycleTimer != null) return;
             ApplyTitle(DataTitle(respectToggles: true));
         }
 
@@ -327,8 +302,7 @@ namespace ClaudeLimits
             if (force) currentTask?.Cancel();
             IsRefreshing = true;
             if (animated) StartAnimation();
-            // Manual refreshes push the periodic timer's next-fire forward by a
-            // full interval so we don't double-poll right after a manual click.
+            // A manual refresh restarts the poll timer so we don't double-poll.
             if (force) SchedulePoll();
             var myToken = Guid.NewGuid();
             currentRequestToken = myToken;
@@ -417,9 +391,7 @@ namespace ClaudeLimits
             UpdateTitle();
         }
 
-        // ── Error animation cycle ───────────────────────────────────────────
-        // Phase A bouncing wave (~1.5s), Phase B marquee scroll of friendly
-        // message. Both render mono within the width budget.
+        // ── Error animation cycle (frames from error_tick) ───────────────────
 
         void StartRateLimitCycle()
         {
@@ -445,15 +417,11 @@ namespace ClaudeLimits
 
         public string FormatResetLine(UsageBucket f) => ResetLine(f.Utilization, f.ResetsAt, UsageHistory.Shared.Samples, Now);
 
-        /// Fire one-shot notifications when 5h utilization first crosses 80% / 95%.
-        /// State is keyed to the live `resets_at` so each new window starts fresh,
-        /// and a relaunch mid-window won't re-notify.
+        /// One-shot 80% / 95% alerts per window. The fired set resets only on a real
+        /// resets_at change — the API sometimes drops it mid-window.
         void CheckAndNotifyThresholds(UsageBucket f)
         {
             var s = Settings.Shared;
-            // Only roll over the dedup set on a real resets_at change. The API can
-            // intermittently drop resets_at to nil mid-window; treating that as a
-            // rollover would clear the set and re-fire the 80/95% alerts.
             if (f.ResetsAt != null && f.ResetsAt != s.LastNotifiedResetsAt)
             {
                 s.LastNotifiedResetsAt = f.ResetsAt;
@@ -523,14 +491,7 @@ namespace ClaudeLimits
             {
                 case "snapshot": Snapshot.Handle(this, url); break;
                 case "settings": OpenSettings(); break;
-                case "flyout":
-                    if (pill.IsVisible) ToggleFlyout(pill.ScreenRect(), fromPill: true);
-                    else
-                    {
-                        Native.GetCursorPos(out var p);
-                        ToggleFlyout(new Native.RECT { Left = p.X, Top = p.Y, Right = p.X, Bottom = p.Y }, fromPill: false);
-                    }
-                    break;
+                case "flyout": if (pill.IsVisible) ToggleFlyout(pill.ScreenRect(), fromPill: true); else ToggleFlyoutAtCursor(); break;
                 case "quit": Quit(); break;
             }
         }
