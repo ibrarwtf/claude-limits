@@ -55,31 +55,12 @@ namespace ClaudeLimits
                 else row.Children.Add(Text(t.Plain, fgKey, t.Mono ? Theme.MonoFont : Theme.UIFont, t.Mono ? 11.5 : fontSize));
                 return row;
             }
-            bool prev = false;
-            if (t.Pct != null)
-            {
-                var tb = Text(t.Pct, fgKey, Theme.UIFont, fontSize);
-                // Fixed slot widths so the pill doesn't jitter as digits change —
-                // the Mac clamps the status-item width for the same reason.
-                tb.MinWidth = Measure("100%", Theme.UIFont, fontSize);
-                tb.TextAlignment = TextAlignment.Right;
-                row.Children.Add(tb);
-                prev = true;
-            }
-            if (t.Wave != null)
-            {
-                var b = Bars(t.Wave, fgKey);
-                if (prev) b.Margin = new Thickness(6, 0, 0, 0);
-                row.Children.Add(b);
-                prev = true;
-            }
-            if (t.Reset != null)
-            {
-                var tb = Text(t.Reset, fgKey, Theme.UIFont, fontSize);
-                tb.MinWidth = Measure("9:59", Theme.UIFont, fontSize);
-                if (prev) tb.Margin = new Thickness(6, 0, 0, 0);
-                row.Children.Add(tb);
-            }
+            void Add(FrameworkElement el) { if (row.Children.Count > 0) el.Margin = new Thickness(6, 0, 0, 0); row.Children.Add(el); }
+            // Fixed slot widths so the pill doesn't jitter as digits change —
+            // the Mac clamps the status-item width for the same reason.
+            if (t.Pct != null) Add(Text(t.Pct, fgKey, Theme.UIFont, fontSize, Measure("100%", Theme.UIFont, fontSize), TextAlignment.Right));
+            if (t.Wave != null) Add(Bars(t.Wave, fgKey));
+            if (t.Reset != null) Add(Text(t.Reset, fgKey, Theme.UIFont, fontSize, Measure("9:59", Theme.UIFont, fontSize)));
             return row;
         }
 
@@ -99,9 +80,9 @@ namespace ClaudeLimits
             return border;
         }
 
-        static TextBlock Text(string s, string fgKey, FontFamily font, double size)
+        static TextBlock Text(string s, string fgKey, FontFamily font, double size, double minWidth = 0, TextAlignment align = TextAlignment.Left)
         {
-            var tb = new TextBlock { Text = s, FontFamily = font, FontSize = size, VerticalAlignment = VerticalAlignment.Center };
+            var tb = new TextBlock { Text = s, FontFamily = font, FontSize = size, VerticalAlignment = VerticalAlignment.Center, MinWidth = minWidth, TextAlignment = align };
             tb.SetResourceReference(TextBlock.ForegroundProperty, fgKey);
             return tb;
         }
