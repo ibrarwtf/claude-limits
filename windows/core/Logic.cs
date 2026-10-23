@@ -1739,9 +1739,17 @@ public static partial class Logic
         }
     }
 
-    public static string WaitStatus(int n)
+    public static string WaitStatus(DateTime? until, DateTime now)
     {
-        return $"Rate limited — wait {(n)}s before testing again.";
+        if ((until != null) && (until.Value > now))
+        {
+            var n = Math.Max(0, (int)(until.Value - now).TotalSeconds);
+            return $"Rate limited — wait {(n)}s before testing again.";
+        }
+        else
+        {
+            return null;
+        }
     }
 
     public static string FlagValue(IReadOnlyList<string> a1, string f)

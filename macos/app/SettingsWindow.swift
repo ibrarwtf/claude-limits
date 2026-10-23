@@ -513,8 +513,8 @@ class SettingsViewController: NSViewController {
     @objc func testFetch() {
         collect()
         // No diagnostic hits during an active 429 window.
-        if let until = Settings.shared.nextAllowedPoll, until > Date() {
-            statusLabel.stringValue = waitStatus(max(0, Int(until.timeIntervalSinceNow)))
+        if let wait = waitStatus(Settings.shared.nextAllowedPoll, Date()) {
+            statusLabel.stringValue = wait
             statusLabel.textColor = .secondaryLabelColor
             return
         }

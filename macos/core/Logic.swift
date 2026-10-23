@@ -1301,8 +1301,13 @@ func testStatus(_ u: Double?) -> String {
     }
 }
 
-func waitStatus(_ n: Int) -> String {
-    return "Rate limited — wait \(n)s before testing again."
+func waitStatus(_ until: Date?, _ now: Date) -> String? {
+    if (until != nil) && (until! > now) {
+        let n = max(0, Int(until!.timeIntervalSince(now)))
+        return "Rate limited — wait \(n)s before testing again."
+    } else {
+        return nil
+    }
 }
 
 func flagValue(_ a1: [String], _ f: String) -> String? {

@@ -577,8 +577,10 @@ updating_status(V, S) :- format(string(S), "Updating to ~w… the app will relau
 updating_notice(V, W, S) :- format(string(S), "Installing ~w — the ~w will return in a few seconds.", [V, W]).
 :- fn test_status(opt(float)) -> str.   % five_hour utilization from a test fetch
 test_status(U, S) :- ( U == none -> S = "Connected, but no five_hour data." ; P is round(U), format(string(S), "OK — current session at ~d%", [P]) ).
-:- fn wait_status(int) -> str.
-wait_status(N, S) :- format(string(S), "Rate limited — wait ~ds before testing again.", [N]).
+:- fn wait_status(opt(time), time) -> opt(str).   % Test fetch during a 429 back-off (next allowed, now)
+wait_status(Until, Now, S) :-
+    (   Until \== none, Until > Now -> N is max(0, truncate(secs(Now, Until))), format(string(S), "Rate limited — wait ~ds before testing again.", [N])
+    ;   S = none ).
 
 % ── Command line ────────────────────────────────────────────────────────────
 :- fn flag_value(list(str), str) -> opt(str).   % the argument after Flag (--fixture <file>), if any

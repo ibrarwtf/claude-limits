@@ -451,12 +451,8 @@ namespace ClaudeLimits
         {
             Collect();
             // No diagnostic hits during an active 429 window.
-            var until = Settings.Shared.NextAllowedPoll;
-            if (until.HasValue && until.Value > DateTime.UtcNow)
-            {
-                SetStatus(WaitStatus(Math.Max(0, (int)(until.Value - DateTime.UtcNow).TotalSeconds)));
-                return;
-            }
+            var wait = WaitStatus(Settings.Shared.NextAllowedPoll, DateTime.UtcNow);
+            if (wait != null) { SetStatus(wait); return; }
             SetStatus("Testing…");
             var r = await Api.FetchUsageAsync();
             if (r == null) return;
