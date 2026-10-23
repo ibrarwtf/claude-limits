@@ -66,6 +66,8 @@ enum Row {
 
 enum TokenSource: Int { case auto, file, shell }
 
+enum Click: Int { case blocked, cooling, fetch }
+
 enum MenuAction: Int { case openSettings, refresh, openUsage, quit }
 
 struct UsageBucket: Codable {
@@ -560,6 +562,17 @@ func window(_ s: String, _ start: Int, _ n: Int, _ len: Int) -> String {
     }
 }
 
+func errorTick(_ e: AppError?, _ until: Date?, _ now: Date, _ f: Int, _ width: Int) -> String? {
+    if e == nil {
+        return nil
+    } else if e!.kind == .rateLimited && ((until != nil) && (until! <= now)) {
+        return nil
+    } else {
+        let m = marqueeText(e!, until, now)
+        return errorFrame(f, m, width)
+    }
+}
+
 func rollover(_ lastU: Double?, _ u: Double, _ lastR: String?, _ r: String?, _ now: Date) -> Bool {
     let d = parseISO(r)
     if lastU == nil {
@@ -594,6 +607,17 @@ func coolingDown(_ last: Date?, _ now: Date) -> Bool {
         return true
     } else {
         return false
+    }
+}
+
+func clickEffect(_ until: Date?, _ last: Date?, _ now: Date) -> Click {
+    let cool = coolingDown(last, now)
+    if (until != nil) && (until! > now) {
+        return Click.blocked
+    } else if cool == true {
+        return Click.cooling
+    } else {
+        return Click.fetch
     }
 }
 
@@ -886,6 +910,28 @@ func iconLevel(_ u: Double) -> Int {
     }
 }
 
+func trayText(_ n: Int?, _ err: Bool, _ plain: String?) -> String? {
+    if n != nil {
+        return "\(n!)"
+    } else if err == true {
+        return "!"
+    } else if plain == "—" {
+        return "–"
+    } else {
+        return nil
+    }
+}
+
+func trayLevel(_ n: Int?, _ u: Double, _ err: Bool) -> Int {
+    if n != nil {
+        return iconLevel(u)
+    } else if err == true {
+        return 3
+    } else {
+        return 0
+    }
+}
+
 func tooltip(_ u: Double?, _ iso: String?, _ e: AppError?, _ now: Date) -> String {
     let s2: String
     if u != nil {
@@ -917,4 +963,43 @@ func tooltip(_ u: Double?, _ iso: String?, _ e: AppError?, _ now: Date) -> Strin
     } else {
         return s2
     }
+}
+
+func updateStatus(_ latest: String?, _ err: String?, _ ver: String) -> String {
+    if err != nil {
+        return "Couldn't reach GitHub: \(err!)"
+    } else if latest != nil {
+        return "Update \(latest!) available — click “Update to \(latest!)”."
+    } else {
+        return "You're on the latest version (v\(ver))."
+    }
+}
+
+func updateButton(_ l: String?) -> String {
+    if l == nil {
+        return "Check for updates"
+    } else {
+        return "Update to \(l!)"
+    }
+}
+
+func updatingStatus(_ v: String) -> String {
+    return "Updating to \(v)… the app will relaunch when done."
+}
+
+func updatingNotice(_ v: String, _ w: String) -> String {
+    return "Installing \(v) — the \(w) will return in a few seconds."
+}
+
+func testStatus(_ u: Double?) -> String {
+    if u == nil {
+        return "Connected, but no five_hour data."
+    } else {
+        let p = Int(u!.rounded())
+        return "OK — current session at \(p)%"
+    }
+}
+
+func waitStatus(_ n: Int) -> String {
+    return "Rate limited — wait \(n)s before testing again."
 }

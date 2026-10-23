@@ -235,6 +235,14 @@ window(S, Start, N, Len, Out) :-
     ;   I is Start rem Len, char_at(S, I, C), Next is Start + 1, N1 is N - 1,
         window(S, Next, N1, Len, Rest), string_concat(C, Rest, Out) ).
 
+% One tick of that animation for the current error; none once it's over or
+% the error cleared (incl. a 429 whose back-off has run out).
+:- fn error_tick(opt(error), opt(time), time, int, int) -> opt(str).   % error, next allowed, now, frame, width
+error_tick(E, Until, Now, F, Width, Out) :-
+    (   E == none -> Out = none
+    ;   E = rate_limited(_), Until \== none, Until =< Now -> Out = none
+    ;   marquee_text(E, Until, Now, M), error_frame(F, M, Width, Out) ).
+
 % A new window started: the API's resets_at moved to a new future instant, or
 % (when we were down and missed it) utilization fell a lot.
 :- fn rollover(opt(float), float, opt(str), opt(str), time) -> bool.
@@ -258,6 +266,14 @@ should_poll(Until, Last, Now, Out) :-
 :- fn cooling_down(opt(time), time) -> bool.   % click-storm guard
 cooling_down(Last, Now, Out) :-
     ( Last \== none, secs(Last, Now) < click_cooldown -> Out = true ; Out = false ).
+
+:- choice click = [blocked, cooling, fetch].
+% A manual refresh (click / "Refresh now"): wait out a 429 back-off, absorb a
+% click storm with the acknowledgement wave, otherwise fetch.
+:- fn click_effect(opt(time), opt(time), time) -> click.   % next allowed, last manual click, now
+click_effect(Until, Last, Now, C) :-
+    cooling_down(Last, Now, Cool),
+    ( Until \== none, Until > Now -> C = blocked ; Cool == true -> C = cooling ; C = fetch ).
 
 :- fn backoff_secs(int, opt(float)) -> float.   % nth consecutive 429; honours a longer Retry-After
 backoff_secs(Count, Retry, S) :-
@@ -398,6 +414,11 @@ bar_row(Label, U, bar(Label, U, V)) :- percent(U, P), format(string(V), "~d%", [
 :- fn icon_level(float) -> int.   % 0 normal, 1 amber, 2 red
 icon_level(U, L) :- ( U >= 95.0 -> L = 2 ; U >= 80.0 -> L = 1 ; L = 0 ).
 
+:- fn tray_text(opt(int), bool, opt(str)) -> opt(str).   % number, error state, plain title; none → app icon
+tray_text(N, Err, Plain, T) :- ( N \== none -> format(string(T), "~d", [N]) ; Err == true -> T = "!" ; Plain == "—" -> T = "–" ; T = none ).
+:- fn tray_level(opt(int), float, bool) -> int.   % icon_level, or 3 (grey) for an error
+tray_level(N, U, Err, L) :- ( N \== none -> icon_level(U, L) ; Err == true -> L = 3 ; L = 0 ).
+
 :- fn tooltip(opt(float), opt(str), opt(error), time) -> str.   % hover text, ≤ 63 chars
 tooltip(U, Iso, E, Now, S) :-
     (   U \== none ->
@@ -407,3 +428,20 @@ tooltip(U, Iso, E, Now, S) :-
     ;   E \== none -> error_symbol(E, Sym), format(string(S2), "claude-limits · ~w", [Sym])
     ;   S2 = "claude-limits" ),
     string_length(S2, N), ( N > 63 -> prefix(S2, 62, H), string_concat(H, "…", S) ; S = S2 ).
+
+% ── Settings copy ────────────────────────────────────────────────────────────
+:- fn update_status(opt(str), opt(str), str) -> str.   % newer tag, GitHub error, our version
+update_status(Latest, Err, Ver, S) :-
+    (   Err \== none -> format(string(S), "Couldn't reach GitHub: ~w", [Err])
+    ;   Latest \== none -> format(string(S), "Update ~w available — click “Update to ~w”.", [Latest, Latest])
+    ;   format(string(S), "You're on the latest version (v~w).", [Ver]) ).
+:- fn update_button(opt(str)) -> str.
+update_button(L, S) :- ( L == none -> S = "Check for updates" ; format(string(S), "Update to ~w", [L]) ).
+:- fn updating_status(str) -> str.
+updating_status(V, S) :- format(string(S), "Updating to ~w… the app will relaunch when done.", [V]).
+:- fn updating_notice(str, str) -> str.   % version, what vanishes meanwhile
+updating_notice(V, W, S) :- format(string(S), "Installing ~w — the ~w will return in a few seconds.", [V, W]).
+:- fn test_status(opt(float)) -> str.   % five_hour utilization from a test fetch
+test_status(U, S) :- ( U == none -> S = "Connected, but no five_hour data." ; P is round(U), format(string(S), "OK — current session at ~d%", [P]) ).
+:- fn wait_status(int) -> str.
+wait_status(N, S) :- format(string(S), "Rate limited — wait ~ds before testing again.", [N]).

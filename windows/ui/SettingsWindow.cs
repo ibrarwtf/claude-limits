@@ -470,10 +470,8 @@ namespace ClaudeLimits
         {
             SetStatus("Checking for updates…");
             var (latest, err) = await app.CheckForLatestRelease();
-            if (err != null) { SetStatus($"Couldn't reach GitHub: {err.Message}"); return; }
-            if (latest != null) SetStatus($"Update {latest.TagName} available — click “Update to {latest.TagName}”.", "Orange");
-            else SetStatus($"You're on the latest version (v{Platform.Version}).", "Fg");
-            ApplyUpdateButtonState();
+            SetStatus(UpdateStatus(latest?.TagName, err?.Message, Platform.Version), err != null ? "FgDim" : latest != null ? "Orange" : "Fg");
+            if (err == null) ApplyUpdateButtonState();
         }
 
         /// Reflect known update availability on the action button: a pending update
@@ -484,14 +482,14 @@ namespace ClaudeLimits
             if (updateBtn == null) return;
             var latest = app.LatestVersionAvailable;
             updateBtnPerformsUpdate = latest != null;
-            updateBtn.Content = latest != null ? $"Update to {latest.TagName}" : "Check for updates";
+            updateBtn.Content = UpdateButton(latest?.TagName);
         }
 
         async void PerformUpdate()
         {
             var latest = app.LatestVersionAvailable;
             if (latest == null) { CheckForUpdates(); return; }
-            SetStatus($"Updating to {latest.TagName}… the app will relaunch when done.");
+            SetStatus(UpdatingStatus(latest.TagName));
             updateBtn.IsEnabled = false;
             // Breadcrumb for the brief gap where the tray icon disappears while
             // the new exe starts.
@@ -531,7 +529,7 @@ namespace ClaudeLimits
             var until = Settings.Shared.NextAllowedPoll;
             if (until.HasValue && until.Value > DateTime.UtcNow)
             {
-                SetStatus($"Rate limited — wait {Math.Max(0, (int)(until.Value - DateTime.UtcNow).TotalSeconds)}s before testing again.");
+                SetStatus(WaitStatus(Math.Max(0, (int)(until.Value - DateTime.UtcNow).TotalSeconds)));
                 return;
             }
             SetStatus("Testing…");
@@ -539,8 +537,7 @@ namespace ClaudeLimits
             if (r == null) return;
             if (r.IsSuccess)
             {
-                var f = r.Value.FiveHour;
-                SetStatus(f != null ? $"OK — current session at {(int)Math.Round(f.Utilization, MidpointRounding.AwayFromZero)}%" : "Connected, but no five_hour data.", "Fg");
+                SetStatus(TestStatus(r.Value.FiveHour?.Utilization), "Fg");
                 SetCredentialsDotConnected(true);
             }
             else

@@ -70,10 +70,10 @@ namespace ClaudeLimits
             var row = new StackPanel { Orientation = Orientation.Horizontal };
             row.Children.Add(PillView.Capsule(app.CurrentTitle));
             var t = app.CurrentTitle;
-            string text = t.TrayNumber?.ToString() ?? (t.IsError ? "!" : t.Plain == "—" ? "–" : null);
+            string text = TrayText(t.TrayNumber, t.IsError, t.Plain);
             if (text != null)
             {
-                var level = t.TrayNumber.HasValue ? (IconLevel)IconLevel(t.Utilization) : t.IsError ? IconLevel.Error : IconLevel.Normal;
+                var level = (IconLevel)TrayLevel(t.TrayNumber, t.Utilization, t.IsError);
                 using (var bmp = TrayIcon.RenderBitmap(text, level, dark, (int)(16 * scale)))
                 {
                     var ms = new MemoryStream();

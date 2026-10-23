@@ -199,7 +199,7 @@ namespace ClaudeLimits
         /// briefly vanishes while the new exe starts.
         public void NotifyUpdating(string version) =>
             tray.ShowBalloonTip(4000, "Updating claude-limits",
-                $"Installing {version} — the tray icon will return in a few seconds.", Forms.ToolTipIcon.Info);
+                UpdatingNotice(version, "tray icon"), Forms.ToolTipIcon.Info);
 
         void SchedulePoll()
         {
@@ -216,22 +216,26 @@ namespace ClaudeLimits
         /// Pill left-click — the Mac status item's left-click.
         public void PrimaryClick()
         {
-            // Rate-limited → click-acknowledgement wave only, no fetch.
-            var until = Settings.Shared.NextAllowedPoll;
-            if (until.HasValue && until.Value > Now)
+            ManualRefresh(fromClick: true);
+        }
+
+        /// See click_effect in logic/core.pl. "Refresh now" shares the click-storm
+        /// cooldown but stays silent during a 429 back-off.
+        void ManualRefresh(bool fromClick)
+        {
+            switch (ClickEffect(Settings.Shared.NextAllowedPoll, LastManualClickAt, Now))
             {
-                LastError = AppError.RateLimited((until.Value - Now).TotalSeconds);
-                PlayClickAnimation();
-                return;
+                case Click.Blocked:
+                    if (!fromClick) return;
+                    LastError = AppError.RateLimited((Settings.Shared.NextAllowedPoll.Value - Now).TotalSeconds);
+                    PlayClickAnimation();
+                    break;
+                case Click.Cooling: PlayClickAnimation(); break;
+                default:
+                    LastManualClickAt = Now;
+                    TriggerRefresh(animated: true, force: true);
+                    break;
             }
-            // Click-storm cooldown → wave only, no fetch.
-            if (CoolingDown(LastManualClickAt, Now))
-            {
-                PlayClickAnimation();
-                return;
-            }
-            LastManualClickAt = Now;
-            TriggerRefresh(animated: true, force: true);
         }
 
         void PlayClickAnimation()
@@ -286,11 +290,9 @@ namespace ClaudeLimits
 
         void UpdateTrayIcon(MenuBarTitle t)
         {
-            string text; IconLevel level;
-            if (t.TrayNumber is int n) { text = n.ToString(CultureInfo.InvariantCulture); level = (IconLevel)IconLevel(t.Utilization); }
-            else if (t.IsError || LastResponse == null && LastError != null) { text = "!"; level = IconLevel.Error; }
-            else if (t.Plain == "—") { text = "–"; level = IconLevel.Normal; }
-            else { text = null; level = IconLevel.Normal; }
+            bool err = t.IsError || LastResponse == null && LastError != null;
+            string text = TrayText(t.TrayNumber, err, t.Plain);
+            var level = (IconLevel)TrayLevel(t.TrayNumber, t.Utilization, err);
 
             bool dark = Theme.SystemDark;
             int size = Forms.SystemInformation.SmallIconSize.Width;
@@ -434,11 +436,7 @@ namespace ClaudeLimits
 
         void TickRateLimitCycle()
         {
-            if (LastError == null) { StopRateLimitCycle(); UpdateTitle(); return; }
-            var until = Settings.Shared.NextAllowedPoll;
-            if (LastError.Kind == AppErrorKind.RateLimited && until.HasValue && until.Value <= Now)
-            { StopRateLimitCycle(); UpdateTitle(); return; }
-            var text = ErrorFrame(rateLimitAnimFrame++, MarqueeText(LastError, until, Now), marqueeWindowChars);
+            var text = ErrorTick(LastError, Settings.Shared.NextAllowedPoll, Now, rateLimitAnimFrame++, marqueeWindowChars);
             if (text == null) { StopRateLimitCycle(); UpdateTitle(); return; }
             ApplyTitle(new MenuBarTitle { Plain = text, Mono = true, IsError = true });
         }
@@ -475,20 +473,7 @@ namespace ClaudeLimits
 
         // ── Actions ──────────────────────────────────────────────────────────
 
-        public void RefreshAction()
-        {
-            var until = Settings.Shared.NextAllowedPoll;
-            if (until.HasValue && until.Value > Now) return;
-            // Share the pill click-storm cooldown so repeated "Refresh now"
-            // taps can't bypass the throttle PrimaryClick enforces.
-            if (CoolingDown(LastManualClickAt, Now))
-            {
-                PlayClickAnimation();
-                return;
-            }
-            LastManualClickAt = Now;
-            TriggerRefresh(animated: true, force: true);
-        }
+        public void RefreshAction() => ManualRefresh(fromClick: false);
 
         public void OpenUsageWeb()
         {

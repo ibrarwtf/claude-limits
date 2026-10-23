@@ -553,20 +553,10 @@ class SettingsViewController: NSViewController {
         statusLabel.textColor = .secondaryLabelColor
         (NSApp.delegate as? AppDelegate)?.checkForLatestRelease { [weak self] latest, err in
             guard let self = self else { return }
-            if let err = err {
-                self.statusLabel.stringValue = "Couldn't reach GitHub: \(err.localizedDescription)"
-                self.statusLabel.textColor = .secondaryLabelColor
-                return
-            }
-            if let latest = latest {
-                self.statusLabel.stringValue = "Update \(latest) available — click “Update to \(latest)”."
-                self.statusLabel.textColor = NSColor.systemOrange
-            } else {
-                let v = (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "?"
-                self.statusLabel.stringValue = "You're on the latest version (v\(v))."
-                self.statusLabel.textColor = .labelColor
-            }
-            self.applyUpdateButtonState()
+            let v = (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "?"
+            self.statusLabel.stringValue = updateStatus(latest, err?.localizedDescription, v)
+            self.statusLabel.textColor = err != nil ? .secondaryLabelColor : latest != nil ? .systemOrange : .labelColor
+            if err == nil { self.applyUpdateButtonState() }
         }
     }
 
@@ -575,13 +565,9 @@ class SettingsViewController: NSViewController {
     /// by the AppDelegate's cached latestVersionAvailable (set at launch + daily).
     private func applyUpdateButtonState() {
         guard updateBtn != nil else { return }
-        if let latest = (NSApp.delegate as? AppDelegate)?.latestVersionAvailable {
-            updateBtn.title = "Update to \(latest)"
-            updateBtn.action = #selector(performUpdate)
-        } else {
-            updateBtn.title = "Check for updates"
-            updateBtn.action = #selector(checkForUpdates)
-        }
+        let latest = (NSApp.delegate as? AppDelegate)?.latestVersionAvailable
+        updateBtn.title = updateButton(latest)
+        updateBtn.action = latest == nil ? #selector(checkForUpdates) : #selector(performUpdate)
     }
 
     /// Simplest self-update for a Homebrew-distributed app: run `brew upgrade`.
@@ -605,7 +591,7 @@ class SettingsViewController: NSViewController {
             }
             return
         }
-        statusLabel.stringValue = "Updating to \(latest)… the app will relaunch when done."
+        statusLabel.stringValue = updatingStatus(latest)
         statusLabel.textColor = .secondaryLabelColor
         updateBtn.isEnabled = false
         // Breadcrumb during the brief gap where the app quits and the menu-bar
@@ -661,7 +647,7 @@ class SettingsViewController: NSViewController {
         // Respect the rate-limit cooldown — a diagnostic button shouldn't hit
         // Anthropic during an active 429 window.
         if let until = Settings.shared.nextAllowedPoll, until > Date() {
-            statusLabel.stringValue = "Rate limited — wait \(max(0, Int(until.timeIntervalSinceNow)))s before testing again."
+            statusLabel.stringValue = waitStatus(max(0, Int(until.timeIntervalSinceNow)))
             statusLabel.textColor = .secondaryLabelColor
             return
         }
@@ -672,11 +658,7 @@ class SettingsViewController: NSViewController {
                 guard let self = self else { return }
                 switch r {
                 case .success(let u):
-                    if let f = u.fiveHour {
-                        self.statusLabel.stringValue = "OK — current session at \(Int(round(f.utilization)))%"
-                    } else {
-                        self.statusLabel.stringValue = "Connected, but no five_hour data."
-                    }
+                    self.statusLabel.stringValue = testStatus(u.fiveHour?.utilization)
                     self.statusLabel.textColor = .labelColor
                     self.setCredentialsDotConnected(true)
                 case .failure(let e):

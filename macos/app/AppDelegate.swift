@@ -347,7 +347,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func notifyUpdating(to version: String) {
         let c = UNMutableNotificationContent()
         c.title = "Updating claude-limits"
-        c.body = "Installing \(version) — the menu bar icon will return in a few seconds."
+        c.body = updatingNotice(version, "menu bar icon")
         UNUserNotificationCenter.current().add(
             UNNotificationRequest(identifier: "claude-limits.updating", content: c, trigger: nil))
     }
@@ -382,19 +382,22 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             showDropdown()
             return
         }
-        // Rate-limited → click-acknowledgement wave only, no fetch.
-        if let until = Settings.shared.nextAllowedPoll, until > Date() {
-            lastError = .rateLimited(until.timeIntervalSinceNow)
+        manualRefresh(fromClick: true)
+    }
+
+    /// See click_effect in logic/core.pl. "Refresh now" shares the click-storm
+    /// cooldown but stays silent during a 429 back-off.
+    func manualRefresh(fromClick: Bool) {
+        switch clickEffect(Settings.shared.nextAllowedPoll, lastManualClickAt, Date()) {
+        case .blocked:
+            guard fromClick else { return }
+            lastError = .rateLimited(Settings.shared.nextAllowedPoll!.timeIntervalSinceNow)
             playClickAnimation()
-            return
+        case .cooling: playClickAnimation()
+        case .fetch:
+            lastManualClickAt = Date()
+            triggerRefresh(animated: true, force: true)
         }
-        // Click-storm cooldown → wave only, no fetch.
-        if coolingDown(lastManualClickAt, Date()) {
-            playClickAnimation()
-            return
-        }
-        lastManualClickAt = Date()
-        triggerRefresh(animated: true, force: true)
     }
 
     private func playClickAnimation() {
@@ -629,20 +632,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     func tickRateLimitCycle() {
-        if lastError == nil {
-            stopRateLimitCycle()
-            updateTitle()
-            return
-        }
-        if case .rateLimited = lastError ?? .parseFailed(""),
-           let until = Settings.shared.nextAllowedPoll,
-           until <= Date() {
-            stopRateLimitCycle()
-            updateTitle()
-            return
-        }
-        let text = errorFrame(rateLimitAnimFrame, marqueeText(lastError!, Settings.shared.nextAllowedPoll, Date()), marqueeWindowChars)
-        guard let text = text else {
+        guard let text = errorTick(lastError, Settings.shared.nextAllowedPoll, Date(), rateLimitAnimFrame, marqueeWindowChars) else {
             stopRateLimitCycle()
             updateTitle()
             return
@@ -792,17 +782,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    @objc func refreshAction() {
-        if let until = Settings.shared.nextAllowedPoll, until > Date() { return }
-        // Share the status-item click-storm cooldown so repeated "Refresh now"
-        // taps can't bypass the throttle clicked(_:) enforces.
-        if coolingDown(lastManualClickAt, Date()) {
-            playClickAnimation()
-            return
-        }
-        lastManualClickAt = Date()
-        triggerRefresh(animated: true, force: true)
-    }
+    @objc func refreshAction() { manualRefresh(fromClick: false) }
 
     @objc func openUsageWeb() {
         if let url = URL(string: "https://claude.ai/settings/usage") { NSWorkspace.shared.open(url) }

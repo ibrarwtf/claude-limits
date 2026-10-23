@@ -61,6 +61,8 @@ public sealed class Row
 
 public enum TokenSource { Auto, File, Shell }
 
+public enum Click { Blocked, Cooling, Fetch }
+
 public enum MenuAction { OpenSettings, Refresh, OpenUsage, Quit }
 
 [System.Runtime.Serialization.DataContract]
@@ -676,6 +678,23 @@ public static partial class Logic
         }
     }
 
+    public static string ErrorTick(AppError e, DateTime? until, DateTime now, int f, int width)
+    {
+        if (e == null)
+        {
+            return null;
+        }
+         else if (e.Kind == AppErrorKind.RateLimited && ((until != null) && (until.Value <= now)))
+        {
+            return null;
+        }
+        else
+        {
+            var m = MarqueeText(e, until, now);
+            return ErrorFrame(f, m, width);
+        }
+    }
+
     public static bool Rollover(double? lastU, double u, string lastR, string r, DateTime now)
     {
         var d = Format.ParseISO(r);
@@ -734,6 +753,23 @@ public static partial class Logic
         else
         {
             return false;
+        }
+    }
+
+    public static Click ClickEffect(DateTime? until, DateTime? last, DateTime now)
+    {
+        var cool = CoolingDown(last, now);
+        if ((until != null) && (until.Value > now))
+        {
+            return Click.Blocked;
+        }
+         else if (cool == true)
+        {
+            return Click.Cooling;
+        }
+        else
+        {
+            return Click.Fetch;
         }
     }
 
@@ -1143,6 +1179,42 @@ public static partial class Logic
         }
     }
 
+    public static string TrayText(int? n, bool err, string plain)
+    {
+        if (n != null)
+        {
+            return $"{(n.Value)}";
+        }
+         else if (err == true)
+        {
+            return "!";
+        }
+         else if (plain == "—")
+        {
+            return "–";
+        }
+        else
+        {
+            return null;
+        }
+    }
+
+    public static int TrayLevel(int? n, double u, bool err)
+    {
+        if (n != null)
+        {
+            return IconLevel(u);
+        }
+         else if (err == true)
+        {
+            return 3;
+        }
+        else
+        {
+            return 0;
+        }
+    }
+
     public static string Tooltip(double? u, string iso, AppError e, DateTime now)
     {
         string s2;
@@ -1189,6 +1261,62 @@ public static partial class Logic
         {
             return s2;
         }
+    }
+
+    public static string UpdateStatus(string latest, string err, string ver)
+    {
+        if (err != null)
+        {
+            return $"Couldn't reach GitHub: {(err)}";
+        }
+         else if (latest != null)
+        {
+            return $"Update {(latest)} available — click “Update to {(latest)}”.";
+        }
+        else
+        {
+            return $"You're on the latest version (v{(ver)}).";
+        }
+    }
+
+    public static string UpdateButton(string l)
+    {
+        if (l == null)
+        {
+            return "Check for updates";
+        }
+        else
+        {
+            return $"Update to {(l)}";
+        }
+    }
+
+    public static string UpdatingStatus(string v)
+    {
+        return $"Updating to {(v)}… the app will relaunch when done.";
+    }
+
+    public static string UpdatingNotice(string v, string w)
+    {
+        return $"Installing {(v)} — the {(w)} will return in a few seconds.";
+    }
+
+    public static string TestStatus(double? u)
+    {
+        if (u == null)
+        {
+            return "Connected, but no five_hour data.";
+        }
+        else
+        {
+            var p = (int)Math.Round(u.Value, MidpointRounding.AwayFromZero);
+            return $"OK — current session at {(p)}%";
+        }
+    }
+
+    public static string WaitStatus(int n)
+    {
+        return $"Rate limited — wait {(n)}s before testing again.";
     }
 
     public static string Prefix(string s, int n) => s == null ? "" : s.Length <= n ? s : s.Substring(0, n);
