@@ -566,3 +566,11 @@ updating_notice(V, W, S) :- format(string(S), "Installing ~w — the ~w will ret
 test_status(U, S) :- ( U == none -> S = "Connected, but no five_hour data." ; P is round(U), format(string(S), "OK — current session at ~d%", [P]) ).
 :- fn wait_status(int) -> str.
 wait_status(N, S) :- format(string(S), "Rate limited — wait ~ds before testing again.", [N]).
+
+% ── Command line ────────────────────────────────────────────────────────────
+:- fn flag_value(list(str), str) -> opt(str).   % the argument after Flag (--fixture <file>), if any
+flag_value([], _, none).
+flag_value([A|As], F, V) :- ( A == F -> first(As, V) ; flag_value(As, F, V) ).
+:- fn first(list(str)) -> opt(str).
+first([], none).
+first([X|_], X).

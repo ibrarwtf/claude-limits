@@ -28,12 +28,7 @@ namespace ClaudeLimits
         /// Must run before anything touches Settings.Shared or UsageHistory.Shared.
         public static void Configure(string[] args)
         {
-            string ValueAfter(string flag)
-            {
-                int i = Array.IndexOf(args, flag);
-                return i >= 0 && i + 1 < args.Length ? args[i + 1] : null;
-            }
-            var path = ValueAfter("--fixture");
+            var path = Logic.FlagValue(args, "--fixture");
             if (path == null) return;
             var fx = Json.Parse<Fixture>(File.ReadAllBytes(Token.ExpandPath(path)));
             var now = Format.ParseISO(fx.Now) ?? throw new Exception($"fixture `now` isn't ISO 8601: {fx.Now}");
@@ -41,7 +36,7 @@ namespace ClaudeLimits
             UsageHistory.Persist = false;
             Settings.InMemory = true;
             Fixture = fx;
-            var dest = ValueAfter("--snapshot-all");
+            var dest = Logic.FlagValue(args, "--snapshot-all");
             SnapshotDest = dest == null ? null : Path.GetFullPath(Token.ExpandPath(dest));
             UsageHistory.Shared.ReplaceSamples((fx.History ?? new List<FixturePoint>()).Select(h =>
                 new HistorySample { TimestampUnix = Format.ToUnix(now.AddSeconds(-h.Ago)), Utilization = h.U }));

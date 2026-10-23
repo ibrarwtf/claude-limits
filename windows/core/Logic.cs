@@ -1700,6 +1700,31 @@ public static partial class Logic
         return $"Rate limited — wait {(n)}s before testing again.";
     }
 
+    public static string FlagValue(IReadOnlyList<string> a1, string f)
+    {
+        if (a1.Count == 0)
+        {
+            return null;
+        }
+        if (a1[0] == f)
+        {
+            return First(a1.Skip(1).ToList());
+        }
+        else
+        {
+            return FlagValue(a1.Skip(1).ToList(), f);
+        }
+    }
+
+    public static string First(IReadOnlyList<string> a1)
+    {
+        if (a1.Count == 0)
+        {
+            return null;
+        }
+        return a1[0];
+    }
+
     public static string Prefix(string s, int n) => s == null ? "" : s.Length <= n ? s : s.Substring(0, n);
     static int? ToInt(string s) => int.TryParse(s, NumberStyles.None, CultureInfo.InvariantCulture, out var n) ? n : (int?)null;
     static List<T> Cons<T>(T h, IEnumerable<T> t) { var l = new List<T> { h }; l.AddRange(t); return l; }

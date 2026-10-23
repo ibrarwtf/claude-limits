@@ -1272,3 +1272,21 @@ func testStatus(_ u: Double?) -> String {
 func waitStatus(_ n: Int) -> String {
     return "Rate limited — wait \(n)s before testing again."
 }
+
+func flagValue(_ a1: [String], _ f: String) -> String? {
+    if a1.isEmpty {
+        return nil
+    }
+    if a1[0] == f {
+        return first(Array(a1.dropFirst()))
+    } else {
+        return flagValue(Array(a1.dropFirst()), f)
+    }
+}
+
+func first(_ a1: [String]) -> String? {
+    if a1.isEmpty {
+        return nil
+    }
+    return a1[0]
+}
