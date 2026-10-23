@@ -69,7 +69,6 @@ namespace ClaudeLimits
                 d["BarEmpty"] = B(0xFFFFFF, 0x24);
                 d["Coral"] = B(0xFFAA88);
                 d["CoralFill"] = B(0xFFAA88, 0x4D);
-                d["Shadow"] = Colors.Black;
             }
             else
             {
@@ -90,7 +89,6 @@ namespace ClaudeLimits
                 d["BarEmpty"] = B(0x000000, 0x1A);
                 d["Coral"] = B(0xD97755);
                 d["CoralFill"] = B(0xFF9966, 0x59);
-                d["Shadow"] = Color.FromArgb(0xFF, 0x40, 0x40, 0x40);
             }
             d["Orange"] = B(0xF7A23B);
             d["Green"] = B(0x3FB950);
