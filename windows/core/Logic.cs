@@ -1363,6 +1363,19 @@ public static partial class Logic
         }
     }
 
+    public static int FilledBlocks(double u, int n)
+    {
+        var f0 = (int)Math.Round((double)n * Math.Max(0.0, Math.Min(1.0, u / 100.0)), MidpointRounding.AwayFromZero);
+        if ((u > 0.0) && (f0 == 0))
+        {
+            return 1;
+        }
+        else
+        {
+            return f0;
+        }
+    }
+
     public static Row BarRow(string label, double u)
     {
         var p = Percent(u);

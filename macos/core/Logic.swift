@@ -1048,6 +1048,15 @@ func scopeName(_ s: LimitScope?) -> String {
     }
 }
 
+func filledBlocks(_ u: Double, _ n: Int) -> Int {
+    let f0 = Int((Double(n) * max(0.0, min(1.0, u / 100.0))).rounded())
+    if (u > 0.0) && (f0 == 0) {
+        return 1
+    } else {
+        return f0
+    }
+}
+
 func barRow(_ label: String, _ u: Double) -> Row {
     let p = percent(u)
     let v = "\(p)%"

@@ -80,11 +80,7 @@ final class TabularRowView: NSView {
         let blockCount = 24
         let blockGap: CGFloat = 1
         let blockW = (barW - CGFloat(blockCount - 1) * blockGap) / CGFloat(blockCount)
-        let fillFrac = max(0, min(1, utilization / 100.0))
-        var filledBlocks = Int(round(Double(blockCount) * fillFrac))
-        // Any nonzero usage lights at least one block, so a small-but-real value
-        // never renders as an empty (0%) bar next to a nonzero numeric label.
-        if utilization > 0 && filledBlocks == 0 { filledBlocks = 1 }
+        let filled = filledBlocks(utilization, blockCount)
 
         let emptyColor = isHighlighted ? NSColor.white.withAlphaComponent(0.25)
                                        : NSColor.tertiaryLabelColor.withAlphaComponent(0.4)
@@ -94,7 +90,7 @@ final class TabularRowView: NSView {
         for i in 0..<blockCount {
             let blockX = barX + CGFloat(i) * (blockW + blockGap)
             let rect = NSRect(x: blockX, y: barY, width: blockW, height: barH)
-            (i < filledBlocks ? fillColor : emptyColor).setFill()
+            (i < filled ? fillColor : emptyColor).setFill()
             NSBezierPath(roundedRect: rect, xRadius: 1.5, yRadius: 1.5).fill()
         }
 
@@ -194,7 +190,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     var marqueeWindowChars: Int = 22
 
     var latestVersionAvailable: String? = nil
-    var lastUpdateCheckAt: Date? = nil
     var updateCheckTimer: Timer?
 
     /// Click-storm guard (see cooling_down in logic/core.pl): excess clicks
@@ -327,7 +322,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         fetchLatestRelease { [weak self] result in
             DispatchQueue.main.async {
                 guard let self = self else { return }
-                self.lastUpdateCheckAt = Date()
                 switch result {
                 case .success(let release):
                     let current = (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "0.0.0"

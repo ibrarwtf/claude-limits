@@ -466,6 +466,9 @@ scope_name(S, N) :-
     (   S == none -> N = "Overall"
     ;   get(S, model, M), ( M == none -> N = "Overall" ; get(M, display_name, D), or_else(D, "Overall", N) ) ).
 
+:- fn filled_blocks(float, int) -> int.   % of a weekly bar's N blocks; nonzero usage lights at least one
+filled_blocks(U, N, F) :- F0 is round(float(N) * max(0.0, min(1.0, U / 100.0))), ( U > 0.0, F0 =:= 0 -> F = 1 ; F = F0 ).
+
 :- fn bar_row(str, float) -> row.
 bar_row(Label, U, bar(Label, U, V)) :- percent(U, P), format(string(V), "~d%", [P]).
 

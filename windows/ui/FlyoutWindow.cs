@@ -104,9 +104,8 @@ namespace ClaudeLimits
             return g;
         }
 
-        /// Label, segmented bar that fills the column, value flush-right — the
-        /// TabularRowView layout: 24 discrete blocks, any nonzero usage lights at
-        /// least one so a small-but-real value never shows as empty.
+        /// Label, 24-block bar (filled_blocks in logic/core.pl), value flush-right —
+        /// the macOS TabularRowView layout.
         public static FrameworkElement TabularRow(string label, double utilization, string value)
         {
             var g = new Grid { Height = 24, Margin = new Thickness(leftPad, 0, rightPad, 0) };
@@ -117,9 +116,7 @@ namespace ClaudeLimits
             g.Children.Add(Label(label, "FgDim"));
 
             const int blockCount = 24;
-            var fillFrac = Math.Max(0, Math.Min(1, utilization / 100.0));
-            int filled = (int)Math.Round(blockCount * fillFrac, MidpointRounding.AwayFromZero);
-            if (utilization > 0 && filled == 0) filled = 1;
+            int filled = FilledBlocks(utilization, blockCount);
             var bar = new UniformGrid { Rows = 1, Columns = blockCount, Height = 10, VerticalAlignment = VerticalAlignment.Center };
             for (int i = 0; i < blockCount; i++)
             {
