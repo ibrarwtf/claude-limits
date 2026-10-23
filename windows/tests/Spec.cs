@@ -157,6 +157,22 @@ namespace ClaudeLimits.Spec
             Check("dot_on_open", Case(DotOnOpen(false, null, true, null, null, now.AddSeconds(0))), "unverified");
             Check("dot_on_open", Case(DotOnOpen(false, null, false, now.AddSeconds(120), null, now.AddSeconds(0))), "unverified");
             Check("dot_on_open", Case(DotOnOpen(false, null, false, null, null, now.AddSeconds(0))), "probe");
+            Check("marquee_text", MarqueeText(AppError.RateLimited(30.0), now.AddSeconds(30), now.AddSeconds(0)), "rate limit reached, retry in 30s");
+            Check("marquee_text", MarqueeText(AppError.AuthFailed(), null, now.AddSeconds(0)), "sign in: run `claude` in terminal");
+            Check("marquee_text", MarqueeText(AppError.HttpError(503, "upstream"), null, now.AddSeconds(0)), "HTTP 503 from anthropic");
+            Check("error_tick", ErrorTick(AppError.RateLimited(null), now.AddSeconds(600), now.AddSeconds(0), 0, 22), "█▇▆▅▄▃▂▁▁▁");
+            Check("error_tick", ErrorTick(AppError.RateLimited(null), now.AddSeconds(600), now.AddSeconds(0), 30, 22), "        rate limit rea");
+            Check("error_tick", ErrorTick(null, null, now.AddSeconds(0), 0, 22), null);
+            Check("status_line", StatusLine(null, now.AddSeconds(-75), null, now.AddSeconds(120), now.AddSeconds(0)), "Last updated: 1m 15s ago · next in 2m 0s");
+            Check("status_line", StatusLine(AppError.NetworkUnavailable(), now.AddSeconds(-75), null, now.AddSeconds(120), now.AddSeconds(0)), "offline · Last updated: 1m 15s ago · next in 2m 0s");
+            Check("status_line", StatusLine(AppError.RateLimited(300.0), now.AddSeconds(-3600), now.AddSeconds(300), null, now.AddSeconds(0)), "rate-limited · Last updated: 1h 0m ago · next in 5m 0s");
+            Check("tooltip", Tooltip(42.4, "2030-01-15T14:30:30Z", null, now.AddSeconds(0)), "claude-limits · 42% · resets in 2:30");
+            Check("tooltip", Tooltip(null, null, AppError.TokenNotFound(), now.AddSeconds(0)), "claude-limits · sign in");
+            Check("tooltip", Tooltip(97.0, "2030-01-15T12:10:00Z", AppError.RequestTimeout(), now.AddSeconds(0)), "claude-limits · 97% · resets in 10m · timeout");
+            Check("error_symbol", ErrorSymbol(AppError.Forbidden()), "403");
+            Check("error_symbol", ErrorSymbol(AppError.HttpError(500, "")), "HTTP 500");
+            Check("friendly_message", FriendlyMessage(AppError.CommandFailed("exit 1: nope")), "Shell command failed: exit 1: nope");
+            Check("friendly_message", FriendlyMessage(AppError.ParseFailed("bad json")), "Couldn't parse the response: bad json");
             Console.WriteLine($"windows spec: {passed} passed, {failed} failed");
             return failed == 0 ? 0 : 1;
         }

@@ -49,11 +49,14 @@ case(D, Now, F, out(Out, call(F, Ls)), Got, W) :-
 
 arg_in(Now, time, Off, T, at(Off)) :- !, T is Now + Off.
 arg_in(_, opt(_), null, none, none) :- !.
-arg_in(Now, _, V, Iso, Iso) :- is_dict(V), !, iso_in(V.in, Now, Iso).
+arg_in(Now, _, V, Iso, Iso) :- is_dict(V), get_dict(in, V, S), !, iso_in(S, Now, Iso).
 arg_in(Now, opt(T), V, P, L) :- !, arg_in(Now, T, V, P, L).
 arg_in(Now, list(sample), Ps, S, samples(Ps)) :- !, samples(Ps, Now, S).
 arg_in(Now, list(T), Vs, Ps, list(Ls)) :- !, maplist(arg_in(Now, T), Vs, Ps, Ls).
 arg_in(_, float, V, F, F) :- !, F is float(V).
+arg_in(Now, T, V, P, enum(T, K, Ls)) :- enum(T, Cs), !,
+    ( string(V) -> atom_string(K, V), As = [] ; dict_pairs(V, _, [K-As]) ),
+    member(C, Cs), C =.. [K|Fs], !, maplist([_:FT, A, PA, L]>>arg_in(Now, FT, A, PA, L), Fs, As, PAs, Ls), P =.. [K|PAs].
 arg_in(_, T, V, A, choice(T, A)) :- string(V), T \== str, !, atom_string(A, V).
 arg_in(_, _, V, V, V).
 
@@ -120,6 +123,8 @@ x(csharp, out(Os, E)) :- Os \= [str], Os \= [opt(str)], !, x(csharp, E), write("
 x(T, out(_, E)) :- !, x(T, E).
 x(swift, list(Ls)) :- !, write("["), xs(swift, Ls), write("]").
 x(csharp, list(Ls)) :- !, write("new[] { "), xs(csharp, Ls), write(" }").
+x(T, enum(E, K, Ls)) :- !, ( native(E, N), atom(N) -> true ; cname(csharp, E, N) ), cname(T, K, KN), format("~w.~w", [N, KN]),
+    ( T == swift, Ls == [] -> true ; write("("), xs(T, Ls), write(")") ).
 x(T, choice(C, A)) :- !, cname(csharp, C, CN), cname(T, A, AN), format("~w.~w", [CN, AN]).
 x(_, B) :- memberchk(B, [true, false]), !, write(B).
 x(swift, at(Off)) :- !, format("now.addingTimeInterval(~w)", [Off]).

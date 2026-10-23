@@ -149,6 +149,22 @@
     {"fn": "dot_on_open", "args": [true, -60, false, null, null, 0], "expect": "connected"},
     {"fn": "dot_on_open", "args": [false, null, true, null, null, 0], "expect": "unverified"},
     {"fn": "dot_on_open", "args": [false, null, false, 120, null, 0], "expect": "unverified"},
-    {"fn": "dot_on_open", "args": [false, null, false, null, null, 0], "expect": "probe"}
+    {"fn": "dot_on_open", "args": [false, null, false, null, null, 0], "expect": "probe"},
+    {"fn": "marquee_text", "args": [{"rate_limited": [30]}, 30, 0], "expect": "rate limit reached, retry in 30s"},
+    {"fn": "marquee_text", "args": ["auth_failed", null, 0], "expect": "sign in: run `claude` in terminal"},
+    {"fn": "marquee_text", "args": [{"http_error": [503, "upstream"]}, null, 0], "expect": "HTTP 503 from anthropic"},
+    {"fn": "error_tick", "args": [{"rate_limited": [null]}, 600, 0, 0, 22], "expect": "█▇▆▅▄▃▂▁▁▁"},
+    {"fn": "error_tick", "args": [{"rate_limited": [null]}, 600, 0, 30, 22], "expect": "        rate limit rea"},
+    {"fn": "error_tick", "args": [null, null, 0, 0, 22], "expect": null},
+    {"fn": "status_line", "args": [null, -75, null, 120, 0], "expect": "Last updated: 1m 15s ago · next in 2m 0s"},
+    {"fn": "status_line", "args": ["network_unavailable", -75, null, 120, 0], "expect": "offline · Last updated: 1m 15s ago · next in 2m 0s"},
+    {"fn": "status_line", "args": [{"rate_limited": [300]}, -3600, 300, null, 0], "expect": "rate-limited · Last updated: 1h 0m ago · next in 5m 0s"},
+    {"fn": "tooltip", "args": [42.4, {"in": 9030}, null, 0], "expect": "claude-limits · 42% · resets in 2:30"},
+    {"fn": "tooltip", "args": [null, null, "token_not_found", 0], "expect": "claude-limits · sign in"},
+    {"fn": "tooltip", "args": [97.0, {"in": 600}, "request_timeout", 0], "expect": "claude-limits · 97% · resets in 10m · timeout"},
+    {"fn": "error_symbol", "args": ["forbidden"], "expect": "403"},
+    {"fn": "error_symbol", "args": [{"http_error": [500, ""]}], "expect": "HTTP 500"},
+    {"fn": "friendly_message", "args": [{"command_failed": ["exit 1: nope"]}], "expect": "Shell command failed: exit 1: nope"},
+    {"fn": "friendly_message", "args": [{"parse_failed": ["bad json"]}], "expect": "Couldn't parse the response: bad json"}
   ]
 }
