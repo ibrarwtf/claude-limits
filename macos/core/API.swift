@@ -42,7 +42,7 @@ func fetchUsage(taskHandle: ((URLSessionDataTask) -> Void)? = nil,
                        let n = Double(s.trimmingCharacters(in: .whitespaces)) {
                         retry = n
                     }
-                    completion(.failure(.rateLimited(retryAfter: retry))); return
+                    completion(.failure(.rateLimited(retry))); return
                 default:
                     completion(.failure(.httpError(http.statusCode, String(body.prefix(200))))); return
                 }

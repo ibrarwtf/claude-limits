@@ -169,9 +169,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     var animationTimer: Timer?
     var animationFrame = 0
     var animationStartedAt: Date?
-    /// One full bounce of the wave palindrome is 18 frames @ 12 fps = 1.5 s.
-    /// Animation must run at least that long for the bounce to be visible.
-    let minAnimationDuration: TimeInterval = 1.5
     /// Bumped each time startAnimation() begins a cycle. Deferred stops capture
     /// this value when scheduled and no-op if a newer cycle has since started,
     /// so a stale asyncAfter can't tear down a fresh animation.
@@ -200,13 +197,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     var lastUpdateCheckAt: Date? = nil
     var updateCheckTimer: Timer?
 
-    /// Click-storm cooldown: rapid manual clicks each previously cancelled the
-    /// in-flight task and started a new fetch — so 10 clicks in 1s could hit
-    /// Anthropic 10 times before any cancellation took effect. With this gate,
-    /// manual fetches are throttled to one per `manualClickCooldown` seconds;
-    /// excess clicks just play the acknowledgement wave.
+    /// Click-storm guard (see cooling_down in logic/core.pl): excess clicks
+    /// just play the acknowledgement wave instead of re-fetching.
     var lastManualClickAt: Date? = nil
-    let manualClickCooldown: TimeInterval = 5.0
 
     // Live "Last updated: Xs ago" line — refreshed once per second while the
     // dropdown is open so the counter visibly ticks up.
@@ -249,13 +242,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // Still inside a rate-limit window from the previous process? Mirror
         // the error state. Marquee only runs when there's no prior data.
         if let until = Settings.shared.nextAllowedPoll, until > Date() {
-            self.lastError = .rateLimited(retryAfter: until.timeIntervalSinceNow)
+            self.lastError = .rateLimited(until.timeIntervalSinceNow)
             if self.lastResponse == nil {
                 startRateLimitCycle()
             }
         }
 
-        if shouldPollNow() {
+        if shouldPoll(Settings.shared.nextAllowedPoll, Settings.shared.lastSuccessfulPoll, Date()) {
             triggerRefresh(animated: true)
         } else {
             updateTitle()
@@ -298,7 +291,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         computeWidthBudget()
         lastResponse = FixtureMode.fixture?.response
         lastUpdated = Clock.now()
-        nextPollAt = Clock.now().addingTimeInterval(pollIntervalSeconds)
+        nextPollAt = Clock.now().addingTimeInterval(pollInterval)
         updateTitle()
         if let dest = FixtureMode.snapshotDest {
             // Next runloop tick so the status item has laid out its title.
@@ -338,7 +331,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 switch result {
                 case .success(let release):
                     let current = (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "0.0.0"
-                    self.latestVersionAvailable = isNewerVersion(release.tagName, than: current) ? release.tagName : nil
+                    self.latestVersionAvailable = isNewerVersion(release.tagName, current) ? release.tagName : nil
                     completion?(self.latestVersionAvailable, nil)
                 case .failure(let e):
                     completion?(nil, e)
@@ -372,29 +365,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusItem.length = min(max(width, 24), maxStatusItemWidth)
     }
 
-    /// Returns true if we may issue a fetch right now.
-    /// Rate-limit suspension and a per-launch debounce protect Anthropic's API.
-    func shouldPollNow() -> Bool {
-        if let until = Settings.shared.nextAllowedPoll, until > Date() {
-            return false
-        }
-        if let last = Settings.shared.lastSuccessfulPoll {
-            // Don't burst on relaunch — wait at least half a poll interval since
-            // the most recent successful fetch (may be from a previous process).
-            if Date().timeIntervalSince(last) < pollIntervalSeconds / 2 {
-                return false
-            }
-        }
-        return true
-    }
-
     func schedulePoll() {
         pollTimer?.invalidate()
-        nextPollAt = Date().addingTimeInterval(pollIntervalSeconds)
-        pollTimer = Timer.scheduledTimer(withTimeInterval: pollIntervalSeconds, repeats: true) { [weak self] _ in
+        nextPollAt = Date().addingTimeInterval(pollInterval)
+        pollTimer = Timer.scheduledTimer(withTimeInterval: pollInterval, repeats: true) { [weak self] _ in
             guard let self = self else { return }
-            self.nextPollAt = Date().addingTimeInterval(pollIntervalSeconds)
-            if self.shouldPollNow() { self.triggerRefresh(animated: false) }
+            self.nextPollAt = Date().addingTimeInterval(pollInterval)
+            if self.shouldPoll(Settings.shared.nextAllowedPoll, Settings.shared.lastSuccessfulPoll, Date()) { self.triggerRefresh(animated: false) }
             else { self.updateTitle() }
         }
     }
@@ -407,12 +384,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         // Rate-limited → click-acknowledgement wave only, no fetch.
         if let until = Settings.shared.nextAllowedPoll, until > Date() {
-            lastError = .rateLimited(retryAfter: until.timeIntervalSinceNow)
+            lastError = .rateLimited(until.timeIntervalSinceNow)
             playClickAnimation()
             return
         }
         // Click-storm cooldown → wave only, no fetch.
-        if let last = lastManualClickAt, Date().timeIntervalSince(last) < manualClickCooldown {
+        if coolingDown(lastManualClickAt, Date()) {
             playClickAnimation()
             return
         }
@@ -488,15 +465,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusItem.isVisible = true
 
         if let err = lastError, lastResponse == nil {
-            statusItem.button?.title = err.titleSymbol
+            statusItem.button?.title = errorSymbol(err)
             statusItem.button?.attributedTitle = NSAttributedString(string: "")
             clampWidth()
             return
         }
         if let r = lastResponse, let f = r.fiveHour {
-            let pct = Int(round(f.utilization))
-            let spark = UsageHistory.shared.sparkline(width: 10)
-            let resetStr = formatTimeRemaining(f.resetsAt)
+            let pct = percent(f.utilization)
+            let spark = sparkline(UsageHistory.shared.samples, sparkWidth)
+            let resetStr = countdown(f.resetsAt, Clock.now())
             let normalFont = NSFont.menuBarFont(ofSize: NSFont.systemFontSize)
             let sparkFont = NSFont.monospacedSystemFont(ofSize: 8, weight: .regular)
             let normalAttrs: [NSAttributedString.Key: Any] = [.font: normalFont]
@@ -545,18 +522,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     // ── Refresh + animation ──────────────────────────────────────────────────
 
-    /// Apply exponential back-off after a rate-limit response and return the
-    /// "do not poll until" deadline. Shared by the poller and the Settings
-    /// "Test fetch" button so no entry point can hammer Anthropic during a
-    /// cooldown without recording it. 1st 5min, 2nd 10min, 3rd 20min, 4th+
-    /// capped at 30min; honours a server Retry-After when it's longer.
+    /// Record a 429 and return the "do not poll until" deadline. Shared by the
+    /// poller and Settings "Test fetch" so no entry point can skip the back-off.
     @discardableResult
-    func recordRateLimit(retryAfter retry: TimeInterval?) -> Date {
+    func recordRateLimit(_ retry: TimeInterval?) -> Date {
         Settings.shared.consecutiveRateLimits += 1
-        let count = Settings.shared.consecutiveRateLimits
-        let exp = min(300.0 * pow(2.0, Double(count - 1)), 1800.0)
-        let secs = max(retry ?? 0, exp)
-        let until = Date().addingTimeInterval(secs)
+        let until = Date().addingTimeInterval(backoffSecs(Settings.shared.consecutiveRateLimits, retry))
         Settings.shared.nextAllowedPoll = until
         return until
     }
@@ -597,13 +568,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     self.lastError = e
                     UsageHistory.shared.appendError()
                     if case .rateLimited(let retry) = e {
-                        let until = self.recordRateLimit(retryAfter: retry)
+                        let until = self.recordRateLimit(retry)
                         let count = Settings.shared.consecutiveRateLimits
                         let secs = Int(round(until.timeIntervalSinceNow))
                         let f = DateFormatter(); f.dateFormat = "HH:mm:ss"
                         NSLog("claude-limits rate limited (#\(count)) — next attempt at \(f.string(from: until)) (waiting \(secs)s)")
                     } else {
-                        NSLog("claude-limits fetch error: \(e.friendlyMessage)")
+                        NSLog("claude-limits fetch error: \(friendlyMessage(e))")
                     }
                     if self.lastResponse == nil {
                         self.startRateLimitCycle()
@@ -629,16 +600,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             .font: sparkFont,
             .baselineOffset: 1.0,
         ]
-        // Reuse the bouncing-peak wave + palindrome from the error cycle so
-        // refresh and error waves read the same way.
-        let frames = AppDelegate.errorWaveFrames.map { Array($0) }
-        let indices = AppDelegate.errorWavePalindrome
 
         let normalAttrs: [NSAttributedString.Key: Any] = [.font: normalFont]
         animationTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 12.0, repeats: true) { [weak self] _ in
             guard let self = self else { return }
-            let step = self.animationFrame % indices.count
-            let frame = frames[indices[step]]
+            let frame = waveFrame(self.animationFrame)
             // Slot-machine reels: % and reset spin while bars dance. Each
             // piece is gated by its visibility toggle so a hidden part stays
             // hidden during the click-acknowledgement animation.
@@ -674,8 +640,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     func scheduleAnimationStop() {
-        let elapsed = animationStartedAt.map { Date().timeIntervalSince($0) } ?? minAnimationDuration
-        let remaining = max(0, minAnimationDuration - elapsed)
+        let elapsed = animationStartedAt.map { Date().timeIntervalSince($0) } ?? minAnimation
+        let remaining = max(0, minAnimation - elapsed)
         if remaining <= 0 { stopAnimation() }
         else {
             let gen = animationGeneration
@@ -710,33 +676,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         rateLimitCycleTimer = nil
     }
 
-    /// Wave frames: a single peak (█) moves index 0..9 with symmetric falloff.
-    /// Palindrome flips this so the peak visibly bounces off the right wall
-    /// and returns, instead of jumping back.
-    static let errorWaveFrames: [String] = [
-        "█▇▆▅▄▃▂▁▁▁",
-        "▇█▇▆▅▄▃▂▁▁",
-        "▆▇█▇▆▅▄▃▂▁",
-        "▅▆▇█▇▆▅▄▃▂",
-        "▄▅▆▇█▇▆▅▄▃",
-        "▃▄▅▆▇█▇▆▅▄",
-        "▂▃▄▅▆▇█▇▆▅",
-        "▁▂▃▄▅▆▇█▇▆",
-        "▁▁▂▃▄▅▆▇█▇",
-        "▁▁▁▂▃▄▅▆▇█",
-    ]
-    static let errorWavePalindrome: [Int] = {
-        var ix: [Int] = []
-        for i in 0..<errorWaveFrames.count { ix.append(i) }
-        for i in stride(from: errorWaveFrames.count - 2, through: 1, by: -1) { ix.append(i) }
-        return ix
-    }()
-    static let errorPhaseAFrames = errorWavePalindrome.count   // 18 — ~1.5s @ 12fps
-    static let errorPhaseBFrames = 60                          // ~5.0s marquee
-    static let errorCycleFrames  = errorPhaseAFrames + errorPhaseBFrames
-    /// Cap cold-start error animation. 3 × ~6.5 s = ~19.5 s, then static.
-    static let errorMaxCycles = 3
-
     func tickRateLimitCycle() {
         if lastError == nil {
             stopRateLimitCycle()
@@ -750,74 +689,23 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             updateTitle()
             return
         }
-        if rateLimitAnimFrame >= AppDelegate.errorMaxCycles * AppDelegate.errorCycleFrames {
+        let text = errorFrame(rateLimitAnimFrame, marqueeText(lastError!, Settings.shared.nextAllowedPoll, Date()), marqueeWindowChars)
+        guard let text = text else {
             stopRateLimitCycle()
             updateTitle()
             return
         }
-
-        let cyclePos = rateLimitAnimFrame % AppDelegate.errorCycleFrames
-        let mono = NSFont.monospacedSystemFont(
-            ofSize: NSFont.systemFontSize - 1, weight: .regular)
-
-        if cyclePos < AppDelegate.errorPhaseAFrames {
-            // Phase A: bouncing-peak wave, no flanking dashes — fits the budget.
-            let palIdx = AppDelegate.errorWavePalindrome[
-                cyclePos % AppDelegate.errorWavePalindrome.count]
-            let wave = AppDelegate.errorWaveFrames[palIdx]
-            statusItem.button?.attributedTitle = NSAttributedString(
-                string: wave,
-                attributes: [.font: mono, .foregroundColor: NSColor.labelColor])
-        } else {
-            // Phase B: marquee. Window sized to fit the cap.
-            // ~1.17 chars/frame at 12 fps → ~14 chars/sec.
-            let phaseFrame = cyclePos - AppDelegate.errorPhaseAFrames
-            let core = rateLimitTypewriterText() + "    "
-            let windowWidth = self.marqueeWindowChars
-            let cycleText = String(repeating: " ", count: windowWidth) + core
-            let chars = Array(cycleText)
-            let charPos = Int(Double(phaseFrame) * 1.17) % chars.count
-            var visible = ""
-            for i in 0..<windowWidth {
-                visible.append(chars[(charPos + i) % chars.count])
-            }
-            statusItem.button?.attributedTitle = NSAttributedString(
-                string: visible,
-                attributes: [.font: mono, .foregroundColor: NSColor.labelColor])
-        }
+        let mono = NSFont.monospacedSystemFont(ofSize: NSFont.systemFontSize - 1, weight: .regular)
+        statusItem.button?.attributedTitle = NSAttributedString(
+            string: text, attributes: [.font: mono, .foregroundColor: NSColor.labelColor])
         clampWidth()
         rateLimitAnimFrame += 1
     }
 
-    /// Friendly per-error message rendered in the marquee phase.
-    func rateLimitTypewriterText() -> String {
-        guard let err = lastError else { return "—" }
-        switch err {
-        case .rateLimited:
-            if let until = Settings.shared.nextAllowedPoll {
-                let secs = max(0, Int(until.timeIntervalSinceNow))
-                let m = secs / 60, s = secs % 60
-                let when = m > 0 ? "\(m)m \(s)s" : "\(s)s"
-                return "rate limit reached, retry in \(when)"
-            }
-            return "rate limit reached"
-        case .authFailed:        return "sign in: run `claude` in terminal"
-        case .tokenNotFound:     return "token not configured · open settings"
-        case .forbidden:         return "access forbidden · check account access"
-        case .networkUnavailable: return "cannot reach api.anthropic.com"
-        case .requestTimeout:    return "request timed out · trying again soon"
-        case .commandFailed(let m): return "shell command failed: \(m.prefix(50))"
-        case .parseFailed(let m):   return "parse error: \(m.prefix(50))"
-        case .httpError(let c, _):  return "HTTP \(c) from anthropic"
-        }
-    }
-
     // ── Menu rendering ───────────────────────────────────────────────────────
 
-    /// Reset clock + burn-rate projection; the logic lives in core
-    /// (`resetLineText`) so spec/cases.json can test it without AppKit.
     func formatResetLine(_ f: UsageBucket) -> String {
-        resetLineText(f, samples: UsageHistory.shared.samples)
+        resetLine(f.utilization, f.resetsAt, UsageHistory.shared.samples, Clock.now())
     }
 
     /// Fire one-shot notifications when 5h utilization first crosses 80% / 95%.
@@ -834,58 +722,21 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             s.notifiedThresholds = []
         }
         var fired = s.notifiedThresholds
-        let crossings: [(Int, String, String)] = [
-            (80, "Claude usage at 80%",
-                 "Slow down or risk capping before the window resets."),
-            (95, "Claude usage at 95%",
-                 "About to cap — finish the current task and pause."),
-        ]
-        for (threshold, title, body) in crossings {
-            if f.utilization >= Double(threshold) && !fired.contains(threshold) {
-                let c = UNMutableNotificationContent()
-                c.title = title
-                c.body = body
-                c.sound = .default
-                let req = UNNotificationRequest(
-                    identifier: "claude-limits.threshold.\(threshold).\(s.lastNotifiedResetsAt ?? "")",
-                    content: c, trigger: nil)
-                UNUserNotificationCenter.current().add(req)
-                fired.insert(threshold)
-            }
+        for threshold in crossed(f.utilization, Array(fired)) {
+            let c = UNMutableNotificationContent()
+            c.title = alertTitle(threshold)
+            c.body = alertBody(threshold)
+            c.sound = .default
+            UNUserNotificationCenter.current().add(UNNotificationRequest(
+                identifier: "claude-limits.threshold.\(threshold).\(s.lastNotifiedResetsAt ?? "")",
+                content: c, trigger: nil))
+            fired.insert(threshold)
         }
         s.notifiedThresholds = fired
     }
 
-    /// Single-line top status: "[error · ]Last updated: X · next in Y".
     func formatTopStatusLine() -> String {
-        var prefix = ""
-        if let err = lastError {
-            if case .rateLimited = err {
-                prefix = "rate-limited · "
-            } else {
-                prefix = "\(err.titleSymbol) · "
-            }
-        }
-        let lastSeen = lastUpdated.map { liveRelativeTime($0) } ?? "never"
-        let nextClause: String
-        if case .rateLimited = lastError ?? .parseFailed(""),
-           let np = Settings.shared.nextAllowedPoll {
-            let secs = max(0, Int(np.timeIntervalSince(Clock.now())))
-            nextClause = "next in \(formatNextAttempt(secs))"
-        } else if lastUpdated == nil {
-            nextClause = "click to refresh"
-        } else if let np = nextPollAt {
-            let secs = max(0, Int(np.timeIntervalSince(Clock.now())))
-            if secs <= 0 { nextClause = "next now…" }
-            else if secs < 60 { nextClause = "next in \(secs)s" }
-            else {
-                let m = secs / 60, s = secs % 60
-                nextClause = "next in \(m)m \(s)s"
-            }
-        } else {
-            nextClause = "—"
-        }
-        return "\(prefix)Last updated: \(lastSeen) · \(nextClause)"
+        statusLine(lastError, lastUpdated, Settings.shared.nextAllowedPoll, nextPollAt, Clock.now())
     }
 
     /// Default width for menu rows. NSMenu auto-sizes to widest item; using
@@ -990,7 +841,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 menu.addItem(.separator())
                 menu.addItem(sectionHeader("Weekly limits"))
                 for (label, bucket) in active {
-                    let pct = "\(Int(round(bucket.utilization)))%"
+                    let pct = "\(percent(bucket.utilization))%"
                     menu.addItem(tabularItem(label: label, utilization: bucket.utilization, value: pct))
                 }
             }
@@ -1000,10 +851,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             menu.addItem(.separator())
             // Single-line: "Pay-as-you-go credits" on the left, "X.XX / Y.YY USD"
             // flush-right via tab stop. Same layout idiom as the tabular rows.
-            let used = (extra.usedCredits ?? 0) / 100.0
-            let limit = (extra.monthlyLimit ?? 0) / 100.0
-            let cur = extra.currency ?? "USD"
-            let value = "\(String(format: "%.2f", used)) / \(String(format: "%.2f", limit)) \(cur)"
+            let value = creditsText(extra.usedCredits ?? 0, extra.monthlyLimit ?? 0, extra.currency ?? "USD")
             menu.addItem(payAsYouGoItem(label: "Pay-as-you-go credits", value: value))
         }
 
@@ -1020,7 +868,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if let until = Settings.shared.nextAllowedPoll, until > Date() { return }
         // Share the status-item click-storm cooldown so repeated "Refresh now"
         // taps can't bypass the throttle clicked(_:) enforces.
-        if let last = lastManualClickAt, Date().timeIntervalSince(last) < manualClickCooldown {
+        if coolingDown(lastManualClickAt, Date()) {
             playClickAnimation()
             return
         }

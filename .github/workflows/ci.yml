@@ -17,6 +17,22 @@ permissions:
   contents: write
 
 jobs:
+  logic:
+    # logic/core.pl is the source of truth: it must pass the spec as Prolog,
+    # and the committed Logic.swift / Logic.cs must be exactly what plc emits.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install SWI-Prolog
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq swi-prolog-nox
+      - name: Spec (Prolog)
+        run: swipl logic/oracle.pl
+      - name: Generated code is up to date
+        run: |
+          swipl logic/plc.pl
+          git diff --exit-code -- macos/core/Logic.swift windows/core/Logic.cs || {
+            echo "::error::Logic.swift / Logic.cs are stale — run: swipl logic/plc.pl"; exit 1; }
+
   windows:
     runs-on: windows-latest
     steps:

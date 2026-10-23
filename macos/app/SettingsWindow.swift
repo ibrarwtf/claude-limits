@@ -386,7 +386,7 @@ class SettingsViewController: NSViewController {
                 return
             }
             if let last = Settings.shared.lastSuccessfulPoll,
-               Date().timeIntervalSince(last) < pollIntervalSeconds {
+               Date().timeIntervalSince(last) < pollInterval {
                 setCredentialsDotConnected(true)
                 return
             }
@@ -401,8 +401,7 @@ class SettingsViewController: NSViewController {
             // Throttle the probe so reopening Settings in a tight loop can't
             // fire an ungated fetch per reopen (cold-start / prior non-429
             // error state, where nothing above short-circuits).
-            if let last = delegate.lastManualClickAt,
-               Date().timeIntervalSince(last) < delegate.manualClickCooldown {
+            if coolingDown(delegate.lastManualClickAt, Date()) {
                 setCredentialsState(.unverified)
                 return
             }
@@ -684,9 +683,9 @@ class SettingsViewController: NSViewController {
                     // Feed a 429 into the shared back-off so a test fetch can't
                     // silently reset Anthropic's cooldown while the poller waits.
                     if case .rateLimited(let retry) = e {
-                        (NSApp.delegate as? AppDelegate)?.recordRateLimit(retryAfter: retry)
+                        (NSApp.delegate as? AppDelegate)?.recordRateLimit(retry)
                     }
-                    self.statusLabel.stringValue = "\(e.friendlyMessage)"
+                    self.statusLabel.stringValue = friendlyMessage(e)
                     self.statusLabel.textColor = .labelColor
                     self.setCredentialsDotConnected(false)
                 }

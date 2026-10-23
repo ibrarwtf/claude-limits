@@ -15,11 +15,7 @@ func extractTokenFromText(_ text: String) -> String? {
            let tok = oauth["accessToken"] as? String, !tok.isEmpty { return tok }
         if let tok = obj["accessToken"] as? String, !tok.isEmpty { return tok }
     }
-    let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-    if !trimmed.isEmpty && !trimmed.contains(" ") && !trimmed.contains("\n") && trimmed.hasPrefix("sk-") {
-        return trimmed
-    }
-    return nil
+    return rawToken(text)
 }
 
 func loadTokenFromFile(_ rawPath: String) throws -> String {

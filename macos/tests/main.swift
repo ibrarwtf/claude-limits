@@ -36,29 +36,27 @@ func samples(_ v: Any?) -> [HistorySample] {
 
 for c in cases("timeRemaining") {
     let resetsAt = num(c["resetsIn"]).map { iso(now.addingTimeInterval($0)) }
-    check("timeRemaining \(c["resetsIn"] ?? "null")", formatTimeRemaining(resetsAt), str(c["expect"]))
+    check("timeRemaining \(c["resetsIn"] ?? "null")", countdown(resetsAt, now), str(c["expect"]))
 }
 for c in cases("nextAttempt") {
-    check("nextAttempt \(c["secs"]!)", formatNextAttempt(Int(num(c["secs"])!)), str(c["expect"]))
+    check("nextAttempt \(c["secs"]!)", nextAttempt(Int(num(c["secs"])!)), str(c["expect"]))
 }
 for c in cases("relativeTime") {
-    check("relativeTime \(c["ago"]!)", liveRelativeTime(now.addingTimeInterval(-num(c["ago"])!)), str(c["expect"]))
+    check("relativeTime \(c["ago"]!)", relativeTime(now.addingTimeInterval(-num(c["ago"])!), now), str(c["expect"]))
 }
 for c in cases("isNewerVersion") {
-    let got = isNewerVersion(str(c["latest"])!, than: str(c["current"])!)
+    let got = isNewerVersion(str(c["latest"])!, str(c["current"])!)
     check("isNewerVersion \(c["latest"]!) > \(c["current"]!)", String(got), String((c["expect"] as! NSNumber).boolValue))
 }
 for c in cases("extractToken") {
     check("extractToken \(str(c["text"])!.prefix(24))", extractTokenFromText(str(c["text"])!), str(c["expect"]))
 }
 for c in cases("sparkline") {
-    UsageHistory.shared.replaceSamples(samples(c["samples"]))
-    check("sparkline: \(c["name"]!)", UsageHistory.shared.sparkline(width: Int(num(c["width"])!)), str(c["expect"]))
+    check("sparkline: \(c["name"]!)", sparkline(samples(c["samples"]), Int(num(c["width"])!)), str(c["expect"]))
 }
 for c in cases("resetLine") {
-    let bucket = UsageBucket(utilization: num(c["utilization"])!,
-                             resetsAt: num(c["resetsIn"]).map { iso(now.addingTimeInterval($0)) })
-    check("resetLine: \(c["name"]!)", resetLineText(bucket, samples: samples(c["samples"]), now: now), str(c["expect"]))
+    let resetsAt = num(c["resetsIn"]).map { iso(now.addingTimeInterval($0)) }
+    check("resetLine: \(c["name"]!)", resetLine(num(c["utilization"])!, resetsAt, samples(c["samples"]), now), str(c["expect"]))
 }
 for c in cases("weeklyRows") {
     let data = try! JSONSerialization.data(withJSONObject: c["response"]!)
