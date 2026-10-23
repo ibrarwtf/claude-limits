@@ -8,11 +8,7 @@ namespace ClaudeLimits
     // 4.8 — System.Text.Json would be a NuGet dependency there.
     public static class Json
     {
-        public static T Parse<T>(string text) where T : class
-        {
-            using (var ms = new MemoryStream(Encoding.UTF8.GetBytes(text)))
-                return new DataContractJsonSerializer(typeof(T)).ReadObject(ms) as T;
-        }
+        public static T Parse<T>(string text) where T : class => Parse<T>(Encoding.UTF8.GetBytes(text));
 
         public static T Parse<T>(byte[] data) where T : class
         {
