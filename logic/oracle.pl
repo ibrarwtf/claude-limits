@@ -26,12 +26,6 @@ main :-
 
 case(D, Now, countdown, call(countdown, [Iso, at(0)]), Got, W) :-
     member(C, D.timeRemaining), iso_in(C.resetsIn, Now, Iso), W = C.expect, once(countdown(Iso, Now, Got)).
-case(D, _, next_attempt, call(next_attempt, [S]), Got, W) :-
-    member(C, D.nextAttempt), S = C.secs, W = C.expect, once(next_attempt(S, Got)).
-case(D, Now, relative_time, call(relative_time, [at(Off), at(0)]), Got, W) :-
-    member(C, D.relativeTime), Off is -C.ago, T is Now + Off, W = C.expect, once(relative_time(T, Now, Got)).
-case(D, _, is_newer_version, bool(call(is_newer_version, [A, B])), Got, W) :-
-    member(C, D.isNewerVersion), A = C.latest, B = C.current, W = C.expect, once(is_newer_version(A, B, Got)).
 case(D, _, status_error, msg(call(status_error, [St, R, B])), Got, W) :-
     member(C, D.statusError), St = C.status, B = C.body, W = C.expect,
     ( C.retryAfter == null -> R = none ; R is float(C.retryAfter) ),

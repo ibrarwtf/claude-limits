@@ -11,27 +11,6 @@
     { "resetsIn": null, "expect": null }
   ],
 
-  "nextAttempt": [
-    { "secs": 0,    "expect": "trying now…" },
-    { "secs": 45,   "expect": "45s" },
-    { "secs": 125,  "expect": "2m 5s" },
-    { "secs": 3725, "expect": "1h 2m" }
-  ],
-
-  "relativeTime": [
-    { "ago": 0,    "expect": "0s ago" },
-    { "ago": 75,   "expect": "1m 15s ago" },
-    { "ago": 3725, "expect": "1h 2m ago" }
-  ],
-
-  "isNewerVersion": [
-    { "latest": "v0.3.1", "current": "0.3.0",  "expect": true },
-    { "latest": "0.3.0",  "current": "v0.3.0", "expect": false },
-    { "latest": "0.1.10", "current": "0.1.9",  "expect": true },
-    { "latest": "0.2",    "current": "0.2.0",  "expect": false },
-    { "latest": "0.2.0",  "current": "0.10.0", "expect": false }
-  ],
-
   "extractToken": [
     { "text": "{\"claudeAiOauth\":{\"accessToken\":\"tok-a\",\"refreshToken\":\"r\"}}", "expect": "tok-a" },
     { "text": "{\"accessToken\":\"tok-b\"}", "expect": "tok-b" },
@@ -111,6 +90,18 @@
   ],
 
   "calls": [
+    {"fn": "next_attempt", "args": [0], "expect": "trying now…"},
+    {"fn": "next_attempt", "args": [45], "expect": "45s"},
+    {"fn": "next_attempt", "args": [125], "expect": "2m 5s"},
+    {"fn": "next_attempt", "args": [3725], "expect": "1h 2m"},
+    {"fn": "relative_time", "args": [0, 0], "expect": "0s ago"},
+    {"fn": "relative_time", "args": [-75, 0], "expect": "1m 15s ago"},
+    {"fn": "relative_time", "args": [-3725, 0], "expect": "1h 2m ago"},
+    {"fn": "is_newer_version", "args": ["v0.3.1", "0.3.0"], "expect": true},
+    {"fn": "is_newer_version", "args": ["0.3.0", "v0.3.0"], "expect": false},
+    {"fn": "is_newer_version", "args": ["0.1.10", "0.1.9"], "expect": true},
+    {"fn": "is_newer_version", "args": ["0.2", "0.2.0"], "expect": false},
+    {"fn": "is_newer_version", "args": ["0.2.0", "0.10.0"], "expect": false},
     {"fn": "flag_value", "args": [["a", "--fixture", "x.json", "--snapshot-all"], "--fixture"], "expect": "x.json"},
     {"fn": "flag_value", "args": [["--fixture"], "--fixture"], "expect": null},
     {"fn": "flag_value", "args": [["a"], "--snapshot-all"], "expect": null},
