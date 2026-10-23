@@ -3,7 +3,7 @@
 % implementation. `swipl logic/oracle.pl` from the repo root; exits 1 on any
 % mismatch. (Token-JSON and weekly-row cases need a JSON decoder, so they're
 % checked by the app runners only.)
-:- use_module(library(json)).
+:- use_module(library(http/json)).  % library(json) in SWI 10+; this path works on both
 :- ensure_loaded(core).
 :- initialization(main, main).
 
