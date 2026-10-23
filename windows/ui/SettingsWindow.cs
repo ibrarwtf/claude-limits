@@ -115,10 +115,7 @@ namespace ClaudeLimits
         void Build()
         {
             Root.Width = WindowWidth;
-            Root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(56) });
-            Root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            Root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            Root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            foreach (var h in new[] { new GridLength(56), GridLength.Auto, GridLength.Auto, GridLength.Auto }) Root.RowDefinitions.Add(new RowDefinition { Height = h });
 
             Root.Children.Add(new TopWaveView());
 
@@ -129,13 +126,13 @@ namespace ClaudeLimits
                 Content = m, GroupName = "tokenSource" + GetHashCode(),
                 Margin = new Thickness(i == 0 ? 0 : 4, 0, 0, 0),
             }).ToArray();
+            var segs = new StackPanel { Orientation = Orientation.Horizontal };
             foreach (var b in modeButtons)
             {
                 b.SetResourceReference(FrameworkElement.StyleProperty, "Segment");
                 b.Checked += (_, __) => ModeChanged();
+                segs.Children.Add(b);
             }
-            var segs = new StackPanel { Orientation = Orientation.Horizontal };
-            foreach (var b in modeButtons) segs.Children.Add(b);
 
             hintLabel = Small("");
             hintLabel.Width = controlsWidth;
@@ -245,9 +242,7 @@ namespace ClaudeLimits
         static FrameworkElement Section(FrameworkElement icon, FrameworkElement controls)
         {
             var g = new Grid();
-            g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(150) });
-            g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(18) });
-            g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(controlsWidth) });
+            foreach (var w in new[] { 150, 18, controlsWidth }) g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(w) });
             icon.Margin = new Thickness(14, 0, 0, 0);
             icon.HorizontalAlignment = HorizontalAlignment.Left;
             icon.VerticalAlignment = VerticalAlignment.Top;
@@ -294,19 +289,13 @@ namespace ClaudeLimits
             return g;
         }
 
-        /// gray = not yet probed, green pulse = token reachable, red pulse = failed.
-        enum CredentialsState { Unverified, Connected, Disconnected }
-
-        void SetCredentialsState(CredentialsState state)
+        /// null = not yet probed (gray); true / false = token reachable / failed (green / red pulse).
+        void SetCredentialsDot(bool? ok)
         {
             credentialsDot.BeginAnimation(UIElement.OpacityProperty, null);
             credentialsDot.Opacity = 1;
-            if (state == CredentialsState.Unverified)
-            {
-                credentialsDot.SetResourceReference(Shape.FillProperty, "FgDim");
-                return;
-            }
-            credentialsDot.SetResourceReference(Shape.FillProperty, state == CredentialsState.Connected ? "Green" : "Red");
+            credentialsDot.SetResourceReference(Shape.FillProperty, ok == null ? "FgDim" : ok.Value ? "Green" : "Red");
+            if (ok == null) return;
             credentialsDot.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation(1.0, 0.25, TimeSpan.FromSeconds(1.4))
             {
                 AutoReverse = true,
@@ -315,21 +304,18 @@ namespace ClaudeLimits
             });
         }
 
-        void SetCredentialsDotConnected(bool connected) =>
-            SetCredentialsState(connected ? CredentialsState.Connected : CredentialsState.Disconnected);
-
         /// Updates the dot on open; see dot_on_open in logic/core.pl.
         async void RefreshCredentialsDot()
         {
             switch (DotOnOpen(app.LastResponse != null, Settings.Shared.LastSuccessfulPoll, app.IsRefreshing,
                               Settings.Shared.NextAllowedPoll, app.LastManualClickAt, DateTime.UtcNow))
             {
-                case Dot.Connected: SetCredentialsDotConnected(true); return;
-                case Dot.Unverified: SetCredentialsState(CredentialsState.Unverified); return;
+                case Dot.Connected: SetCredentialsDot(true); return;
+                case Dot.Unverified: SetCredentialsDot(null); return;
             }
             app.LastManualClickAt = DateTime.UtcNow;
             var r = await Api.FetchUsageAsync();
-            if (r != null) SetCredentialsDotConnected(r.IsSuccess);
+            if (r != null) SetCredentialsDot(r.IsSuccess);
         }
 
         public void DidAppear()
@@ -477,14 +463,14 @@ namespace ClaudeLimits
             if (r.IsSuccess)
             {
                 SetStatus(TestStatus(r.Value.FiveHour?.Utilization), "Fg");
-                SetCredentialsDotConnected(true);
+                SetCredentialsDot(true);
             }
             else
             {
                 // Feed the 429 into the shared back-off so testing can't reset the cooldown.
                 if (r.Error.Kind == AppErrorKind.RateLimited) app.RecordRateLimit(r.Error.RetryAfter);
                 SetStatus(FriendlyMessage(r.Error), "Fg");
-                SetCredentialsDotConnected(false);
+                SetCredentialsDot(false);
             }
         }
     }

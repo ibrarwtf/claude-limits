@@ -301,33 +301,21 @@ class SettingsViewController: NSViewController {
         return v
     }
 
-    /// gray = not yet probed, green pulse = token reachable, red pulse = failed.
-    private enum CredentialsState { case unverified, connected, disconnected }
-
-    private func setCredentialsState(_ state: CredentialsState) {
-        guard let dot = credentialsDot, let layer = dot.layer else { return }
+    /// nil = not yet probed (gray); true / false = token reachable / failed (green / red pulse).
+    private func setCredentialsDot(_ ok: Bool?) {
+        guard let layer = credentialsDot?.layer else { return }
         layer.removeAnimation(forKey: "pulse")
-        switch state {
-        case .unverified:
-            layer.opacity = 1
-            layer.backgroundColor = NSColor.secondaryLabelColor.cgColor
-        case .connected, .disconnected:
-            layer.backgroundColor = (state == .connected
-                ? NSColor.systemGreen
-                : NSColor.systemRed).cgColor
-            let anim = CABasicAnimation(keyPath: "opacity")
-            anim.fromValue = 1.0
-            anim.toValue = 0.25
-            anim.duration = 1.4
-            anim.autoreverses = true
-            anim.repeatCount = .infinity
-            anim.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-            layer.add(anim, forKey: "pulse")
-        }
-    }
-
-    private func setCredentialsDotConnected(_ connected: Bool) {
-        setCredentialsState(connected ? .connected : .disconnected)
+        layer.opacity = 1
+        guard let ok = ok else { layer.backgroundColor = NSColor.secondaryLabelColor.cgColor; return }
+        layer.backgroundColor = (ok ? NSColor.systemGreen : NSColor.systemRed).cgColor
+        let anim = CABasicAnimation(keyPath: "opacity")
+        anim.fromValue = 1.0
+        anim.toValue = 0.25
+        anim.duration = 1.4
+        anim.autoreverses = true
+        anim.repeatCount = .infinity
+        anim.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        layer.add(anim, forKey: "pulse")
     }
 
     /// Updates the dot on open; see dot_on_open in logic/core.pl.
@@ -335,13 +323,13 @@ class SettingsViewController: NSViewController {
         guard let d = NSApp.delegate as? AppDelegate else { return }
         switch dotOnOpen(d.lastResponse != nil, Settings.shared.lastSuccessfulPoll, d.isRefreshing,
                          Settings.shared.nextAllowedPoll, d.lastManualClickAt, Date()) {
-        case .connected: setCredentialsDotConnected(true)
-        case .unverified: setCredentialsState(.unverified)
+        case .connected: setCredentialsDot(true)
+        case .unverified: setCredentialsDot(nil)
         case .probe:
             d.lastManualClickAt = Date()
             fetchUsage { [weak self] r in
                 DispatchQueue.main.async {
-                    if case .success = r { self?.setCredentialsDotConnected(true) } else { self?.setCredentialsDotConnected(false) }
+                    if case .success = r { self?.setCredentialsDot(true) } else { self?.setCredentialsDot(false) }
                 }
             }
         }
@@ -559,7 +547,7 @@ class SettingsViewController: NSViewController {
                 case .success(let u):
                     self.statusLabel.stringValue = testStatus(u.fiveHour?.utilization)
                     self.statusLabel.textColor = .labelColor
-                    self.setCredentialsDotConnected(true)
+                    self.setCredentialsDot(true)
                 case .failure(let e):
                     // Feed the 429 into the shared back-off so testing can't reset the cooldown.
                     if case .rateLimited(let retry) = e {
@@ -567,7 +555,7 @@ class SettingsViewController: NSViewController {
                     }
                     self.statusLabel.stringValue = friendlyMessage(e)
                     self.statusLabel.textColor = .labelColor
-                    self.setCredentialsDotConnected(false)
+                    self.setCredentialsDot(false)
                 }
             }
         }
