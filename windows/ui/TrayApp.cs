@@ -1,5 +1,4 @@
 using System;
-using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Threading;
@@ -389,11 +388,7 @@ namespace ClaudeLimits
             rateLimitCycleTimer = Every(1.0 / 12.0, TickRateLimitCycle);
         }
 
-        void StopRateLimitCycle()
-        {
-            rateLimitCycleTimer?.Stop();
-            rateLimitCycleTimer = null;
-        }
+        void StopRateLimitCycle() { rateLimitCycleTimer?.Stop(); rateLimitCycleTimer = null; }
 
         void TickRateLimitCycle()
         {
@@ -423,10 +418,7 @@ namespace ClaudeLimits
 
         public void RefreshAction() => ManualRefresh(fromClick: false);
 
-        public void OpenUsageWeb()
-        {
-            try { Process.Start(new ProcessStartInfo("https://claude.ai/settings/usage") { UseShellExecute = true }); } catch { }
-        }
+        public void OpenUsageWeb() => Platform.OpenUrl("https://claude.ai/settings/usage");
 
         public void OpenSettings()
         {
@@ -450,11 +442,7 @@ namespace ClaudeLimits
             settingsWindow.Focus();
         }
 
-        void ApplyPillVisibility()
-        {
-            if (Settings.Shared.ShowPill) pill.ShowPill();
-            else pill.HidePill();
-        }
+        void ApplyPillVisibility() { if (Settings.Shared.ShowPill) pill.ShowPill(); else pill.HidePill(); }
 
         public void Quit()
         {

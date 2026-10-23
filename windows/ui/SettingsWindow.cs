@@ -1,5 +1,4 @@
 using System;
-using System.Diagnostics;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
@@ -184,7 +183,7 @@ namespace ClaudeLimits
             var byText = new TextBlock { Text = "made by ibr", FontSize = 11, TextDecorations = TextDecorations.Underline };
             byText.SetResourceReference(TextBlock.ForegroundProperty, "Link");
             by.Content = byText;
-            by.Click += (_, __) => Open("https://github.com/ibrarwtf");
+            by.Click += (_, __) => Platform.OpenUrl("https://github.com/ibrarwtf");
             var ver = Small($"v{Platform.Version}");
             ver.SetResourceReference(TextBlock.ForegroundProperty, "FgFaint");
             ver.HorizontalAlignment = HorizontalAlignment.Right;
@@ -431,13 +430,8 @@ namespace ClaudeLimits
                 Log.Write($"self-update failed: {e.Message}");
                 SetStatus($"Update failed ({e.Message}). Opening the releases page instead.", "Orange");
                 updateBtn.IsEnabled = true;
-                Open(Updates.ReleasesPage + "/latest");
+                Platform.OpenUrl(Updates.ReleasesPage + "/latest");
             }
-        }
-
-        static void Open(string url)
-        {
-            try { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); } catch { }
         }
 
         void Save()
