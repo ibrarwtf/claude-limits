@@ -105,8 +105,13 @@ git -C $Root push --force origin "v$Version"
 
 Write-Host ''
 Write-Host '→ -Publish: GitHub release'
+# Probe with Stop relaxed: PowerShell 5.1 turns a redirected native stderr
+# line ("release not found") into a terminating error under Stop.
+$ErrorActionPreference = 'Continue'
 gh release view "v$Version" --repo ibrarwtf/claude-limits *> $null
-if ($LASTEXITCODE -eq 0) {
+$releaseExists = ($LASTEXITCODE -eq 0)
+$ErrorActionPreference = 'Stop'
+if ($releaseExists) {
     # Release exists (made by release.sh on a Mac) — add/replace the Windows asset.
     gh release upload "v$Version" $ZipPath --clobber --repo ibrarwtf/claude-limits
 } else {
