@@ -62,6 +62,8 @@ arg_in(_, _, V, V, V).
 
 got([opt(error)], [E], G) :- !, ( E == none -> G = none ; once(friendly_message(E, G)) ).
 got([C], [V], G) :- choice(C, _), !, cname(swift, V, N), atom_string(N, G).
+got([float], [V], G) :- !, format(string(G), "~3f", [V]).
+got([list(float)], [L], G) :- !, maplist([V, S]>>format(string(S), "~3f", [V]), L, Ss), atomic_list_concat(Ss, ', ', A), atom_string(A, G).
 got([list(int)], [L], G) :- !, atomic_list_concat(L, ', ', A), format(string(G), "[~w]", [A]).
 got([_, _], [A, B], G) :- !, format(string(G), "(~w, ~w)", [A, B]).
 got([_], [V], V).
@@ -119,6 +121,10 @@ x(T, out([bool], E)) :- !, x(T, bool(E)).
 x(T, out([opt(error)], E)) :- !, x(T, msg(E)).
 x(swift, out([O], E)) :- O \= str, O \= opt(str), !, write("String(describing: "), x(swift, E), write(")").
 x(swift, out([_, _], E)) :- !, write("String(describing: "), x(swift, E), write(")").
+x(swift, out([float], E)) :- !, write("String(format: \"%.3f\", "), x(swift, E), write(")").
+x(csharp, out([float], E)) :- !, x(csharp, E), write(".ToString(\"F3\", System.Globalization.CultureInfo.InvariantCulture)").
+x(swift, out([list(float)], E)) :- !, x(swift, E), write(".map { String(format: \"%.3f\", $0) }.joined(separator: \", \")").
+x(csharp, out([list(float)], E)) :- !, write("string.Join(\", \", "), x(csharp, E), write(".Select(v => v.ToString(\"F3\", System.Globalization.CultureInfo.InvariantCulture)))").
 x(csharp, out([list(int)], E)) :- !, write("$\"[{string.Join(\", \", "), x(csharp, E), write(")}]\"").
 x(csharp, out([C], E)) :- choice(C, _), !, write("Case("), x(csharp, E), write(")").
 x(csharp, out(Os, E)) :- Os \= [str], Os \= [opt(str)], !, x(csharp, E), write(".ToString()").
