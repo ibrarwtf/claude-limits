@@ -28,19 +28,15 @@ final class UsageHistory {
             samples.removeAll()
         }
         if let resetsAt = resetsAt { lastResetsAt = resetsAt }
-        samples.append(HistorySample(timestamp: Clock.now(), utilization: utilization))
-        if samples.count > maxSamples {
-            samples.removeFirst(samples.count - maxSamples)
-        }
-        save()
+        add(utilization)
     }
 
     /// Record a failed poll as utilization = -1 sentinel; renderers ignore it.
-    func appendError() {
-        samples.append(HistorySample(timestamp: Clock.now(), utilization: -1))
-        if samples.count > maxSamples {
-            samples.removeFirst(samples.count - maxSamples)
-        }
+    func appendError() { add(-1) }
+
+    private func add(_ utilization: Double) {
+        samples.append(HistorySample(timestamp: Clock.now(), utilization: utilization))
+        samples = Array(samples.suffix(maxSamples))
         save()
     }
 
