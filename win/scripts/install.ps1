@@ -49,6 +49,6 @@ if ($n -eq 1) {
 
 # Refresh repo snapshots so the working tree always reflects the just-built UI.
 # Snapshot capture failure ≠ install failure — log and continue.
-Write-Host '→ Refreshing snapshots\win\…'
+Write-Host '→ Rendering snapshots…'
 try { & (Join-Path $PSScriptRoot 'snapshot.ps1') }
 catch { Write-Host '  (snapshot capture failed; install itself succeeded)' }

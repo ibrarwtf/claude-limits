@@ -18,12 +18,12 @@ cd claude-limits
 bash mac/scripts/install.sh
 ```
 
-The icon should appear in your menu bar within a couple of seconds. `install.sh` builds, bundles into `~/Applications/claude-limits.app`, installs a LaunchAgent so it autostarts on login, starts the new build, and refreshes `snapshots/mac/`.
+The icon should appear in your menu bar within a couple of seconds. `install.sh` builds, bundles into `~/Applications/claude-limits.app`, installs a LaunchAgent so it autostarts on login, starts the new build, and renders snapshots into `build/snapshots/mac/`.
 
 ### Dev loop
 
 ```
-edit Swift → bash mac/scripts/install.sh → check snapshots/mac/ (or your menu bar)
+edit Swift → bash mac/scripts/install.sh → check build/snapshots/mac/ (or your menu bar)
 ```
 
 ~5 seconds end-to-end on Apple Silicon. Useful side commands:
@@ -31,7 +31,7 @@ edit Swift → bash mac/scripts/install.sh → check snapshots/mac/ (or your men
 ```bash
 tail -f /tmp/claude-limits.log                  # stdout + stderr
 defaults read claude-limits                     # current persisted settings
-bash mac/scripts/snapshot.sh                    # re-render snapshots/mac/ from the fixture
+bash mac/scripts/snapshot.sh                    # re-render build/snapshots/mac/ from the fixture
 bash mac/scripts/uninstall.sh                   # remove .app + LaunchAgent (settings + history kept)
 ```
 
@@ -63,12 +63,12 @@ cd claude-limits
 powershell -ExecutionPolicy Bypass -File win\scripts\install.ps1
 ```
 
-`install.ps1` builds `build\win\claude-limits.exe`, quits any running copy, installs to `%LOCALAPPDATA%\Programs\claude-limits\`, registers autostart (HKCU Run key) and the `claude-limits://` URL scheme, starts it, and refreshes `snapshots\win\`. Look for the pill on the taskbar next to the tray; the tray icon starts in the `^` overflow.
+`install.ps1` builds `build\win\claude-limits.exe`, quits any running copy, installs to `%LOCALAPPDATA%\Programs\claude-limits\`, registers autostart (HKCU Run key) and the `claude-limits://` URL scheme, starts it, and renders snapshots into `build\snapshots\win\`. Look for the pill on the taskbar next to the tray; the tray icon starts in the `^` overflow.
 
 ### Dev loop
 
 ```
-edit C# → powershell -File win\scripts\install.ps1 → check snapshots\win\
+edit C# → powershell -File win\scripts\install.ps1 → check build\snapshots\win\
 ```
 
 Useful side commands:
@@ -76,7 +76,7 @@ Useful side commands:
 ```powershell
 Get-Content -Wait $env:TEMP\claude-limits.log                         # log
 Get-Content $env:APPDATA\claude-limits\settings.json                  # persisted settings
-powershell -File win\scripts\snapshot.ps1                             # re-render snapshots\win\ from the fixture
+powershell -File win\scripts\snapshot.ps1                             # re-render build\snapshots\win\ from the fixture
 build\win\claude-limits.exe --fixture spec\fixtures\snapshot.json     # run the UI on fixture data, no polling
 Start-Process claude-limits://flyout                                  # open the flyout from a script
 powershell -File win\scripts\uninstall.ps1 [-Purge]                   # remove (-Purge also wipes settings + history)
@@ -100,7 +100,7 @@ Changing shared behaviour? Update the case first, then make both runners pass �
 
 ## Snapshots
 
-`snapshots/mac/` and `snapshots/win/` hold menubar / dropdown / Settings in light + dark; open `snapshots/index.html` to view them side by side. They're rendered from `spec/fixtures/snapshot.json` with a pinned clock, so they're byte-identical run to run and only change when the UI does. CI re-renders both on every PR and commits any changes back to the branch — review them in the PR diff.
+`snapshots/mac/` and `snapshots/win/` hold menubar / dropdown / Settings in light + dark; open `snapshots/index.html` to view them side by side. They're rendered from `spec/fixtures/snapshot.json` with a pinned clock, so they're byte-identical run to run and only change when the UI does. CI re-renders both on every PR and commits any changes back to the branch — review them in the PR diff. Local runs write to `build/snapshots/` instead, so different fonts or PNG encoders on your machine never churn the committed images.
 
 If you're not working with direct eyes on the menu bar (remote dev, Claude Code agent, the other OS), `snapshots/` is your verification step — not a post-hoc artifact.
 

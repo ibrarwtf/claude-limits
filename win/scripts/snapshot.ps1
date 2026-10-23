@@ -1,4 +1,4 @@
-﻿# Render the Windows UI into snapshots\win\ from spec\fixtures\snapshot.json.
+﻿# Render the Windows UI from spec\fixtures\snapshot.json (CI: snapshots\win\, local: build\snapshots\win\).
 #
 # Runs the built exe in fixture mode (canned response, pinned clock, no
 # network, no settings/history writes), which renders menubar + dropdown +
@@ -27,4 +27,4 @@ foreach ($k in 'menubar', 'dropdown', 'settings') {
     if (-not (Test-Path (Join-Path $Dest "$k-dark.png"))) { throw "missing $k-dark.png — see $env:TEMP\claude-limits.log" }
 }
 
-Write-Host "Saved to $Dest. Open snapshots\index.html to view."
+Write-Host "Saved to $Dest."

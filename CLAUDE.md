@@ -58,11 +58,11 @@ Without `--snapshot-all` the Windows app shows its tray icon + pill with the fix
 | `mac/scripts/build.sh` | Compile + bundle into `~/Applications/claude-limits.app`, icon from `assets/AppIcon.icns`, ad-hoc codesign. |
 | `mac/scripts/install.sh` | `build.sh`, then (re)loads the LaunchAgent; refuses if a brew copy exists in `/Applications`. Refreshes snapshots. |
 | `mac/scripts/uninstall.sh` | Stops the LaunchAgent, removes the bundle (`--all` also removes the brew cask). Keeps settings + history. |
-| `mac/scripts/snapshot.sh` | Runs the built app with `--fixture … --snapshot-all snapshots/mac`. |
+| `mac/scripts/snapshot.sh` | Runs the built app with `--fixture … --snapshot-all` → `build/snapshots/mac` (`snapshots/mac` under CI). |
 | `win/scripts/build.ps1` | Boundary grep, `dotnet build` → `build\win\claude-limits.exe`. |
 | `win/scripts/install.ps1` | Builds, quits the running copy, installs to `%LOCALAPPDATA%\Programs\claude-limits\`, registers HKCU Run + `claude-limits://`, starts it, refreshes snapshots. |
 | `win/scripts/uninstall.ps1` | Quits, removes exe + Run key + URL scheme. Keeps `%APPDATA%\claude-limits\` unless `-Purge`. |
-| `win/scripts/snapshot.ps1` | Runs the built exe with `--fixture … --snapshot-all snapshots\win`. |
+| `win/scripts/snapshot.ps1` | Runs the built exe with `--fixture … --snapshot-all` → `build\snapshots\win` (`snapshots\win` under CI). |
 | `scripts/release.ps1` | Maintainer-only, any OS with git + gh + PowerShell. See *CI and releasing*. |
 
 Run `.ps1` scripts with `powershell -ExecutionPolicy Bypass -File <path>`. They must stay **UTF-8 with BOM**: Windows PowerShell 5.1 reads BOM-less files as ANSI, and the UTF-8 bytes of `—` contain a byte it treats as a closing quote. `.gitattributes` pins `.sh`/`.swift` to LF and `.ps1` to CRLF.
@@ -70,17 +70,17 @@ Run `.ps1` scripts with `powershell -ExecutionPolicy Bypass -File <path>`. They 
 ## Daily loop
 
 ```
-mac:  edit Swift → bash mac/scripts/install.sh → check snapshots/mac/   (log: /tmp/claude-limits.log)
-win:  edit C#    → powershell -File win\scripts\install.ps1 → check snapshots\win\   (log: %TEMP%\claude-limits.log)
+mac:  edit Swift → bash mac/scripts/install.sh → check build/snapshots/mac/   (log: /tmp/claude-limits.log)
+win:  edit C#    → powershell -File win\scripts\install.ps1 → check build\snapshots\win\   (log: %TEMP%\claude-limits.log)
 spec: edit spec/cases.json → run both runners (see DEVELOPMENT.md) — or let CI do it
 other OS: push a branch → CI builds, tests, commits snapshots → review the PNG diff
 ```
 
-`snapshots/` is the verification surface when you can't (or shouldn't have to) physically look at the menu bar — agentic workflows, remote pairs, CI. Don't insert a "look at the screen" step in your loop unless the change genuinely isn't UI-visible. Each capture overwrites in place; git is the history. The live apps also still answer `claude-limits://snapshot/<kind>?dest=<dir>` to capture real (non-fixture) state, and Windows answers `claude-limits://flyout` to open the flyout from a script.
+`snapshots/` is the verification surface when you can't (or shouldn't have to) physically look at the menu bar — agentic workflows, remote pairs, CI. Don't insert a "look at the screen" step in your loop unless the change genuinely isn't UI-visible. Local runs render into `build/snapshots/`; only CI writes the committed `snapshots/` (font/encoder differences between machines would otherwise churn the PNGs). Each capture overwrites in place; git is the history. The live apps also still answer `claude-limits://snapshot/<kind>?dest=<dir>` to capture real (non-fixture) state, and Windows answers `claude-limits://flyout` to open the flyout from a script.
 
 ## CI and releasing
 
-- `.github/workflows/ci.yml` — on every PR and push to `main`: Windows + macOS jobs build, run the spec, render snapshots. On same-repo PRs a final job commits changed PNGs back to the branch (GITHUB_TOKEN pushes don't retrigger CI).
+- `.github/workflows/ci.yml` — on every PR and push to `main`: Windows + macOS jobs build, run the spec, render snapshots. On same-repo PRs a final job commits changed PNGs back to the branch (GITHUB_TOKEN pushes don't retrigger CI). The macOS runner has a non-Retina display, so Mac PNGs come out @1x.
 - `.github/workflows/release.yml` — on a `v*` tag: builds both zips (`claude-limits-X.Y.Z.zip` for the cask, `claude-limits-windows-X.Y.Z.zip`) into a **draft** release, notes from the CHANGELOG section.
 - `scripts/release.ps1 X.Y.Z` — checks clean/synced `main` + a `## vX.Y.Z` CHANGELOG section, bumps `VERSION`, tags, pushes, waits for the draft, writes the Mac zip's sha256 into `mac/homebrew/claude-limits.rb` and the tap clone (`..\homebrew-lab`, or `TAP_DIR`), then publishes the draft as latest. Draft-first means neither app is offered a release before brew can install it.
 - The Mac app reads `/releases/latest` and updates via `brew upgrade`; the Windows app scans the release list for the newest release with a Windows zip and swaps its exe in place (sha256-checked against GitHub's asset digest).
