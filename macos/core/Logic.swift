@@ -70,6 +70,8 @@ enum Click: Int { case blocked, cooling, fetch }
 
 enum MenuAction: Int { case openSettings, refresh, openUsage, quit }
 
+enum Dot: Int { case connected, unverified, probe }
+
 struct UsageBucket: Codable {
     let utilization: Double
     let resetsAt: String?
@@ -979,6 +981,23 @@ func tooltip(_ u: Double?, _ iso: String?, _ e: AppError?, _ now: Date) -> Strin
         return h + "…"
     } else {
         return s2
+    }
+}
+
+func dotOnOpen(_ have: Bool, _ last: Date?, _ busy: Bool, _ until: Date?, _ click: Date?, _ now: Date) -> Dot {
+    let cool = coolingDown(click, now)
+    if have == true {
+        return Dot.connected
+    } else if (last != nil) && (now.timeIntervalSince(last!) < pollInterval) {
+        return Dot.connected
+    } else if busy == true {
+        return Dot.unverified
+    } else if (until != nil) && (until! > now) {
+        return Dot.unverified
+    } else if cool == true {
+        return Dot.unverified
+    } else {
+        return Dot.probe
     }
 }
 

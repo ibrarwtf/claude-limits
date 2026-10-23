@@ -65,6 +65,8 @@ public enum Click { Blocked, Cooling, Fetch }
 
 public enum MenuAction { OpenSettings, Refresh, OpenUsage, Quit }
 
+public enum Dot { Connected, Unverified, Probe }
+
 [System.Runtime.Serialization.DataContract]
 public sealed class UsageBucket
 {
@@ -1282,6 +1284,35 @@ public static partial class Logic
         else
         {
             return s2;
+        }
+    }
+
+    public static Dot DotOnOpen(bool have, DateTime? last, bool busy, DateTime? until, DateTime? click, DateTime now)
+    {
+        var cool = CoolingDown(click, now);
+        if (have == true)
+        {
+            return Dot.Connected;
+        }
+         else if ((last != null) && ((now - last.Value).TotalSeconds < PollInterval))
+        {
+            return Dot.Connected;
+        }
+         else if (busy == true)
+        {
+            return Dot.Unverified;
+        }
+         else if ((until != null) && (until.Value > now))
+        {
+            return Dot.Unverified;
+        }
+         else if (cool == true)
+        {
+            return Dot.Unverified;
+        }
+        else
+        {
+            return Dot.Probe;
         }
     }
 

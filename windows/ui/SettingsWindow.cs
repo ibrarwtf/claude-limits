@@ -349,22 +349,15 @@ namespace ClaudeLimits
         void SetCredentialsDotConnected(bool connected) =>
             SetCredentialsState(connected ? CredentialsState.Connected : CredentialsState.Disconnected);
 
-        /// Quick token-reachability probe; updates the dot. Settings-open reuses
-        /// recent app state so merely opening the window doesn't burn a usage call.
+        /// Updates the dot on open; see dot_on_open in logic/core.pl.
         async void RefreshCredentialsDot()
         {
-            if (app.LastResponse != null) { SetCredentialsDotConnected(true); return; }
-            var last = Settings.Shared.LastSuccessfulPoll;
-            if (last.HasValue && (DateTime.UtcNow - last.Value).TotalSeconds < PollInterval)
-            { SetCredentialsDotConnected(true); return; }
-            if (app.IsRefreshing) { SetCredentialsState(CredentialsState.Unverified); return; }
-            var until = Settings.Shared.NextAllowedPoll;
-            if (until.HasValue && until.Value > DateTime.UtcNow) { SetCredentialsState(CredentialsState.Unverified); return; }
-            // Throttle the probe so reopening Settings in a tight loop can't
-            // fire an ungated fetch per reopen (cold-start / prior non-429
-            // error state, where nothing above short-circuits).
-            if (app.LastManualClickAt.HasValue && (DateTime.UtcNow - app.LastManualClickAt.Value).TotalSeconds < ClickCooldown)
-            { SetCredentialsState(CredentialsState.Unverified); return; }
+            switch (DotOnOpen(app.LastResponse != null, Settings.Shared.LastSuccessfulPoll, app.IsRefreshing,
+                              Settings.Shared.NextAllowedPoll, app.LastManualClickAt, DateTime.UtcNow))
+            {
+                case Dot.Connected: SetCredentialsDotConnected(true); return;
+                case Dot.Unverified: SetCredentialsState(CredentialsState.Unverified); return;
+            }
             app.LastManualClickAt = DateTime.UtcNow;
             var r = await Api.FetchUsageAsync();
             if (r != null) SetCredentialsDotConnected(r.IsSuccess);

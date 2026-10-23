@@ -437,6 +437,20 @@ tooltip(U, Iso, E, Now, S) :-
     ;   S2 = "claude-limits" ),
     string_length(S2, N), ( N > 63 -> prefix(S2, 62, H), string_concat(H, "…", S) ; S = S2 ).
 
+% ── Settings ─────────────────────────────────────────────────────────────────
+% The credentials dot when Settings opens: reuse recent state rather than spend
+% a usage call, and never probe during a back-off, a refresh or a click storm.
+:- choice dot = [connected, unverified, probe].
+:- fn dot_on_open(bool, opt(time), bool, opt(time), opt(time), time) -> dot.   % have data, last success, refreshing, next allowed, last click, now
+dot_on_open(Have, Last, Busy, Until, Click, Now, D) :-
+    cooling_down(Click, Now, Cool),
+    (   Have == true -> D = connected
+    ;   Last \== none, secs(Last, Now) < poll_interval -> D = connected
+    ;   Busy == true -> D = unverified
+    ;   Until \== none, Until > Now -> D = unverified
+    ;   Cool == true -> D = unverified
+    ;   D = probe ).
+
 % ── Settings copy ────────────────────────────────────────────────────────────
 :- fn update_status(opt(str), opt(str), str) -> str.   % newer tag, GitHub error, our version
 update_status(Latest, Err, Ver, S) :-

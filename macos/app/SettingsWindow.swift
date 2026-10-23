@@ -377,42 +377,18 @@ class SettingsViewController: NSViewController {
         setCredentialsState(connected ? .connected : .disconnected)
     }
 
-    /// Quick token-reachability probe; updates the dot. Settings-open reuses
-    /// recent app state so merely opening the window doesn't burn a usage call.
+    /// Updates the dot on open; see dot_on_open in logic/core.pl.
     private func refreshCredentialsDot() {
-        if let delegate = NSApp.delegate as? AppDelegate {
-            if delegate.lastResponse != nil {
-                setCredentialsDotConnected(true)
-                return
-            }
-            if let last = Settings.shared.lastSuccessfulPoll,
-               Date().timeIntervalSince(last) < pollInterval {
-                setCredentialsDotConnected(true)
-                return
-            }
-            if delegate.isRefreshing {
-                setCredentialsState(.unverified)
-                return
-            }
-            if let until = Settings.shared.nextAllowedPoll, until > Date() {
-                setCredentialsState(.unverified)
-                return
-            }
-            // Throttle the probe so reopening Settings in a tight loop can't
-            // fire an ungated fetch per reopen (cold-start / prior non-429
-            // error state, where nothing above short-circuits).
-            if coolingDown(delegate.lastManualClickAt, Date()) {
-                setCredentialsState(.unverified)
-                return
-            }
-            delegate.lastManualClickAt = Date()
-        }
-        fetchUsage { [weak self] r in
-            DispatchQueue.main.async {
-                guard let self = self else { return }
-                switch r {
-                case .success: self.setCredentialsDotConnected(true)
-                case .failure: self.setCredentialsDotConnected(false)
+        guard let d = NSApp.delegate as? AppDelegate else { return }
+        switch dotOnOpen(d.lastResponse != nil, Settings.shared.lastSuccessfulPoll, d.isRefreshing,
+                         Settings.shared.nextAllowedPoll, d.lastManualClickAt, Date()) {
+        case .connected: setCredentialsDotConnected(true)
+        case .unverified: setCredentialsState(.unverified)
+        case .probe:
+            d.lastManualClickAt = Date()
+            fetchUsage { [weak self] r in
+                DispatchQueue.main.async {
+                    if case .success = r { self?.setCredentialsDotConnected(true) } else { self?.setCredentialsDotConnected(false) }
                 }
             }
         }
