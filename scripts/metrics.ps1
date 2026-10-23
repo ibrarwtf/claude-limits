@@ -5,7 +5,7 @@
 $Root = Split-Path -Parent $PSScriptRoot
 function Lines($glob) {
     $files = Get-ChildItem -Path $Root -Recurse -File -Include $glob |
-        Where-Object { $_.FullName -notmatch '\\(bin|obj|build)\\' -and $_.Name -notmatch '^Logic\.(swift|cs)$' }
+        Where-Object { $_.FullName -notmatch '\\(bin|obj|build)\\' -and (Get-Content $_.FullName -TotalCount 1) -notmatch 'do not edit' }
     ($files | ForEach-Object { (Get-Content $_.FullName | Where-Object { $_.Trim() }).Count } | Measure-Object -Sum).Sum
 }
 $swift = Lines '*.swift'; $cs = Lines @('*.cs', '*.xaml'); $pl = Lines '*.pl'
