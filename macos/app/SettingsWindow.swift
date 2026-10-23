@@ -86,15 +86,17 @@ class SettingsViewController: NSViewController {
     var hintLabel: NSTextField!
     var fileRow: NSView!
     var shellRow: NSView!
-    var pctSwitch: NSSwitch!
-    var waveSwitch: NSSwitch!
-    var resetSwitch: NSSwitch!
+    /// The Display toggles in order, each bound to the setting it writes.
+    static let toggles: [(label: String, key: ReferenceWritableKeyPath<Settings, Bool>)] = [
+        ("Percentage", \.showPercentage), ("Burn-rate wave", \.showWave),
+        ("Reset countdown", \.showResetTime), ("Open at login", \.launchAtStartup),
+    ]
+    var switches: [NSSwitch] = []
     var subTogglesStack: NSStackView!
     var mockContainer: NSView!
     var mockPct: NSTextField!
     var mockBars: NSTextField!
     var mockReset: NSTextField!
-    var launchSwitch: NSSwitch!
     var updateBtn: NSButton!     // flips between "Check for updates" and "Update to vX"
     var credentialsDot: NSView?  // green-pulsing when token is reachable
 
@@ -139,16 +141,8 @@ class SettingsViewController: NSViewController {
                                        controls: tokenControls)
 
         // ── Menu bar + General (merged) ─────────────────────────────────────
-        pctSwitch    = makeSwitch()
-        waveSwitch   = makeSwitch()
-        resetSwitch  = makeSwitch()
-        launchSwitch = makeSwitch()
-        subTogglesStack = NSStackView(views: [
-            makeToggleRow("Percentage", sw: pctSwitch),
-            makeToggleRow("Burn-rate wave", sw: waveSwitch),
-            makeToggleRow("Reset countdown", sw: resetSwitch),
-            makeToggleRow("Open at login", sw: launchSwitch),
-        ])
+        switches = Self.toggles.map { _ in makeSwitch() }
+        subTogglesStack = NSStackView(views: zip(Self.toggles, switches).map { makeToggleRow($0.0.label, sw: $0.1) })
         subTogglesStack.orientation = .vertical
         subTogglesStack.alignment = .leading
         subTogglesStack.spacing = 4
@@ -245,10 +239,7 @@ class SettingsViewController: NSViewController {
         modePopup.selectItem(at: Settings.shared.tokenSource.rawValue)
         fileField.stringValue = Settings.shared.customFilePath
         shellField.stringValue = Settings.shared.customShellCommand
-        pctSwitch.state    = Settings.shared.showPercentage ? .on : .off
-        waveSwitch.state   = Settings.shared.showWave       ? .on : .off
-        resetSwitch.state  = Settings.shared.showResetTime  ? .on : .off
-        launchSwitch.state = Settings.shared.launchAtStartup ? .on : .off
+        for (t, sw) in zip(Self.toggles, switches) { sw.state = Settings.shared[keyPath: t.key] ? .on : .off }
         applyMockToToggles()
         modeChanged()
         applyUpdateButtonState()
@@ -413,9 +404,9 @@ class SettingsViewController: NSViewController {
     /// hidden subviews from layout so the pill naturally narrows.
     private func applyMockToToggles() {
         guard mockContainer != nil else { return }
-        mockPct.isHidden   = pctSwitch.state   != .on
-        mockBars.isHidden  = waveSwitch.state  != .on
-        mockReset.isHidden = resetSwitch.state != .on
+        mockPct.isHidden   = switches[0].state != .on
+        mockBars.isHidden  = switches[1].state != .on
+        mockReset.isHidden = switches[2].state != .on
     }
 
     private func makeFieldRow(_ label: String, field: NSTextField, fieldWidth: CGFloat = 380) -> NSView {
@@ -491,10 +482,7 @@ class SettingsViewController: NSViewController {
         Settings.shared.tokenSource = TokenSource(rawValue: modePopup.indexOfSelectedItem) ?? .auto
         Settings.shared.customFilePath = fileField.stringValue
         Settings.shared.customShellCommand = shellField.stringValue
-        Settings.shared.showPercentage = pctSwitch.state == .on
-        Settings.shared.showWave       = waveSwitch.state == .on
-        Settings.shared.showResetTime  = resetSwitch.state == .on
-        Settings.shared.launchAtStartup = launchSwitch.state == .on
+        for (t, sw) in zip(Self.toggles, switches) { Settings.shared[keyPath: t.key] = sw.state == .on }
     }
 
     @objc func checkForUpdates() {

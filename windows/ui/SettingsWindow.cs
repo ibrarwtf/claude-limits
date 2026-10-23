@@ -97,7 +97,13 @@ namespace ClaudeLimits
         TextBox fileField, shellField;
         TextBlock hintLabel, statusLabel;
         FrameworkElement fileRow, shellRow;
-        CheckBox pctSwitch, waveSwitch, resetSwitch, pillSwitch, launchSwitch;
+        /// The Display toggles in order, each bound to the Settings property it writes.
+        static readonly (string label, string prop)[] toggles =
+        {
+            ("Percentage", "ShowPercentage"), ("Burn-rate wave", "ShowWave"), ("Reset countdown", "ShowResetTime"),
+            ("Floating pill by the tray", "ShowPill"), ("Open at login", "LaunchAtStartup"),
+        };
+        CheckBox[] switches;
         Border mockContainer;
         Button updateBtn;
         bool updateBtnPerformsUpdate;
@@ -149,14 +155,8 @@ namespace ClaudeLimits
             var tokenSection = Section(MakeKeyArt("credentials.json"), tokenControls);
 
             // ── Display + General (merged, like the Mac's Menu bar section) ──
-            pctSwitch = MakeSwitch(); waveSwitch = MakeSwitch(); resetSwitch = MakeSwitch();
-            pillSwitch = MakeSwitch(); launchSwitch = MakeSwitch();
-            var toggles = VStack(2,
-                ToggleRow("Percentage", pctSwitch),
-                ToggleRow("Burn-rate wave", waveSwitch),
-                ToggleRow("Reset countdown", resetSwitch),
-                ToggleRow("Floating pill by the tray", pillSwitch),
-                ToggleRow("Open at login", launchSwitch));
+            switches = toggles.Select(_ => MakeSwitch()).ToArray();
+            var toggleRows = VStack(2, toggles.Select((t, i) => ToggleRow(t.label, switches[i])).ToArray());
 
             updateBtn = new Button { Content = "Check for updates", HorizontalAlignment = HorizontalAlignment.Left };
             updateBtn.Click += (_, __) => { if (updateBtnPerformsUpdate) PerformUpdate(); else CheckForUpdates(); };
@@ -164,7 +164,7 @@ namespace ClaudeLimits
             statusLabel = new TextBlock { Text = " ", TextWrapping = TextWrapping.Wrap, Width = controlsWidth };
             statusLabel.SetResourceReference(TextBlock.ForegroundProperty, "FgDim");
 
-            var menuSection = Section(MakeMenubarArt(), VStack(8, toggles, updateBtn, statusLabel));
+            var menuSection = Section(MakeMenubarArt(), VStack(8, toggleRows, updateBtn, statusLabel));
 
             var sections = VStack(14, tokenSection, Divider(), menuSection);
             sections.Margin = new Thickness(24, 12, 24, 0);
@@ -203,11 +203,7 @@ namespace ClaudeLimits
             modeButtons[(int)s.TokenSource].IsChecked = true;
             fileField.Text = s.CustomFilePath;
             shellField.Text = s.CustomShellCommand;
-            pctSwitch.IsChecked = s.ShowPercentage;
-            waveSwitch.IsChecked = s.ShowWave;
-            resetSwitch.IsChecked = s.ShowResetTime;
-            pillSwitch.IsChecked = s.ShowPill;
-            launchSwitch.IsChecked = s.LaunchAtStartup;
+            for (int i = 0; i < toggles.Length; i++) switches[i].IsChecked = (bool)typeof(Settings).GetProperty(toggles[i].prop).GetValue(s);
             ApplyMockToToggles();
             ModeChanged();
             ApplyUpdateButtonState();
@@ -362,12 +358,12 @@ namespace ClaudeLimits
         /// Mirror toggle state into the live preview mock.
         void ApplyMockToToggles()
         {
-            if (mockContainer == null || pctSwitch == null || waveSwitch == null || resetSwitch == null) return;
+            if (mockContainer == null || switches?.Contains(null) != false) return;
             var t = new MenuBarTitle
             {
-                Pct = pctSwitch.IsChecked == true ? "12%" : null,
-                Wave = waveSwitch.IsChecked == true ? "▆▇█▇▆▆▅▅▄▃" : null,
-                Reset = resetSwitch.IsChecked == true ? "3:26" : null,
+                Pct = switches[0].IsChecked == true ? "12%" : null,
+                Wave = switches[1].IsChecked == true ? "▆▇█▇▆▆▅▅▄▃" : null,
+                Reset = switches[2].IsChecked == true ? "3:26" : null,
             };
             if (t.IsEmpty) t.Plain = "·";
             var v = PillView.Build(t);
@@ -424,11 +420,7 @@ namespace ClaudeLimits
             s.TokenSource = SelectedMode;
             s.CustomFilePath = fileField.Text;
             s.CustomShellCommand = shellField.Text;
-            s.ShowPercentage = pctSwitch.IsChecked == true;
-            s.ShowWave = waveSwitch.IsChecked == true;
-            s.ShowResetTime = resetSwitch.IsChecked == true;
-            s.ShowPill = pillSwitch.IsChecked == true;
-            s.LaunchAtStartup = launchSwitch.IsChecked == true;
+            for (int i = 0; i < toggles.Length; i++) typeof(Settings).GetProperty(toggles[i].prop).SetValue(s, switches[i].IsChecked == true);
         }
 
         void SetStatus(string text, string fgKey = "FgDim")
