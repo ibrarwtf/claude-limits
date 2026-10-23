@@ -296,7 +296,10 @@ rollover(LastU, U, LastR, R, Now, Out) :-
     ;   LastU > U + big_drop -> Out = true
     ;   Out = false ).
 
-% ── Polling policy ───────────────────────────────────────────────────────────
+% ── Polling policy ─────────────────────────────────────────────────────────
+:- fn resumed_error(opt(time), time) -> opt(error).   % at launch: a 429 back-off still running from the last process
+resumed_error(Until, Now, E) :- ( Until \== none, Until > Now -> S is secs(Now, Until), E = rate_limited(S) ; E = none ).
+
 :- fn should_poll(opt(time), opt(time), time) -> bool.   % next allowed, last success, now
 should_poll(Until, Last, Now, Out) :-
     (   Until \== none, Until > Now -> Out = false

@@ -217,12 +217,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
 
         // Still inside a 429 back-off from the previous process: mirror it.
-        if let until = Settings.shared.nextAllowedPoll, until > Date() {
-            self.lastError = .rateLimited(until.timeIntervalSinceNow)
-            if self.lastResponse == nil {
-                startRateLimitCycle()
-            }
-        }
+        lastError = resumedError(Settings.shared.nextAllowedPoll, Date())
+        if lastError != nil && lastResponse == nil { startRateLimitCycle() }
 
         if shouldPoll(Settings.shared.nextAllowedPoll, Settings.shared.lastSuccessfulPoll, Date()) {
             triggerRefresh(animated: true)

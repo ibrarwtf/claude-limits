@@ -714,6 +714,15 @@ func rollover(_ lastU: Double?, _ u: Double, _ lastR: String?, _ r: String?, _ n
     }
 }
 
+func resumedError(_ until: Date?, _ now: Date) -> AppError? {
+    if (until != nil) && (until! > now) {
+        let s = until!.timeIntervalSince(now)
+        return AppError.rateLimited(s)
+    } else {
+        return nil
+    }
+}
+
 func shouldPoll(_ until: Date?, _ last: Date?, _ now: Date) -> Bool {
     if (until != nil) && (until! > now) {
         return false

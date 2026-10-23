@@ -83,12 +83,8 @@ namespace ClaudeLimits
             }
 
             // Still inside a 429 back-off from the previous process: mirror it.
-            var until = Settings.Shared.NextAllowedPoll;
-            if (until.HasValue && until.Value > Now)
-            {
-                LastError = AppError.RateLimited((until.Value - Now).TotalSeconds);
-                if (LastResponse == null) StartRateLimitCycle();
-            }
+            LastError = ResumedError(Settings.Shared.NextAllowedPoll, Now);
+            if (LastError != null && LastResponse == null) StartRateLimitCycle();
 
             if (ShouldPoll(Settings.Shared.NextAllowedPoll, Settings.Shared.LastSuccessfulPoll, Now)) TriggerRefresh(animated: true);
             else UpdateTitle();

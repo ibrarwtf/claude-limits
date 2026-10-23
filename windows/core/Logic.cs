@@ -884,6 +884,19 @@ public static partial class Logic
         }
     }
 
+    public static AppError ResumedError(DateTime? until, DateTime now)
+    {
+        if ((until != null) && (until.Value > now))
+        {
+            var s = (until.Value - now).TotalSeconds;
+            return AppError.RateLimited(s);
+        }
+        else
+        {
+            return null;
+        }
+    }
+
     public static bool ShouldPoll(DateTime? until, DateTime? last, DateTime now)
     {
         if ((until != null) && (until.Value > now))
