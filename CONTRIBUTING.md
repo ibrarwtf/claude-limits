@@ -24,7 +24,7 @@ PRs welcome. Keep them small, focused, and dependency-free.
 
 1. Set up the local build for your OS — see [DEVELOPMENT.md](DEVELOPMENT.md). You don't need the other OS: CI builds and tests both.
 2. Fork, branch off `main`, make your change. One PR per concern.
-3. If you changed shared behaviour (formatting, burn rate, weekly rows, rollover, token parsing), update `spec/cases.json` and make both apps pass it — or say in the PR which side you couldn't change.
+3. Shared behaviour (formatting, burn rate, menus, policies, error copy, models…) lives in `logic/core.pl` — change it there, add a case to `spec/cases.json`, and run `swipl logic/plc.pl && swipl logic/oracle.pl`. See [logic/README.md](logic/README.md).
 4. Push. CI builds both apps, runs the spec, and re-renders `snapshots/`. On branches in this repo it commits changed PNGs to your PR; on forks they're attached to the CI run as artifacts — drop them in the PR description if your change is visible.
 5. Open the PR with a clear summary: what changed and why.
 
@@ -33,8 +33,8 @@ PRs welcome. Keep them small, focused, and dependency-free.
 Conventions live in [CLAUDE.md](CLAUDE.md). Things the build enforces:
 
 - `macos/core/` must not import AppKit or Cocoa, and `windows/core/` must not reference WPF/WinForms — the build scripts grep for it and abort.
-- No new dependencies: AppKit + Foundation on macOS; in-box .NET Framework 4.8 assemblies on Windows.
-- `spec/cases.json` must pass on both apps.
+- No new dependencies: AppKit + Foundation on macOS; in-box .NET Framework 4.8 assemblies on Windows. (SWI-Prolog is a build-time tool, not an app dependency.)
+- `spec/cases.json` must pass in Prolog and in both apps, and the generated `Logic.*` / test files must be up to date.
 
 ## Reporting bugs
 
