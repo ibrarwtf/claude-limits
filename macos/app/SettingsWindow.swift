@@ -123,19 +123,13 @@ class SettingsViewController: NSViewController {
 
         let tokenRow = makeRow("Token source", control: modePopup)
 
-        let tokenControls = NSStackView(views: [tokenRow, hintLabel, fileRow, shellRow])
-        tokenControls.orientation = .vertical
-        tokenControls.alignment = .leading
-        tokenControls.spacing = 8
+        let tokenControls = vstack([tokenRow, hintLabel, fileRow, shellRow], spacing: 8)
         let tokenSection = makeSection(iconView: makeKeyArt("credentials.json"),
                                        controls: tokenControls)
 
         // ── Menu bar + General (merged) ─────────────────────────────────────
         switches = Self.toggles.map { _ in makeSwitch() }
-        subTogglesStack = NSStackView(views: zip(Self.toggles, switches).map { makeToggleRow($0.0.label, sw: $0.1) })
-        subTogglesStack.orientation = .vertical
-        subTogglesStack.alignment = .leading
-        subTogglesStack.spacing = 4
+        subTogglesStack = vstack(zip(Self.toggles, switches).map { makeToggleRow($0.0.label, sw: $0.1) }, spacing: 4)
 
         updateBtn = NSButton(title: "Check for updates", target: self, action: #selector(checkForUpdates))
         updateBtn.bezelStyle = .roundRect
@@ -146,18 +140,10 @@ class SettingsViewController: NSViewController {
         statusLabel.textColor = .secondaryLabelColor
         statusLabel.preferredMaxLayoutWidth = 460
 
-        let menuControls = NSStackView(views: [subTogglesStack, updateRow, statusLabel])
-        menuControls.orientation = .vertical
-        menuControls.alignment = .leading
-        menuControls.spacing = 8
+        let menuControls = vstack([subTogglesStack, updateRow, statusLabel], spacing: 8)
         let menuSection = makeSection(iconView: makeMenubarArt(), controls: menuControls)
 
-        let sectionStack = NSStackView(views: [
-            tokenSection, sectionDivider(), menuSection,
-        ])
-        sectionStack.orientation = .vertical
-        sectionStack.alignment = .leading
-        sectionStack.spacing = 14
+        let sectionStack = vstack([tokenSection, sectionDivider(), menuSection], spacing: 14)
         sectionStack.translatesAutoresizingMaskIntoConstraints = false
 
         // ── Action buttons row [Test fetch] [Save] ──────────────────────────
@@ -230,6 +216,14 @@ class SettingsViewController: NSViewController {
     }
 
     // ── Section helpers ──────────────────────────────────────────────────────
+
+    private func vstack(_ views: [NSView], spacing: CGFloat) -> NSStackView {
+        let s = NSStackView(views: views)
+        s.orientation = .vertical
+        s.alignment = .leading
+        s.spacing = spacing
+        return s
+    }
 
     private func sectionDivider() -> NSView {
         // icon column 150 + spacing 18 + controls 460, so the rule stops at the toggles.
@@ -342,15 +336,15 @@ class SettingsViewController: NSViewController {
         v.layer!.borderColor = NSColor.separatorColor.cgColor
         v.layer!.borderWidth = 1
 
-        mockPct = NSTextField(labelWithString: "12%")
-        mockPct.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
-        mockPct.textColor = .white
-        mockBars = NSTextField(labelWithString: "▆▇█▇▆▆▅▅▄▃")
-        mockBars.font = NSFont.monospacedSystemFont(ofSize: 7, weight: .regular)
-        mockBars.textColor = .white
-        mockReset = NSTextField(labelWithString: "3:26")
-        mockReset.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
-        mockReset.textColor = .white
+        func label(_ text: String, _ font: NSFont) -> NSTextField {
+            let l = NSTextField(labelWithString: text)
+            l.font = font
+            l.textColor = .white
+            return l
+        }
+        mockPct = label("12%", .systemFont(ofSize: NSFont.smallSystemFontSize))
+        mockBars = label("▆▇█▇▆▆▅▅▄▃", .monospacedSystemFont(ofSize: 7, weight: .regular))
+        mockReset = label("3:26", .systemFont(ofSize: NSFont.smallSystemFontSize))
 
         let row = NSStackView(views: [mockPct, mockBars, mockReset])
         row.orientation = .horizontal
@@ -376,16 +370,10 @@ class SettingsViewController: NSViewController {
         mockReset.isHidden = switches[2].state != .on
     }
 
-    private func makeFieldRow(_ label: String, field: NSTextField, fieldWidth: CGFloat = 380) -> NSView {
-        let lbl = NSTextField(labelWithString: label)
-        lbl.font = .systemFont(ofSize: NSFont.systemFontSize)
+    private func makeFieldRow(_ label: String, field: NSTextField) -> NSView {
         field.translatesAutoresizingMaskIntoConstraints = false
-        field.widthAnchor.constraint(equalToConstant: fieldWidth).isActive = true
-        let row = NSStackView(views: [lbl, field])
-        row.orientation = .horizontal
-        row.spacing = 8
-        row.alignment = .firstBaseline
-        return row
+        field.widthAnchor.constraint(equalToConstant: 380).isActive = true
+        return makeRow(label, control: field)
     }
 
     private func makeRow(_ label: String, control: NSView) -> NSView {
