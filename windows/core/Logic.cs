@@ -83,123 +83,123 @@ public enum Dot { Connected, Unverified, Probe }
 [System.Runtime.Serialization.DataContract]
 public sealed class UsageBucket
 {
-    [System.Runtime.Serialization.DataMember(Name = "utilization", EmitDefaultValue = false)] public double? UtilizationRaw;
+    [System.Runtime.Serialization.DataMember(Name = "utilization")] public double? UtilizationRaw;
     public double Utilization => UtilizationRaw ?? 0;
-    [System.Runtime.Serialization.DataMember(Name = "resets_at", EmitDefaultValue = false)] public string ResetsAt;
+    [System.Runtime.Serialization.DataMember(Name = "resets_at")] public string ResetsAt;
 }
 
 [System.Runtime.Serialization.DataContract]
 public sealed class ExtraUsage
 {
-    [System.Runtime.Serialization.DataMember(Name = "is_enabled", EmitDefaultValue = false)] public bool? IsEnabled;
-    [System.Runtime.Serialization.DataMember(Name = "monthly_limit", EmitDefaultValue = false)] public double? MonthlyLimit;
-    [System.Runtime.Serialization.DataMember(Name = "used_credits", EmitDefaultValue = false)] public double? UsedCredits;
-    [System.Runtime.Serialization.DataMember(Name = "utilization", EmitDefaultValue = false)] public double? Utilization;
-    [System.Runtime.Serialization.DataMember(Name = "currency", EmitDefaultValue = false)] public string Currency;
+    [System.Runtime.Serialization.DataMember(Name = "is_enabled")] public bool? IsEnabled;
+    [System.Runtime.Serialization.DataMember(Name = "monthly_limit")] public double? MonthlyLimit;
+    [System.Runtime.Serialization.DataMember(Name = "used_credits")] public double? UsedCredits;
+    [System.Runtime.Serialization.DataMember(Name = "utilization")] public double? Utilization;
+    [System.Runtime.Serialization.DataMember(Name = "currency")] public string Currency;
 }
 
 [System.Runtime.Serialization.DataContract]
 public sealed class LimitModel
 {
-    [System.Runtime.Serialization.DataMember(Name = "display_name", EmitDefaultValue = false)] public string DisplayName;
+    [System.Runtime.Serialization.DataMember(Name = "display_name")] public string DisplayName;
 }
 
 [System.Runtime.Serialization.DataContract]
 public sealed class LimitScope
 {
-    [System.Runtime.Serialization.DataMember(Name = "model", EmitDefaultValue = false)] public LimitModel Model;
+    [System.Runtime.Serialization.DataMember(Name = "model")] public LimitModel Model;
 }
 
 [System.Runtime.Serialization.DataContract]
 public sealed class UsageLimit
 {
-    [System.Runtime.Serialization.DataMember(Name = "kind", EmitDefaultValue = false)] public string Kind;
-    [System.Runtime.Serialization.DataMember(Name = "group", EmitDefaultValue = false)] public string Group;
-    [System.Runtime.Serialization.DataMember(Name = "percent", EmitDefaultValue = false)] public double? Percent;
-    [System.Runtime.Serialization.DataMember(Name = "resets_at", EmitDefaultValue = false)] public string ResetsAt;
-    [System.Runtime.Serialization.DataMember(Name = "scope", EmitDefaultValue = false)] public LimitScope Scope;
+    [System.Runtime.Serialization.DataMember(Name = "kind")] public string Kind;
+    [System.Runtime.Serialization.DataMember(Name = "group")] public string Group;
+    [System.Runtime.Serialization.DataMember(Name = "percent")] public double? Percent;
+    [System.Runtime.Serialization.DataMember(Name = "resets_at")] public string ResetsAt;
+    [System.Runtime.Serialization.DataMember(Name = "scope")] public LimitScope Scope;
 }
 
 [System.Runtime.Serialization.DataContract]
 public sealed class UsageResponse
 {
-    [System.Runtime.Serialization.DataMember(Name = "five_hour", EmitDefaultValue = false)] public UsageBucket FiveHour;
-    [System.Runtime.Serialization.DataMember(Name = "seven_day", EmitDefaultValue = false)] public UsageBucket SevenDay;
-    [System.Runtime.Serialization.DataMember(Name = "seven_day_oauth_apps", EmitDefaultValue = false)] public UsageBucket SevenDayOauthApps;
-    [System.Runtime.Serialization.DataMember(Name = "seven_day_opus", EmitDefaultValue = false)] public UsageBucket SevenDayOpus;
-    [System.Runtime.Serialization.DataMember(Name = "seven_day_sonnet", EmitDefaultValue = false)] public UsageBucket SevenDaySonnet;
-    [System.Runtime.Serialization.DataMember(Name = "seven_day_cowork", EmitDefaultValue = false)] public UsageBucket SevenDayCowork;
-    [System.Runtime.Serialization.DataMember(Name = "seven_day_omelette", EmitDefaultValue = false)] public UsageBucket SevenDayOmelette;
-    [System.Runtime.Serialization.DataMember(Name = "extra_usage", EmitDefaultValue = false)] public ExtraUsage ExtraUsage;
-    [System.Runtime.Serialization.DataMember(Name = "limits", EmitDefaultValue = false)] public List<UsageLimit> Limits;
+    [System.Runtime.Serialization.DataMember(Name = "five_hour")] public UsageBucket FiveHour;
+    [System.Runtime.Serialization.DataMember(Name = "seven_day")] public UsageBucket SevenDay;
+    [System.Runtime.Serialization.DataMember(Name = "seven_day_oauth_apps")] public UsageBucket SevenDayOauthApps;
+    [System.Runtime.Serialization.DataMember(Name = "seven_day_opus")] public UsageBucket SevenDayOpus;
+    [System.Runtime.Serialization.DataMember(Name = "seven_day_sonnet")] public UsageBucket SevenDaySonnet;
+    [System.Runtime.Serialization.DataMember(Name = "seven_day_cowork")] public UsageBucket SevenDayCowork;
+    [System.Runtime.Serialization.DataMember(Name = "seven_day_omelette")] public UsageBucket SevenDayOmelette;
+    [System.Runtime.Serialization.DataMember(Name = "extra_usage")] public ExtraUsage ExtraUsage;
+    [System.Runtime.Serialization.DataMember(Name = "limits")] public List<UsageLimit> Limits;
 }
 
 [System.Runtime.Serialization.DataContract]
 public sealed class GitHubAsset
 {
-    [System.Runtime.Serialization.DataMember(Name = "name", EmitDefaultValue = false)] public string Name;
-    [System.Runtime.Serialization.DataMember(Name = "browser_download_url", EmitDefaultValue = false)] public string BrowserDownloadUrl;
-    [System.Runtime.Serialization.DataMember(Name = "digest", EmitDefaultValue = false)] public string Digest;
+    [System.Runtime.Serialization.DataMember(Name = "name")] public string Name;
+    [System.Runtime.Serialization.DataMember(Name = "browser_download_url")] public string BrowserDownloadUrl;
+    [System.Runtime.Serialization.DataMember(Name = "digest")] public string Digest;
 }
 
 [System.Runtime.Serialization.DataContract]
 public sealed class GitHubRelease
 {
-    [System.Runtime.Serialization.DataMember(Name = "tag_name", EmitDefaultValue = false)] public string TagName;
-    [System.Runtime.Serialization.DataMember(Name = "draft", EmitDefaultValue = false)] public bool? Draft;
-    [System.Runtime.Serialization.DataMember(Name = "prerelease", EmitDefaultValue = false)] public bool? Prerelease;
-    [System.Runtime.Serialization.DataMember(Name = "assets", EmitDefaultValue = false)] public List<GitHubAsset> Assets;
+    [System.Runtime.Serialization.DataMember(Name = "tag_name")] public string TagName;
+    [System.Runtime.Serialization.DataMember(Name = "draft")] public bool? Draft;
+    [System.Runtime.Serialization.DataMember(Name = "prerelease")] public bool? Prerelease;
+    [System.Runtime.Serialization.DataMember(Name = "assets")] public List<GitHubAsset> Assets;
 }
 
 [System.Runtime.Serialization.DataContract]
 public sealed class CredentialsOauth
 {
-    [System.Runtime.Serialization.DataMember(Name = "accessToken", EmitDefaultValue = false)] public string AccessToken;
+    [System.Runtime.Serialization.DataMember(Name = "accessToken")] public string AccessToken;
 }
 
 [System.Runtime.Serialization.DataContract]
 public sealed class Credentials
 {
-    [System.Runtime.Serialization.DataMember(Name = "claudeAiOauth", EmitDefaultValue = false)] public CredentialsOauth ClaudeAiOauth;
-    [System.Runtime.Serialization.DataMember(Name = "accessToken", EmitDefaultValue = false)] public string AccessToken;
+    [System.Runtime.Serialization.DataMember(Name = "claudeAiOauth")] public CredentialsOauth ClaudeAiOauth;
+    [System.Runtime.Serialization.DataMember(Name = "accessToken")] public string AccessToken;
 }
 
 [System.Runtime.Serialization.DataContract]
 public sealed class FixturePoint
 {
-    [System.Runtime.Serialization.DataMember(Name = "ago", EmitDefaultValue = false)] public double? AgoRaw;
+    [System.Runtime.Serialization.DataMember(Name = "ago")] public double? AgoRaw;
     public double Ago => AgoRaw ?? 0;
-    [System.Runtime.Serialization.DataMember(Name = "u", EmitDefaultValue = false)] public double? URaw;
+    [System.Runtime.Serialization.DataMember(Name = "u")] public double? URaw;
     public double U => URaw ?? 0;
 }
 
 [System.Runtime.Serialization.DataContract]
 public sealed class Fixture
 {
-    [System.Runtime.Serialization.DataMember(Name = "now", EmitDefaultValue = false)] public string Now;
-    [System.Runtime.Serialization.DataMember(Name = "response", EmitDefaultValue = false)] public UsageResponse Response;
-    [System.Runtime.Serialization.DataMember(Name = "history", EmitDefaultValue = false)] public List<FixturePoint> History;
+    [System.Runtime.Serialization.DataMember(Name = "now")] public string Now;
+    [System.Runtime.Serialization.DataMember(Name = "response")] public UsageResponse Response;
+    [System.Runtime.Serialization.DataMember(Name = "history")] public List<FixturePoint> History;
 }
 
 [System.Runtime.Serialization.DataContract]
 sealed class SettingsData
 {
-    [System.Runtime.Serialization.DataMember(EmitDefaultValue = false)] public int tokenSourceMode;
-    [System.Runtime.Serialization.DataMember(EmitDefaultValue = false)] public string customFilePath;
-    [System.Runtime.Serialization.DataMember(EmitDefaultValue = false)] public string customShellCommand;
-    [System.Runtime.Serialization.DataMember(EmitDefaultValue = false)] public double? lastSuccessfulPoll;
-    [System.Runtime.Serialization.DataMember(EmitDefaultValue = false)] public double? nextAllowedPoll;
-    [System.Runtime.Serialization.DataMember(EmitDefaultValue = false)] public string lastResponseJSON;
-    [System.Runtime.Serialization.DataMember(EmitDefaultValue = false)] public int consecutiveRateLimits;
-    [System.Runtime.Serialization.DataMember(EmitDefaultValue = false)] public int[] notifiedThresholds;
-    [System.Runtime.Serialization.DataMember(EmitDefaultValue = false)] public string lastNotifiedResetsAt;
-    [System.Runtime.Serialization.DataMember(EmitDefaultValue = false)] public bool hidePercentage;
-    [System.Runtime.Serialization.DataMember(EmitDefaultValue = false)] public bool hideWave;
-    [System.Runtime.Serialization.DataMember(EmitDefaultValue = false)] public bool hideResetTime;
-    [System.Runtime.Serialization.DataMember(EmitDefaultValue = false)] public bool hidePill;
-    [System.Runtime.Serialization.DataMember(EmitDefaultValue = false)] public int? pillX;
-    [System.Runtime.Serialization.DataMember(EmitDefaultValue = false)] public int? pillY;
-    [System.Runtime.Serialization.DataMember(EmitDefaultValue = false)] public bool didFirstLaunch;
+    [System.Runtime.Serialization.DataMember] public int tokenSourceMode;
+    [System.Runtime.Serialization.DataMember] public string customFilePath;
+    [System.Runtime.Serialization.DataMember] public string customShellCommand;
+    [System.Runtime.Serialization.DataMember] public double? lastSuccessfulPoll;
+    [System.Runtime.Serialization.DataMember] public double? nextAllowedPoll;
+    [System.Runtime.Serialization.DataMember] public string lastResponseJSON;
+    [System.Runtime.Serialization.DataMember] public int consecutiveRateLimits;
+    [System.Runtime.Serialization.DataMember] public int[] notifiedThresholds;
+    [System.Runtime.Serialization.DataMember] public string lastNotifiedResetsAt;
+    [System.Runtime.Serialization.DataMember] public bool hidePercentage;
+    [System.Runtime.Serialization.DataMember] public bool hideWave;
+    [System.Runtime.Serialization.DataMember] public bool hideResetTime;
+    [System.Runtime.Serialization.DataMember] public bool hidePill;
+    [System.Runtime.Serialization.DataMember] public int? pillX;
+    [System.Runtime.Serialization.DataMember] public int? pillY;
+    [System.Runtime.Serialization.DataMember] public bool didFirstLaunch;
 }
 
 public sealed partial class Settings

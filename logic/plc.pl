@@ -526,8 +526,8 @@ json_decl(swift, N, Fs) :-
 json_decl(csharp, N, Fs) :-
     nat(N, P), format("[System.Runtime.Serialization.DataContract]~npublic sealed class ~w~n{~n", [P]),
     forall(member(F:T, Fs), ( pascal(F, C),
-        (   T == float -> format("    [System.Runtime.Serialization.DataMember(Name = \"~w\", EmitDefaultValue = false)] public double? ~wRaw;~n    public double ~w => ~wRaw ?? 0;~n", [F, C, C, C])
-        ;   jty(csharp, T, S), format("    [System.Runtime.Serialization.DataMember(Name = \"~w\", EmitDefaultValue = false)] public ~w ~w;~n", [F, S, C]) ) )),
+        (   T == float -> format("    [System.Runtime.Serialization.DataMember(Name = \"~w\")] public double? ~wRaw;~n    public double ~w => ~wRaw ?? 0;~n", [F, C, C, C])
+        ;   jty(csharp, T, S), format("    [System.Runtime.Serialization.DataMember(Name = \"~w\")] public ~w ~w;~n", [F, S, C]) ) )),
     format("}~n~n").
 
 %% Choices (plain enums) and persisted settings
@@ -546,7 +546,7 @@ settings_decl(swift) :-
 settings_decl(csharp) :-
     format("[System.Runtime.Serialization.DataContract]~nsealed class SettingsData~n{~n"),
     forall(setting(_, T, S), ( key(S, K0, _), camel(K0, K), cs_field(T, FT),
-        format("    [System.Runtime.Serialization.DataMember(EmitDefaultValue = false)] public ~w ~w;~n", [FT, K]) )),
+        format("    [System.Runtime.Serialization.DataMember] public ~w ~w;~n", [FT, K]) )),
     format("}~n~npublic sealed partial class Settings~n{~n"),
     forall(setting(N, T, S), ( pascal(N, P), key(S, K0, Inv), camel(K0, K), cs_setting(T, Inv, K, Ty, G, St),
         format("    public ~w ~w { get { lock (gate) return ~w; } set { lock (gate) { ~w; Save(); } } }~n", [Ty, P, G, St]) )),
