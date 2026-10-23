@@ -261,18 +261,10 @@ namespace ClaudeLimits
             if (LastResponse?.FiveHour is UsageBucket f)
             {
                 var s = Settings.Shared;
+                bool all = !respectToggles;
                 int pct = Percent(f.Utilization);
-                var t = new MenuBarTitle
-                {
-                    Pct = !respectToggles || s.ShowPercentage ? $"{pct}%" : null,
-                    Wave = !respectToggles || s.ShowWave ? Sparkline(UsageHistory.Shared.Samples, SparkWidth) : null,
-                    Reset = !respectToggles || s.ShowResetTime ? Countdown(f.ResetsAt, Now) : null,
-                    TrayNumber = s.ShowPercentage || !respectToggles ? pct : (int?)null,
-                    Utilization = f.Utilization,
-                };
-                // All sub-toggles off — show a single dot so the click target stays alive.
-                if (t.IsEmpty) t.Plain = "·";
-                return t;
+                return MenuBarTitle.From(TitleParts(all || s.ShowPercentage, all || s.ShowWave, all || s.ShowResetTime, $"{pct}%",
+                    Sparkline(UsageHistory.Shared.Samples, SparkWidth), Countdown(f.ResetsAt, Now)), all || s.ShowPercentage ? pct : (int?)null, f.Utilization);
             }
             if (LastError != null) return new MenuBarTitle { Plain = ErrorSymbol(LastError), IsError = true };
             return new MenuBarTitle { Plain = "—" };
@@ -393,22 +385,12 @@ namespace ClaudeLimits
             animationGeneration += 1;
             animationTimer = Every(1.0 / 12.0, () =>
             {
-                var frame = WaveFrame(animationFrame);
-                // Slot-machine reels: % and reset spin while bars dance. Each
-                // piece is gated by its visibility toggle so a hidden part stays
-                // hidden during the click-acknowledgement animation.
+                // Slot-machine reels: % and reset spin while the bars dance;
+                // hidden parts stay hidden.
                 var s = Settings.Shared;
                 int pct = rng.Next(0, 100);
-                var t = new MenuBarTitle
-                {
-                    Pct = s.ShowPercentage ? $"{pct}%" : null,
-                    Wave = s.ShowWave ? frame : null,
-                    Reset = s.ShowResetTime ? $"{rng.Next(0, 10)}:{rng.Next(0, 60):00}" : null,
-                    TrayNumber = s.ShowPercentage ? pct : (int?)null,
-                    Utilization = 0,
-                };
-                if (t.IsEmpty) t.Plain = "·";
-                ApplyTitle(t);
+                ApplyTitle(MenuBarTitle.From(TitleParts(s.ShowPercentage, s.ShowWave, s.ShowResetTime, $"{pct}%", WaveFrame(animationFrame),
+                    $"{rng.Next(0, 10)}:{rng.Next(0, 60):00}"), s.ShowPercentage ? pct : (int?)null, 0));
                 animationFrame += 1;
             });
         }

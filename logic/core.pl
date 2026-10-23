@@ -322,6 +322,17 @@ raw_token(Text, Out) :-
     trim(Text, T),
     ( T \== "", \+ contains(T, " "), \+ contains(T, "\n"), starts_with(T, "sk-") -> Out = T ; Out = none ).
 
+% ── Menu-bar title ───────────────────────────────────────────────────────────
+% The pieces in order, each only if its toggle is on (the countdown also needs
+% an active window). No pieces at all → the apps show a lone "·".
+:- enum part = [pct(value: str), spark(value: str), reset(value: str)].
+:- fn title_parts(bool, bool, bool, str, str, opt(str)) -> list(part).
+title_parts(ShowP, ShowW, ShowR, P, W, R, Parts) :-
+    ( ShowP == true -> A = [pct(P)] ; A = [] ),
+    ( ShowW == true -> B = [spark(W)] ; B = [] ),
+    ( ShowR == true, R \== none -> C = [reset(R)] ; C = [] ),
+    append(A, B, AB), append(AB, C, Parts).
+
 % ── The dropdown ─────────────────────────────────────────────────────────────
 % Both apps draw exactly these rows, in order. status/reset rows show live
 % text the apps tick every second (status_line / reset_line).

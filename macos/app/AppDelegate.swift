@@ -470,46 +470,32 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             clampWidth()
             return
         }
-        if let r = lastResponse, let f = r.fiveHour {
-            let pct = percent(f.utilization)
-            let spark = sparkline(UsageHistory.shared.samples, sparkWidth)
-            let resetStr = countdown(f.resetsAt, Clock.now())
-            let normalFont = NSFont.menuBarFont(ofSize: NSFont.systemFontSize)
-            let sparkFont = NSFont.monospacedSystemFont(ofSize: 8, weight: .regular)
-            let normalAttrs: [NSAttributedString.Key: Any] = [.font: normalFont]
-            let sparkAttrs: [NSAttributedString.Key: Any] = [
-                .font: sparkFont,
-                .baselineOffset: 1.0,
-            ]
-            let title = NSMutableAttributedString()
+        if let f = lastResponse?.fiveHour {
             let s = Settings.shared
-            var prevAdded = false
-            if s.showPercentage {
-                title.append(NSAttributedString(string: "\(pct)%", attributes: normalAttrs))
-                prevAdded = true
-            }
-            if s.showWave {
-                if prevAdded { title.append(NSAttributedString(string: " ", attributes: normalAttrs)) }
-                title.append(NSAttributedString(string: spark, attributes: sparkAttrs))
-                prevAdded = true
-            }
-            if s.showResetTime, let resetStr = resetStr {
-                if prevAdded { title.append(NSAttributedString(string: " ", attributes: normalAttrs)) }
-                title.append(NSAttributedString(string: resetStr, attributes: normalAttrs))
-                prevAdded = true
-            }
-            // All sub-toggles off — show a single dot so the click target stays alive.
-            if !prevAdded {
-                statusItem.button?.title = "·"
-                statusItem.button?.attributedTitle = NSAttributedString(string: "")
-                clampWidth()
-                return
-            }
-            statusItem.button?.attributedTitle = title
-        } else {
-            statusItem.button?.title = "—"
-            statusItem.button?.attributedTitle = NSAttributedString(string: "")
+            setTitle(titleParts(s.showPercentage, s.showWave, s.showResetTime, "\(percent(f.utilization))%",
+                                sparkline(UsageHistory.shared.samples, sparkWidth), countdown(f.resetsAt, Clock.now())))
+            return
         }
+        statusItem.button?.title = "—"
+        statusItem.button?.attributedTitle = NSAttributedString(string: "")
+        clampWidth()
+    }
+
+    /// Menu-bar text from title_parts: the sparkline in a small mono font, the rest
+    /// in the menu-bar font; no parts → a lone dot so the click target stays alive.
+    func setTitle(_ parts: [Part]) {
+        let normal: [NSAttributedString.Key: Any] = [.font: NSFont.menuBarFont(ofSize: NSFont.systemFontSize)]
+        let spark: [NSAttributedString.Key: Any] = [.font: NSFont.monospacedSystemFont(ofSize: 8, weight: .regular), .baselineOffset: 1.0]
+        let title = NSMutableAttributedString()
+        for (i, part) in parts.enumerated() {
+            if i > 0 { title.append(NSAttributedString(string: " ", attributes: normal)) }
+            switch part {
+            case .spark(let v): title.append(NSAttributedString(string: v, attributes: spark))
+            case .pct(let v), .reset(let v): title.append(NSAttributedString(string: v, attributes: normal))
+            }
+        }
+        if parts.isEmpty { statusItem.button?.title = "·" }
+        statusItem.button?.attributedTitle = parts.isEmpty ? NSAttributedString(string: "") : title
         clampWidth()
     }
 
@@ -594,47 +580,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         animationStartedAt = Date()
         animationGeneration += 1
 
-        let sparkFont = NSFont.monospacedSystemFont(ofSize: 8, weight: .regular)
-        let normalFont = NSFont.menuBarFont(ofSize: NSFont.systemFontSize)
-        let sparkAttrs: [NSAttributedString.Key: Any] = [
-            .font: sparkFont,
-            .baselineOffset: 1.0,
-        ]
-
-        let normalAttrs: [NSAttributedString.Key: Any] = [.font: normalFont]
         animationTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 12.0, repeats: true) { [weak self] _ in
             guard let self = self else { return }
-            let frame = waveFrame(self.animationFrame)
-            // Slot-machine reels: % and reset spin while bars dance. Each
-            // piece is gated by its visibility toggle so a hidden part stays
-            // hidden during the click-acknowledgement animation.
-            let pct = Int.random(in: 0..<100)
-            let h = Int.random(in: 0...9), m = Int.random(in: 0..<60)
-            let resetStr = "\(h):\(String(format: "%02d", m))"
-            let title = NSMutableAttributedString()
+            // Slot-machine reels: % and reset spin while the bars dance; hidden
+            // parts stay hidden.
             let s = Settings.shared
-            var prev = false
-            if s.showPercentage {
-                title.append(NSAttributedString(string: "\(pct)%", attributes: normalAttrs))
-                prev = true
-            }
-            if s.showWave {
-                if prev { title.append(NSAttributedString(string: " ", attributes: normalAttrs)) }
-                title.append(NSAttributedString(string: String(frame), attributes: sparkAttrs))
-                prev = true
-            }
-            if s.showResetTime {
-                if prev { title.append(NSAttributedString(string: " ", attributes: normalAttrs)) }
-                title.append(NSAttributedString(string: resetStr, attributes: normalAttrs))
-                prev = true
-            }
-            if !prev {
-                self.statusItem.button?.title = "·"
-                self.statusItem.button?.attributedTitle = NSAttributedString(string: "")
-            } else {
-                self.statusItem.button?.attributedTitle = title
-            }
-            self.clampWidth()
+            self.setTitle(titleParts(s.showPercentage, s.showWave, s.showResetTime, "\(Int.random(in: 0..<100))%",
+                                     waveFrame(self.animationFrame), "\(Int.random(in: 0...9)):\(String(format: "%02d", Int.random(in: 0..<60)))"))
             self.animationFrame += 1
         }
     }

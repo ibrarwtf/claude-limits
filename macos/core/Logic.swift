@@ -28,6 +28,20 @@ enum AppError: LocalizedError {
     var errorDescription: String? { friendlyMessage(self) }
 }
 
+enum Part {
+    case pct(String)
+    case spark(String)
+    case reset(String)
+    enum Kind { case pct, spark, reset }
+    var kind: Kind {
+        switch self {
+        case .pct: return .pct
+        case .spark: return .spark
+        case .reset: return .reset
+        }
+    }
+}
+
 enum Row {
     case status
     case reset
@@ -732,6 +746,29 @@ func rawToken(_ text: String) -> String? {
     } else {
         return nil
     }
+}
+
+func titleParts(_ showP: Bool, _ showW: Bool, _ showR: Bool, _ p: String, _ w: String, _ r: String?) -> [Part] {
+    let a: [Part]
+    if showP == true {
+        a = [Part.pct(p)]
+    } else {
+        a = []
+    }
+    let b: [Part]
+    if showW == true {
+        b = [Part.spark(w)]
+    } else {
+        b = []
+    }
+    let c: [Part]
+    if (showR == true) && (r != nil) {
+        c = [Part.reset(r!)]
+    } else {
+        c = []
+    }
+    let aB = a + b
+    return aB + c
 }
 
 func menuRows(_ e: AppError?, _ r: UsageResponse?) -> [Row] {

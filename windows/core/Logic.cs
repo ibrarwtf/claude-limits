@@ -27,6 +27,18 @@ public sealed class AppError : Exception
     public override string Message => Logic.FriendlyMessage(this);
 }
 
+public enum PartKind { Pct, Spark, Reset }
+
+public sealed class Part
+{
+    public PartKind Kind { get; private set; }
+    public string Value { get; private set; }
+    Part(PartKind kind) { Kind = kind; }
+    public static Part Pct(string value) => new Part(PartKind.Pct) { Value = value };
+    public static Part Spark(string value) => new Part(PartKind.Spark) { Value = value };
+    public static Part Reset(string value) => new Part(PartKind.Reset) { Value = value };
+}
+
 public enum RowKind { Status, Reset, Separator, Header, Bar, Pair, Action }
 
 public sealed class Row
@@ -933,6 +945,39 @@ public static partial class Logic
         {
             return null;
         }
+    }
+
+    public static IReadOnlyList<Part> TitleParts(bool showP, bool showW, bool showR, string p, string w, string r)
+    {
+        IReadOnlyList<Part> a;
+        if (showP == true)
+        {
+            a = new List<Part> { Part.Pct(p) };
+        }
+        else
+        {
+            a = new List<Part> {  };
+        }
+        IReadOnlyList<Part> b;
+        if (showW == true)
+        {
+            b = new List<Part> { Part.Spark(w) };
+        }
+        else
+        {
+            b = new List<Part> {  };
+        }
+        IReadOnlyList<Part> c;
+        if ((showR == true) && (r != null))
+        {
+            c = new List<Part> { Part.Reset(r) };
+        }
+        else
+        {
+            c = new List<Part> {  };
+        }
+        var aB = Append(a, b);
+        return Append(aB, c);
     }
 
     public static IReadOnlyList<Row> MenuRows(AppError e, UsageResponse r)

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Windows;
@@ -22,6 +23,17 @@ namespace ClaudeLimits
         public bool IsError;
 
         public bool IsEmpty => Plain == null && Pct == null && Wave == null && Reset == null;
+
+        /// From title_parts (logic/core.pl); no parts → a lone dot so the click
+        /// target stays alive.
+        public static MenuBarTitle From(IReadOnlyList<Part> parts, int? trayNumber, double utilization)
+        {
+            var t = new MenuBarTitle { TrayNumber = trayNumber, Utilization = utilization };
+            foreach (var p in parts)
+                if (p.Kind == PartKind.Pct) t.Pct = p.Value; else if (p.Kind == PartKind.Spark) t.Wave = p.Value; else t.Reset = p.Value;
+            if (t.IsEmpty) t.Plain = "·";
+            return t;
+        }
     }
 
     /// Builds the pill's visual. Shared by the live pill, the flyout header, the
