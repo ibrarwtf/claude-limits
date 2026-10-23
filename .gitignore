@@ -10,3 +10,7 @@ dist/
 # Public docs (README, CLAUDE.md, DEVELOPMENT.md, CONTRIBUTING.md) and
 # tracked UI snapshots live at the repo root.
 .claude/
+
+# Windows build intermediates
+src/win/bin/
+src/win/obj/

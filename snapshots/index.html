@@ -19,31 +19,38 @@
 <body>
 
 <h1>claude-limits — snapshots (light + dark)</h1>
-<p>1:1 from the running app. Refresh after running <code>bash scripts/snapshot.sh --auto-all</code> on your Mac (or have me trigger it via mac-exec).</p>
+<p>1:1 from the running app. Refresh after running <code>bash scripts/snapshot.sh --auto-all</code> on a Mac, or <code>powershell -File scripts\snapshot.ps1</code> on Windows (writes to <code>windows/</code>).</p>
 
 <div id="grid"></div>
 
 <script>
-const kinds = [
-  { kind: 'menubar',  desc: 'Menu bar widget' },
-  { kind: 'dropdown', desc: 'Right-click dropdown' },
-  { kind: 'settings', desc: 'Settings window' },
+const platforms = [
+  { dir: '',         label: 'macOS',   kinds: [
+    { kind: 'menubar',  desc: 'Menu bar widget' },
+    { kind: 'dropdown', desc: 'Right-click dropdown' },
+    { kind: 'settings', desc: 'Settings window' },
+  ]},
+  { dir: 'windows/', label: 'Windows', kinds: [
+    { kind: 'menubar',  desc: 'Taskbar pill + tray icon' },
+    { kind: 'dropdown', desc: 'Flyout' },
+    { kind: 'settings', desc: 'Settings window' },
+  ]},
 ];
 
 const grid = document.getElementById('grid');
 
 async function loadAll() {
   let any = false;
-  for (const k of kinds) {
-    const lightURL = `${k.kind}-light.png?cb=${Date.now()}`;
-    const darkURL  = `${k.kind}-dark.png?cb=${Date.now()}`;
+  for (const p of platforms) for (const k of p.kinds) {
+    const lightURL = `${p.dir}${k.kind}-light.png?cb=${Date.now()}`;
+    const darkURL  = `${p.dir}${k.kind}-dark.png?cb=${Date.now()}`;
     const haveLight = await imageExists(lightURL);
     const haveDark  = await imageExists(darkURL);
     if (!haveLight && !haveDark) continue;
     any = true;
 
     const heading = document.createElement('h2');
-    heading.textContent = `${k.kind} — ${k.desc}`;
+    heading.textContent = `${p.label} · ${k.kind} — ${k.desc}`;
     grid.appendChild(heading);
 
     const pair = document.createElement('div');

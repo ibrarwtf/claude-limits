@@ -2,6 +2,16 @@
 
 `release.sh --publish` reads the section matching the version being shipped and feeds it to `gh release create --notes-file`. So write each section as user-facing release notes — what changed, why someone running `brew upgrade` would care.
 
+## v0.3.0
+
+- **Windows app.** claude-limits now runs on Windows 10/11 as a ~140 KB exe with nothing to install (.NET Framework 4.8 ships with Windows). Download `claude-limits-windows-0.3.0.zip`, extract, run.
+  - A pill on the taskbar next to the tray shows the same `18% ▆▇█ 4:32` line as the Mac menu bar (drag to move, hide in Settings, hides while a fullscreen app is running). Left-click refreshes, right-click opens the breakdown.
+  - The tray icon shows the 5-hour % as a number — amber at 80%, red at 95% — with the reset countdown in its tooltip. Click it for the flyout.
+  - Same polling, back-off, burn-rate projection, 80%/95% alerts (as Windows notifications) and token sources (auto-detect `%USERPROFILE%\.claude\.credentials.json`, custom file, or a PowerShell command, e.g. for WSL).
+  - Follows Windows light/dark mode and accent colour, live. Starts at login via the per-user Run key.
+  - "Update to vX.Y.Z" in Settings downloads the release zip, verifies its sha256, swaps the exe in place and relaunches.
+- Weekly limits are read from the API's newer `limits` field when the `seven_day*` buckets come back empty (Windows app).
+
 ## v0.2.0
 
 - **Update in place from Settings.** "Check for updates" now turns into "Update to vX.Y.Z" when a newer release exists; clicking it upgrades the app (via `brew upgrade --cask claude-limits`) and relaunches — no terminal needed. (Dev/self-built installs are pointed at the GitHub release instead.)

@@ -4,7 +4,7 @@ Codebase machinery (file roles, build steps, gotchas) is in [CLAUDE.md](CLAUDE.m
 
 ## Prereqs
 
-A Mac on macOS 13 or later, with `xcode-select --install` (gives you `swiftc` — no Xcode app needed).
+A Mac on macOS 13 or later, with `xcode-select --install` (gives you `swiftc` — no Xcode app needed). For the Windows build, see [Windows](#windows) below.
 
 ## Clone and run
 
@@ -73,6 +73,42 @@ bash scripts/uninstall.sh --all                 # dev + brew cask
 ```
 
 `release.sh --publish` runs the second flow automatically post-ship — the maintainer Mac always ends up running the actual brew-installed release after a publish.
+
+## Windows
+
+### Prereqs
+
+Windows 10 or 11 and the .NET SDK (build-time only — the app itself runs on the .NET Framework 4.8 that ships with Windows):
+
+```powershell
+winget install Microsoft.DotNet.SDK.10
+```
+
+### Clone and run
+
+```powershell
+git clone https://github.com/ibrarwtf/claude-limits
+cd claude-limits
+powershell -ExecutionPolicy Bypass -File scripts\install.ps1
+```
+
+`install.ps1` builds `build\win\claude-limits.exe`, quits any running copy, installs to `%LOCALAPPDATA%\Programs\claude-limits\`, registers autostart (HKCU Run key) and the `claude-limits://` URL scheme, starts it, and refreshes `snapshots\windows\`. Look for the pill on the taskbar next to the tray. The tray icon starts in the `^` overflow; drag it onto the taskbar.
+
+### Dev loop
+
+```
+edit C# → powershell -File scripts\install.ps1 → check snapshots\windows\
+```
+
+Useful side commands:
+
+```powershell
+Get-Content -Wait $env:TEMP\claude-limits.log                   # log
+Get-Content $env:APPDATA\claude-limits\settings.json            # persisted settings
+Start-Process claude-limits://flyout                             # open the flyout from a script
+powershell -File scripts\snapshot.ps1 --auto-all                 # re-capture PNGs
+powershell -File scripts\uninstall.ps1 [-Purge]                  # remove (−Purge also wipes settings + history)
+```
 
 ## Releasing
 
