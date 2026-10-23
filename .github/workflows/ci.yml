@@ -24,19 +24,19 @@ jobs:
 
       - name: Build
         shell: powershell
-        run: ./win/scripts/build.ps1
+        run: ./windows/scripts/build.ps1
 
       - name: Spec tests
         shell: powershell
         run: |
-          dotnet build win/tests/spec.csproj -c Release -o build/spec-win --nologo -v quiet -clp:ErrorsOnly
+          dotnet build windows/tests/spec.csproj -c Release -o build/spec-windows --nologo -v quiet -clp:ErrorsOnly
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          ./build/spec-win/claude-limits-spec.exe spec/cases.json
+          ./build/spec-windows/claude-limits-spec.exe spec/cases.json
           exit $LASTEXITCODE
 
       - name: Snapshots
         shell: powershell
-        run: ./win/scripts/snapshot.ps1
+        run: ./windows/scripts/snapshot.ps1
 
       - name: Show log on failure
         if: failure()
@@ -45,40 +45,40 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: snapshots-win
-          path: snapshots/win/*.png
+          name: snapshots-windows
+          path: snapshots/windows/*.png
 
       - uses: actions/upload-artifact@v4
         with:
-          name: claude-limits-win
-          path: build/win/claude-limits.exe
+          name: claude-limits-windows
+          path: build/windows/claude-limits.exe
 
-  mac:
+  macos:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
 
       - name: Build
-        run: bash mac/scripts/build.sh
+        run: bash macos/scripts/build.sh
 
       - name: Spec tests
         run: |
           mkdir -p build
-          swiftc -o build/spec-mac mac/core/*.swift mac/tests/main.swift
-          build/spec-mac spec/cases.json
+          swiftc -o build/spec-macos macos/core/*.swift macos/tests/main.swift
+          build/spec-macos spec/cases.json
 
       - name: Snapshots
-        run: bash mac/scripts/snapshot.sh
+        run: bash macos/scripts/snapshot.sh
 
       - uses: actions/upload-artifact@v4
         with:
-          name: snapshots-mac
-          path: snapshots/mac/*.png
+          name: snapshots-macos
+          path: snapshots/macos/*.png
 
   commit-snapshots:
     # Fork PRs get a read-only token; their snapshots stay as artifacts.
     if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-    needs: [windows, mac]
+    needs: [windows, macos]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -87,13 +87,13 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          name: snapshots-win
-          path: snapshots/win
+          name: snapshots-windows
+          path: snapshots/windows
 
       - uses: actions/download-artifact@v4
         with:
-          name: snapshots-mac
-          path: snapshots/mac
+          name: snapshots-macos
+          path: snapshots/macos
 
       # Pushes made with GITHUB_TOKEN don't trigger another CI run, so this
       # can't loop.

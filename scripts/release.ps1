@@ -8,7 +8,7 @@
 # 2. Bumps VERSION, commits "v<VERSION>", tags, pushes.
 # 3. Waits for .github/workflows/release.yml to build both zips into a DRAFT
 #    release.
-# 4. Points mac/homebrew/claude-limits.rb at the Mac zip (version + sha256),
+# 4. Points macos/homebrew/claude-limits.rb at the Mac zip (version + sha256),
 #    commits + pushes it, and copies it into the tap clone (TAP_DIR, default
 #    ..\homebrew-lab next to this repo; cloned if missing).
 # 5. Publishes the draft as the latest release. Only now do the Mac app (via
@@ -21,7 +21,7 @@ $Tag = "v$Version"
 $Root = Split-Path -Parent $PSScriptRoot
 $Repo = 'ibrarwtf/claude-limits'
 $TapDir = if ($env:TAP_DIR) { $env:TAP_DIR } else { Join-Path (Split-Path -Parent $Root) 'homebrew-lab' }
-$Cask = Join-Path $Root 'mac\homebrew\claude-limits.rb'
+$Cask = Join-Path $Root 'macos\homebrew\claude-limits.rb'
 
 # Native tools write progress to stderr; under Stop, PowerShell 5.1 would turn
 # that into a terminating error. Check exit codes explicitly instead.
@@ -70,8 +70,8 @@ Run gh run watch $runId --repo $Repo --exit-status --interval 15
 # ── 4. Homebrew cask ─────────────────────────────────────────────────────────
 $tmp = Join-Path ([IO.Path]::GetTempPath()) "claude-limits-release-$Version"
 if (Test-Path $tmp) { Remove-Item -Recurse -Force $tmp }
-Run gh release download $Tag --repo $Repo --pattern "claude-limits-mac-$Version.zip" --dir $tmp
-$sha = (Get-FileHash -Algorithm SHA256 (Join-Path $tmp "claude-limits-mac-$Version.zip")).Hash.ToLower()
+Run gh release download $Tag --repo $Repo --pattern "claude-limits-macos-$Version.zip" --dir $tmp
+$sha = (Get-FileHash -Algorithm SHA256 (Join-Path $tmp "claude-limits-macos-$Version.zip")).Hash.ToLower()
 Write-Host "→ Mac zip sha256: $sha"
 
 $c = [IO.File]::ReadAllText($Cask)

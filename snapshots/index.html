@@ -19,18 +19,18 @@
 <body>
 
 <h1>claude-limits — snapshots (light + dark)</h1>
-<p>Rendered by each app from <code>spec/fixtures/snapshot.json</code> — by CI on every PR, or locally with <code>bash mac/scripts/snapshot.sh</code> / <code>powershell -File win\scripts\snapshot.ps1</code>.</p>
+<p>Rendered by each app from <code>spec/fixtures/snapshot.json</code> — by CI on every PR, or locally with <code>bash macos/scripts/snapshot.sh</code> / <code>powershell -File windows\scripts\snapshot.ps1</code>.</p>
 
 <div id="grid"></div>
 
 <script>
 const platforms = [
-  { dir: 'mac/',     label: 'macOS',   kinds: [
+  { dir: 'macos/',     label: 'macOS',   kinds: [
     { kind: 'menubar',  desc: 'Menu bar widget' },
     { kind: 'dropdown', desc: 'Right-click dropdown' },
     { kind: 'settings', desc: 'Settings window' },
   ]},
-  { dir: 'win/',     label: 'Windows', kinds: [
+  { dir: 'windows/',     label: 'Windows', kinds: [
     { kind: 'menubar',  desc: 'Taskbar pill + tray icon' },
     { kind: 'dropdown', desc: 'Flyout' },
     { kind: 'settings', desc: 'Settings window' },
@@ -70,7 +70,7 @@ async function loadAll() {
   if (!any) {
     const e = document.createElement('div');
     e.className = 'empty';
-    e.innerHTML = 'No screenshots yet. Run <code>mac/scripts/snapshot.sh</code> or <code>win\scripts\snapshot.ps1</code>.';
+    e.innerHTML = 'No screenshots yet. Run <code>macos/scripts/snapshot.sh</code> or <code>windows\scripts\snapshot.ps1</code>.';
     grid.appendChild(e);
   }
 }
