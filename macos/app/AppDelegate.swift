@@ -11,8 +11,7 @@ extension URL {
     }
 }
 
-/// Tabular row with a graphical progress bar — drawn (not text characters)
-/// so it fills the full column and the height isn't tied to font metrics.
+/// Row with a drawn segmented bar (not text glyphs) that fills the column.
 final class TabularRowView: NSView {
     static let height: CGFloat = 24
     let label: String
@@ -37,9 +36,8 @@ final class TabularRowView: NSView {
                    bounds: bounds, isHighlighted: isHl, origin: .zero)
     }
 
-    /// Drawing extracted as static so the synthetic dropdown can paint the
-    /// same tabular row directly into its canvas — no cacheDisplay (which
-    /// has appearance-resolution issues on offscreen contexts).
+    /// Static so the synthetic dropdown paints it directly (cacheDisplay
+    /// mis-resolves appearance offscreen).
     static func paint(label: String, utilization: Double, value: String,
                       bounds: NSRect, isHighlighted: Bool, origin: NSPoint) {
         if isHighlighted {
@@ -69,14 +67,11 @@ final class TabularRowView: NSView {
         let barX = origin.x + leftPad + labelW + labelGap
         let barW = valueX - barX - barValueGap
 
-        // Label
         NSAttributedString(string: label, attributes: [
             .font: font, .foregroundColor: textColor,
         ]).draw(at: NSPoint(x: origin.x + leftPad, y: textY))
 
-        // Segmented bar: many small discrete blocks. Block count tuned so each
-        // block is ~5pt wide for fine granularity without looking like a
-        // solid bar.
+        // ~5pt blocks: fine granularity without reading as a solid bar.
         let blockCount = 24
         let blockGap: CGFloat = 1
         let blockW = (barW - CGFloat(blockCount - 1) * blockGap) / CGFloat(blockCount)
@@ -94,15 +89,12 @@ final class TabularRowView: NSView {
             NSBezierPath(roundedRect: rect, xRadius: 1.5, yRadius: 1.5).fill()
         }
 
-        // Value at right edge — position pre-computed above so bar extends to it.
         valueAttr.draw(at: NSPoint(x: valueX, y: textY))
     }
 }
 
-/// Custom view for menu items. NSMenu reserves ~22pt on the left of every
-/// item for the state-icon column (where checkmarks would render); items
-/// with `view` set bypass that, so we get flush-left text. Self-handles
-/// hover highlight + click dispatch.
+/// NSMenu reserves ~22pt for the state-icon column; a `view` bypasses it,
+/// giving flush-left text. Handles its own hover + click.
 final class MenuRowView: NSView {
     static let rowHeight: CGFloat = 22
     static let leftPad: CGFloat = 10
@@ -131,9 +123,7 @@ final class MenuRowView: NSView {
             NSColor.selectedContentBackgroundColor.setFill()
             bounds.fill()
         }
-        // Always force the macOS menu font (NSFont.menuFont) so every row in
-        // every state uses the same typeface and size — no AppKit defaults
-        // sneaking in differently per item.
+        // Always NSFont.menuFont so every row and state matches.
         let mut = NSMutableAttributedString(attributedString: titleAttr)
         mut.addAttribute(.font, value: NSFont.menuFont(ofSize: 0),
             range: NSRange(location: 0, length: mut.length))
@@ -165,9 +155,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     var animationTimer: Timer?
     var animationFrame = 0
     var animationStartedAt: Date?
-    /// Bumped each time startAnimation() begins a cycle. Deferred stops capture
-    /// this value when scheduled and no-op if a newer cycle has since started,
-    /// so a stale asyncAfter can't tear down a fresh animation.
+    /// Bumped per startAnimation(); a deferred stop from an older cycle no-ops.
     var animationGeneration = 0
     var isRefreshing = false
     var currentTask: URLSessionDataTask?
@@ -178,14 +166,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     var settingsWindow: NSWindow?
     var tickTimer: Timer?
 
-    // Error animation cycle (cold-start only — runs only when there's no
-    // prior successful data). Monotonic 12 fps counter; cyclePos picks phase.
+    // Cold-start error animation counter (error_tick in logic/core.pl).
     var rateLimitCycleTimer: Timer?
     var rateLimitAnimFrame: Int = 0
 
-    /// Width ceiling for the status item, computed once from the worst-case
-    /// "all three on" content. Slot can shrink below this when sub-toggles
-    /// hide parts; nothing may grow it past this — clampWidth() enforces.
+    /// Status-item width ceiling from the "all three on" content; clampWidth() enforces.
     var maxStatusItemWidth: CGFloat = 0
     var marqueeWindowChars: Int = 22
 
@@ -196,8 +181,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// just play the acknowledgement wave instead of re-fetching.
     var lastManualClickAt: Date? = nil
 
-    // Live "Last updated: Xs ago" line — refreshed once per second while the
-    // dropdown is open so the counter visibly ticks up.
+    // Ticks "Last updated: Xs ago" each second while the dropdown is open.
     weak var lastUpdatedMenuItem: NSMenuItem?
     weak var resetMenuItem: NSMenuItem?
     var menuTickTimer: Timer?
@@ -218,15 +202,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             return
         }
 
-        // Threshold notifications: the user can act on a heads-up at 80% / 95%
-        // even with the menu bar offscreen (fullscreen apps, focus mode).
+        // 80% / 95% alerts reach users with the menu bar offscreen (fullscreen, focus).
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
 
         computeWidthBudget()
         clampWidth()
 
-        // Restore last successful response from disk so we render real data
-        // immediately, even before the first poll completes.
+        // Show the last response straight away, before the first poll lands.
         if let data = Settings.shared.lastResponseJSON,
            let r = try? JSONDecoder().decode(UsageResponse.self, from: data) {
             self.lastResponse = r
@@ -234,8 +216,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             updateTitle()
         }
 
-        // Still inside a rate-limit window from the previous process? Mirror
-        // the error state. Marquee only runs when there's no prior data.
+        // Still inside a 429 back-off from the previous process: mirror it.
         if let until = Settings.shared.nextAllowedPoll, until > Date() {
             self.lastError = .rateLimited(until.timeIntervalSinceNow)
             if self.lastResponse == nil {
@@ -255,8 +236,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self?.updateTitle()
         }
 
-        // Update check: once at launch (small delay so the first poll lands
-        // first), then daily. GitHub anonymous limit is 60/h, so daily is fine.
+        // Update check shortly after launch, then daily (GitHub allows 60/h anonymous).
         DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
             self?.checkForLatestRelease()
         }
@@ -266,13 +246,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         if !Settings.shared.didFirstLaunch {
             Settings.shared.didFirstLaunch = true
-            // Auto-enable autostart on first launch so brew-installed users
-            // get a working LaunchAgent without flipping a setting. Idempotent
-            // — does nothing if scripts/install.sh wrote the file already.
+            // Brew installs get a LaunchAgent without flipping a setting (idempotent).
             Settings.shared.launchAtStartup = true
-            // Async so AppKit's launch dance is done before we order a window
-            // front (LSUIElement apps otherwise create the window without
-            // making it visible).
+            // Async: LSUIElement apps don't show windows during the launch dance.
             DispatchQueue.main.async { [weak self] in
                 self?.openSettings()
             }
@@ -297,8 +273,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    /// Measure the worst-case "all three on" content once at startup so every
-    /// later render can clamp to it.
+    /// Worst-case "all three on" width, measured once so renders can clamp to it.
     func computeWidthBudget() {
         let normalFont = NSFont.menuBarFont(ofSize: NSFont.systemFontSize)
         let sparkFont = NSFont.monospacedSystemFont(ofSize: 8, weight: .regular)
@@ -316,8 +291,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         marqueeWindowChars = max(8, Int(floor((maxStatusItemWidth - 6) / charWidth)))
     }
 
-    /// Hit the GitHub Releases API and remember whether a newer version is
-    /// available. UI consumers read `latestVersionAvailable` to render hints.
+    /// Remembers a newer release in latestVersionAvailable (Settings shows it).
     func checkForLatestRelease(completion: ((String?, Error?) -> Void)? = nil) {
         fetchLatestRelease { [weak self] result in
             DispatchQueue.main.async {
@@ -334,10 +308,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    /// Breadcrumb posted just before we quit for a brew upgrade. The app must
-    /// quit so brew can replace the bundle, so the menu-bar icon briefly
-    /// vanishes — this reassures the user it's coming back. Silently no-ops if
-    /// notifications weren't authorized.
+    /// Posted before quitting for a brew upgrade, while the icon is gone.
+    /// No-ops if notifications weren't authorized.
     func notifyUpdating(to version: String) {
         let c = UNMutableNotificationContent()
         c.title = "Updating claude-limits"
@@ -346,8 +318,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             UNNotificationRequest(identifier: "claude-limits.updating", content: c, trigger: nil))
     }
 
-    /// Resize slot to fit current title, capped at maxStatusItemWidth.
-    /// Called at the end of every render path.
+    /// Fit the slot to the title, capped at maxStatusItemWidth. Ends every render.
     func clampWidth() {
         var width: CGFloat = 0
         if let attr = statusItem.button?.attributedTitle, attr.length > 0 {
@@ -412,8 +383,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     func menuWillOpen(_ menu: NSMenu) {
-        // Schedule on .common mode so the timer keeps firing while the menu
-        // is open (the menu tracking runloop mode would otherwise pause it).
+        // .common so it keeps firing during menu tracking.
         menuTickTimer?.invalidate()
         let timer = Timer(timeInterval: 1.0, repeats: true) { [weak self] _ in
             self?.tickMenuLastUpdated()
@@ -422,9 +392,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menuTickTimer = timer
     }
 
-    /// Custom menu views don't auto-redraw on highlight changes — NSMenu
-    /// fires this when an item is about to be highlighted (or de-highlighted
-    /// when nil); mark every view dirty so the row repaints.
+    /// Custom menu views don't repaint on highlight changes; dirty them all.
     func menu(_ menu: NSMenu, willHighlight item: NSMenuItem?) {
         for menuItem in menu.items {
             menuItem.view?.needsDisplay = true
@@ -520,8 +488,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if force, let t = currentTask { t.cancel() }
         isRefreshing = true
         if animated { startAnimation() }
-        // Manual refreshes push the periodic timer's next-fire forward by a
-        // full interval so we don't double-poll right after a manual click.
+        // A manual refresh restarts the poll timer so we don't double-poll.
         if force { schedulePoll() }
         let myToken = UUID()
         currentRequestToken = myToken
@@ -608,9 +575,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         updateTitle()
     }
 
-    // ── Error animation cycle ───────────────────────────────────────────────
-    // Phase A bouncing wave (~1.5s), Phase B marquee scroll of friendly
-    // message. Both render mono within the width budget.
+    // ── Error animation cycle (frames from error_tick) ──────────────────────
 
     func startRateLimitCycle() {
         rateLimitCycleTimer?.invalidate()
@@ -644,15 +609,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         resetLine(f.utilization, f.resetsAt, UsageHistory.shared.samples, Clock.now())
     }
 
-    /// Fire one-shot notifications when 5h utilization first crosses 80% / 95%.
-    /// State is keyed to the live `resets_at` so each new window starts fresh,
-    /// and a relaunch mid-window won't re-notify.
+    /// One-shot 80% / 95% alerts per window. The fired set resets only on a real
+    /// resets_at change — the API sometimes drops it mid-window.
     func checkAndNotifyThresholds(_ f: UsageBucket) {
         let s = Settings.shared
-        // Only roll over the dedup set on a real resets_at change. The API can
-        // intermittently drop resets_at to nil mid-window; treating that as a
-        // rollover would clear the set and re-fire the 80/95% alerts for a
-        // window we already notified.
         if let r = f.resetsAt, r != s.lastNotifiedResetsAt {
             s.lastNotifiedResetsAt = r
             s.notifiedThresholds = []
@@ -675,14 +635,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusLine(lastError, lastUpdated, Settings.shared.nextAllowedPoll, nextPollAt, Clock.now())
     }
 
-    /// Default width for menu rows. NSMenu auto-sizes to widest item; using
-    /// a single shared width keeps every row visually flush right + left.
+    /// One shared width keeps every row flush left and right.
     static let menuRowWidth: CGFloat = 360
 
-    /// Wrap an NSMenuItem with a MenuRowView so it renders flush-left
-    /// (no icon column) and uses a single consistent font. Also sets
-    /// attributedTitle so the synthetic dropdown render uses the same
-    /// attributed string the view draws.
+    /// Flush-left MenuRowView row; attributedTitle feeds the synthetic dropdown.
     private func wrapAsView(_ item: NSMenuItem, attr: NSAttributedString) {
         item.attributedTitle = attr
         let view = MenuRowView(title: attr, width: AppDelegate.menuRowWidth)
@@ -708,10 +664,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return item
     }
 
-    /// Tabular row: label, graphical progress bar that fills the column,
-    /// then the value flush-right. Uses TabularRowView so the bar is drawn
-    /// (not text glyphs), can be sized independently of font metrics, and
-    /// spans the full available width.
+    /// Label, drawn bar (TabularRowView), value flush-right.
     func tabularItem(label: String, utilization: Double, value: String) -> NSMenuItem {
         let item = NSMenuItem(title: "\(label) \(value)", action: nil, keyEquivalent: "")
         item.isEnabled = false
@@ -722,8 +675,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return item
     }
 
-    /// Single-line label-on-left, value-on-right — no progress bar.
-    /// Used for Pay-as-you-go and similar.
+    /// Label left, value right — no bar (pay-as-you-go etc.).
     func payAsYouGoItem(label: String, value: String) -> NSMenuItem {
         let para = NSMutableParagraphStyle()
         para.tabStops = [NSTextTab(textAlignment: .right,
@@ -738,9 +690,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return item
     }
 
-    /// Action row — clickable, default menu font.
-    /// `target == nil` walks the responder chain (needed for NSApp.terminate
-    /// which lives on NSApp, not AppDelegate).
+    /// Clickable row; nil target walks the responder chain (NSApp.terminate).
     func actionItem(_ s: String, action: Selector, target: AnyObject? = nil) -> NSMenuItem {
         let item = NSMenuItem(title: s, action: action, keyEquivalent: "")
         item.target = target
@@ -789,11 +739,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 self?.triggerRefresh(animated: true, force: true)
             })
         }
-        // LSUIElement apps stay at .accessory permanently. makeKeyAndOrderFront
-        // alone doesn't reliably foreground from menu-driven calls (previous
-        // app keeps focus); we pair it with activate(ignoringOtherApps:) and
-        // orderFrontRegardless(). Toggling activation policy to .regular and
-        // back closes any window that became visible during it.
+        // LSUIElement apps stay .accessory; makeKeyAndOrderFront alone doesn't
+        // foreground from a menu, so pair it with activate + orderFrontRegardless.
+        // (Toggling to .regular and back closes windows shown meanwhile.)
         NSApp.activate(ignoringOtherApps: true)
         settingsWindow?.makeKeyAndOrderFront(nil)
         settingsWindow?.orderFrontRegardless()
