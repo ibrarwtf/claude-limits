@@ -400,6 +400,7 @@ case_binds(_, _, _).
 %% Expressions
 
 ex(T, E) :- ex(T, E, S), write(S).
+ex(T, E, S) :- et(E, As, Sw, Cs), !, maplist(both(T), As, Ss), ( T == swift -> Tpl = Sw ; Tpl = Cs ), fill(Tpl, Ss, S).
 ex(_, i(N), S) :- format(string(S), "~w", [N]).
 ex(_, f(N), S) :- format(string(S), "~w", [N]).
 ex(T, s(X), S) :- quote(T, X, S).
@@ -410,16 +411,7 @@ ex(_, var(L), S) :- atom_string(L, S).
 ex(swift, c(N), S) :- camel(N, C), atom_string(C, S).
 ex(csharp, c(N), S) :- pascal(N, C), atom_string(C, S).
 ex(T, op(Op, A, B), S) :- sub(T, A, SA), sub(T, B, SB), format(string(S), "~w ~w ~w", [SA, Op, SB]).
-ex(T, neg(A), S) :- sub(T, A, SA), format(string(S), "-~w", [SA]).
 ex(T, not(A), S) :- ex(T, A, SA), ( A = var(_) -> format(string(S), "!~w", [SA]) ; format(string(S), "!(~w)", [SA]) ).
-ex(swift, conv(A), S) :- ex(swift, A, SA), format(string(S), "Double(~w)", [SA]).
-ex(csharp, conv(A), S) :- sub(csharp, A, SA), format(string(S), "(double)~w", [SA]).
-ex(swift, trunc(A), S) :- ex(swift, A, SA), format(string(S), "Int(~w)", [SA]).
-ex(csharp, trunc(A), S) :- sub(csharp, A, SA), format(string(S), "(int)~w", [SA]).
-ex(swift, round(A), S) :- sub(swift, A, SA), format(string(S), "Int(~w.rounded())", [SA]).
-ex(csharp, round(A), S) :- ex(csharp, A, SA), format(string(S), "(int)Math.Round(~w, MidpointRounding.AwayFromZero)", [SA]).
-ex(swift, secs(A, B), S) :- sub(swift, A, SA), sub(swift, B, SB), format(string(S), "~w.timeIntervalSince(~w)", [SB, SA]).
-ex(csharp, secs(A, B), S) :- sub(csharp, A, SA), sub(csharp, B, SB), format(string(S), "(~w - ~w).TotalSeconds", [SB, SA]).
 ex(swift, unwrap(A, _), S) :- sub(swift, A, SA), format(string(S), "~w!", [SA]).
 ex(csharp, unwrap(A, T), S) :- sub(csharp, A, SA), ( value_type(T) -> format(string(S), "~w.Value", [SA]) ; S = SA ).
 ex(T, field(X, R, F), S) :- sub(T, X, SX), native(R, N), N =.. [_|Langs], member(L, Langs), functor(L, T, _), record(R, Fs), nth1(I, Fs, F:_), !, arg(I, L, NF), format(string(S), "~w.~w", [SX, NF]).
@@ -427,20 +419,13 @@ ex(swift, efield(_, _, _, _, L), S) :- atom_string(L, S).
 ex(csharp, efield(X, _, _, F, _), S) :- sub(csharp, X, SX), pascal(F, P), format(string(S), "~w.~w", [SX, P]).
 ex(swift, kind(X, Case), S) :- sub(swift, X, SX), camel(Case, C), format(string(S), "~w.kind == .~w", [SX, C]).
 ex(csharp, kind(X, Case), S) :- sub(csharp, X, SX), enum(EN, Cs), member(D, Cs), functor(D, Case, _), !, nat(EN, N), pascal(Case, C), format(string(S), "~w.Kind == ~wKind.~w", [SX, N, C]).
-ex(T, idx(X, I), S) :- sub(T, X, SX), ex(T, I, SI), format(string(S), "~w[~w]", [SX, SI]).
-ex(swift, empty(X), S) :- sub(swift, X, SX), format(string(S), "~w.isEmpty", [SX]).
-ex(csharp, empty(X), S) :- sub(csharp, X, SX), format(string(S), "~w.Count == 0", [SX]).
-ex(swift, drop1(X), S) :- sub(swift, X, SX), format(string(S), "Array(~w.dropFirst())", [SX]).
-ex(csharp, drop1(X), S) :- sub(csharp, X, SX), format(string(S), "~w.Skip(1).ToList()", [SX]).
-ex(swift, cons(H, Tl, _), S) :- ex(swift, H, SH), sub(swift, Tl, ST), format(string(S), "[~w] + ~w", [SH, ST]).
-ex(csharp, cons(H, Tl, _), S) :- ex(csharp, H, SH), ex(csharp, Tl, ST), format(string(S), "Cons(~w, ~w)", [SH, ST]).
 ex(swift, list(Es, _), S) :- maplist(ex(swift), Es, Ss), atomic_list_concat(Ss, ', ', J), format(string(S), "[~w]", [J]).
 ex(csharp, list(Es, T), S) :- maplist(ex(csharp), Es, Ss), atomic_list_concat(Ss, ', ', J), ty(csharp, T, TS), format(string(S), "new List<~w> { ~w }", [TS, J]).
 ex(swift, list([], _), "[]") :- !.
 ex(csharp, list([], T), S) :- !, ty(csharp, T, TS), format(string(S), "new List<~w>()", [TS]).
 ex(T, tuple(Es), S) :- maplist(ex(T), Es, Ss), atomic_list_concat(Ss, ', ', J), format(string(S), "(~w)", [J]).
 ex(T, call(F, Es), S) :- fname(T, F, FN), maplist(ex(T), Es, Ss), atomic_list_concat(Ss, ', ', J), format(string(S), "~w(~w)", [FN, J]).
-ex(T, b(F, Es), S) :- maplist(ex(T), Es, Ss), bi(T, F, Ss, S), !.
+ex(T, b(F, Es), S) :- maplist(both(T), Es, Ss), bi(T, F, Ss, S), !.
 ex(swift, jfield(X, F), S) :- sub(swift, X, SX), camel(F, C), format(string(S), "~w.~w", [SX, C]).
 ex(csharp, jfield(X, F), S) :- sub(csharp, X, SX), pascal(F, C), format(string(S), "~w.~w", [SX, C]).
 ex(T, chval(CN, A), S) :- pascal(CN, P), ( T == swift -> camel(A, C) ; pascal(A, C) ), format(string(S), "~w.~w", [P, C]).
@@ -448,50 +433,56 @@ ex(swift, ector(EN, A, Es), S) :- nat(EN, N), camel(A, C), ( Es == [] -> format(
 ex(csharp, ector(EN, A, Es), S) :- nat(EN, N), pascal(A, C), maplist(ex(csharp), Es, Ss), atomic_list_concat(Ss, ', ', J), format(string(S), "~w.~w(~w)", [N, C, J]).
 ex(T, interp(Ps), S) :- interp(T, Ps, S).
 
+% Simple expression forms as Swift / C# templates over their (parenthesised) operands.
+et(neg(A), [A], "-%1", "-%1").
+et(conv(A), [A], "Double(%1)", "(double)%1").
+et(trunc(A), [A], "Int(%1)", "(int)%1").
+et(round(A), [A], "Int(%1.rounded())", "(int)Math.Round(%1, MidpointRounding.AwayFromZero)").
+et(secs(A, B), [A, B], "%2.timeIntervalSince(%1)", "(%2 - %1).TotalSeconds").
+et(idx(X, I), [X, I], "%1[%2]", "%1[%2]").
+et(empty(X), [X], "%1.isEmpty", "%1.Count == 0").
+et(drop1(X), [X], "Array(%1.dropFirst())", "%1.Skip(1).ToList()").
+et(cons(H, Tl, _), [H, Tl], "[%1] + %2", "Cons(%1, %2)").
+
 % Parenthesise compound operands.
 sub(T, E, S) :- ex(T, E, S0), ( compound(E), E = op(_, _, _) -> format(string(S), "(~w)", [S0]) ; S = S0 ).
 
-bi(swift, parse_iso, [A], S) :- format(string(S), "parseISO(~w)", [A]).
-bi(csharp, parse_iso, [A], S) :- format(string(S), "Format.ParseISO(~w)", [A]).
-bi(swift, clock, [A], S) :- format(string(S), "formatClock(~w)", [A]).
-bi(csharp, clock, [A], S) :- format(string(S), "Format.ClockTime(~w)", [A]).
-bi(swift, pad2, [A], S) :- format(string(S), "String(format: \"%02d\", ~w)", [A]).
-bi(csharp, pad2, [A], S) :- format(string(S), "~w.ToString(\"00\")", [A]).
-bi(swift, prefix, [A, N], S) :- format(string(S), "String(~w.prefix(~w))", [A, N]).
-bi(csharp, prefix, [A, N], S) :- format(string(S), "Prefix(~w, ~w)", [A, N]).
-bi(swift, trim, [A], S) :- format(string(S), "~w.trimmingCharacters(in: .whitespacesAndNewlines)", [A]).
-bi(csharp, trim, [A], S) :- format(string(S), "~w.Trim()", [A]).
-bi(swift, split, [A, B], S) :- format(string(S), "~w.components(separatedBy: ~w)", [A, B]).
-bi(csharp, split, [A, B], S) :- format(string(S), "~w.Split(new[] { ~w }, StringSplitOptions.None)", [A, B]).
-bi(swift, to_int, [A], S) :- format(string(S), "Int(~w)", [A]).
-bi(csharp, to_int, [A], S) :- format(string(S), "ToInt(~w)", [A]).
-bi(swift, drop_prefix, [A, P], S) :- format(string(S), "(~w.hasPrefix(~w) ? String(~w.dropFirst(~w.count)) : ~w)", [A, P, A, P, A]).
-bi(csharp, drop_prefix, [A, P], S) :- format(string(S), "(~w.StartsWith(~w) ? ~w.Substring(~w.Length) : ~w)", [A, P, A, P, A]).
-bi(swift, last_n, [L, N], S) :- format(string(S), "Array(~w.suffix(~w))", [L, N]).
-bi(csharp, last_n, [L, N], S) :- format(string(S), "~w.Skip(Math.Max(0, ~w.Count - ~w)).ToList()", [L, L, N]).
-bi(swift, length, [L], S) :- format(string(S), "~w.count", [L]).
-bi(csharp, length, [L], S) :- format(string(S), "~w.Count", [L]).
-bi(swift, char_at, [A, I], S) :- format(string(S), "String(Array(~w)[~w])", [A, I]).
-bi(csharp, char_at, [A, I], S) :- format(string(S), "~w[~w].ToString()", [A, I]).
-bi(swift, repeat_str, [A, N], S) :- format(string(S), "String(repeating: ~w, count: ~w)", [A, N]).
-bi(csharp, repeat_str, [A, N], S) :- format(string(S), "string.Concat(Enumerable.Repeat(~w, ~w))", [A, N]).
-bi(_, string_concat, [A, B], S) :- format(string(S), "~w + ~w", [A, B]).
-bi(swift, append, [A, B], S) :- format(string(S), "~w + ~w", [A, B]).
-bi(csharp, append, [A, B], S) :- format(string(S), "Append(~w, ~w)", [A, B]).
-bi(_, or_else, [A, B], S) :- format(string(S), "(~w ?? ~w)", [A, B]).
-bi(swift, string_length, [A], S) :- format(string(S), "~w.count", [A]).
-bi(csharp, string_length, [A], S) :- format(string(S), "~w.Length", [A]).
-bi(_, nth0, [I, L], S) :- format(string(S), "~w[~w]", [L, I]).
-bi(swift, F, [A, B], S) :- memberchk(F, [min, max, pow]), format(string(S), "~w(~w, ~w)", [F, A, B]).
-bi(csharp, F, [A, B], S) :- memberchk(F-M, [min-'Min', max-'Max', pow-'Pow']), format(string(S), "Math.~w(~w, ~w)", [M, A, B]).
-bi(swift, abs, [A], S) :- format(string(S), "abs(~w)", [A]).
-bi(csharp, abs, [A], S) :- format(string(S), "Math.Abs(~w)", [A]).
-bi(swift, member, [L, X], S) :- format(string(S), "~w.contains(~w)", [L, X]).
-bi(csharp, member, [L, X], S) :- format(string(S), "~w.Contains(~w)", [L, X]).
-bi(swift, contains, [A, B], S) :- format(string(S), "~w.contains(~w)", [A, B]).
-bi(csharp, contains, [A, B], S) :- format(string(S), "~w.Contains(~w)", [A, B]).
-bi(swift, starts_with, [A, B], S) :- format(string(S), "~w.hasPrefix(~w)", [A, B]).
-bi(csharp, starts_with, [A, B], S) :- format(string(S), "~w.StartsWith(~w, StringComparison.Ordinal)", [A, B]).
+% Builtins as Swift / C# templates; %1, %2 are the emitted arguments.
+bi(T, F, As, S) :- bt(F, Sw, Cs), ( T == swift -> Tpl = Sw ; Tpl = Cs ), fill(Tpl, As, S).
+fill(Tpl, As, S) :- string_codes(Tpl, Codes), tpl(Codes, 0' , As, Out), string_codes(S, Out).
+% %N takes the bare operand where it's already delimited — e.g. `f(%1)`, `%1, ` —
+% and the parenthesised one anywhere else (`%1.count`, `(int)%1`).
+tpl([], _, _, []).
+tpl([0'%, D|Cs], Prev, As, Out) :- between(0'1, 0'9, D), !, I is D - 0'0, nth1(I, As, Bare-Par),
+    ( memberchk(Prev, `([ `), ( Cs = [] ; Cs = [N|_], memberchk(N, `)],`) ) -> A = Bare ; A = Par ),
+    string_codes(A, AC), tpl(Cs, 0'), As, Rest), append(AC, Rest, Out).
+tpl([C|Cs], _, As, [C|Out]) :- tpl(Cs, C, As, Out).
+both(T, E, Bare-Par) :- ex(T, E, Bare), sub(T, E, Par).
+
+bt(parse_iso, "parseISO(%1)", "Format.ParseISO(%1)").
+bt(clock, "formatClock(%1)", "Format.ClockTime(%1)").
+bt(pad2, "String(format: \"%02d\", %1)", "%1.ToString(\"00\")").
+bt(prefix, "String(%1.prefix(%2))", "Prefix(%1, %2)").
+bt(trim, "%1.trimmingCharacters(in: .whitespacesAndNewlines)", "%1.Trim()").
+bt(split, "%1.components(separatedBy: %2)", "%1.Split(new[] { %2 }, StringSplitOptions.None)").
+bt(to_int, "Int(%1)", "ToInt(%1)").
+bt(drop_prefix, "(%1.hasPrefix(%2) ? String(%1.dropFirst(%2.count)) : %1)", "(%1.StartsWith(%2) ? %1.Substring(%2.Length) : %1)").
+bt(last_n, "Array(%1.suffix(%2))", "%1.Skip(Math.Max(0, %1.Count - %2)).ToList()").
+bt(length, "%1.count", "%1.Count").
+bt(char_at, "String(Array(%1)[%2])", "%1[%2].ToString()").
+bt(repeat_str, "String(repeating: %1, count: %2)", "string.Concat(Enumerable.Repeat(%1, %2))").
+bt(string_concat, "%1 + %2", "%1 + %2").
+bt(append, "%1 + %2", "Append(%1, %2)").
+bt(or_else, "(%1 ?? %2)", "(%1 ?? %2)").
+bt(string_length, "%1.count", "%1.Length").
+bt(nth0, "%2[%1]", "%2[%1]").
+bt(min, "min(%1, %2)", "Math.Min(%1, %2)").
+bt(max, "max(%1, %2)", "Math.Max(%1, %2)").
+bt(pow, "pow(%1, %2)", "Math.Pow(%1, %2)").
+bt(abs, "abs(%1)", "Math.Abs(%1)").
+bt(member, "%1.contains(%2)", "%1.Contains(%2)").
+bt(contains, "%1.contains(%2)", "%1.Contains(%2)").
+bt(starts_with, "%1.hasPrefix(%2)", "%1.StartsWith(%2, StringComparison.Ordinal)").
 
 quote(T, X, S) :- string_codes(X, Cs), foldl(esc(T, plain), Cs, Parts, []), atomic_list_concat([""|Parts], Body0), format(string(S), "\"~w\"", [Body0]).
 esc(_, _, 0'\\, ["\\\\"|R], R) :- !.
