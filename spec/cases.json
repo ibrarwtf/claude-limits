@@ -69,6 +69,15 @@
       "expect": "Resets @ 2:00 PM · 20%/h · safe ≤ 35%/h" }
   ],
 
+  "statusError": [
+    { "status": 200, "retryAfter": null, "body": "{}", "expect": null },
+    { "status": 401, "retryAfter": null, "body": "", "expect": "Your Claude token is invalid or expired. Run `claude` in a terminal to sign back in." },
+    { "status": 403, "retryAfter": null, "body": "", "expect": "Access forbidden. Your account may not have access to the usage API." },
+    { "status": 429, "retryAfter": 30, "body": "", "expect": "Rate limited by Anthropic — retrying in 30 seconds." },
+    { "status": 429, "retryAfter": null, "body": "", "expect": "Rate limited by Anthropic. Will retry shortly." },
+    { "status": 500, "retryAfter": null, "body": "oops", "expect": "Anthropic returned HTTP 500. oops" }
+  ],
+
   "weeklyRows": [
     { "name": "legacy buckets", "response": { "seven_day": { "utilization": 34.4, "resets_at": null }, "seven_day_opus": { "utilization": 12.5 } },
       "expect": "Overall=34, Opus=13" },

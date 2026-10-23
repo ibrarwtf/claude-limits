@@ -33,6 +33,10 @@ case(D, Now, relative_time, call(relative_time, [at(Off), at(0)]), Got, W) :-
     member(C, D.relativeTime), Off is -C.ago, T is Now + Off, W = C.expect, once(relative_time(T, Now, Got)).
 case(D, _, is_newer_version, bool(call(is_newer_version, [A, B])), Got, W) :-
     member(C, D.isNewerVersion), A = C.latest, B = C.current, W = C.expect, once(is_newer_version(A, B, Got)).
+case(D, _, status_error, msg(call(status_error, [St, R, B])), Got, W) :-
+    member(C, D.statusError), St = C.status, B = C.body, W = C.expect,
+    ( C.retryAfter == null -> R = none ; R is float(C.retryAfter) ),
+    once(status_error(St, R, B, E)), ( E == none -> Got = none ; once(friendly_message(E, Got)) ).
 case(D, _, extract_token, token(T), skip, W) :-
     member(C, D.extractToken), T = C.text, W = C.expect.
 case(D, Now, sparkline, call(sparkline, [samples(Ps), Wd]), Got, W) :-
@@ -91,6 +95,8 @@ x(T, call(F, As)) :- !, atomic_list_concat(Ps, '_', F), maplist(cap, Ps, Cs0), a
     format("~w(", [N]), xs(T, As), write(")").
 x(swift, bool(E)) :- !, write("String("), x(swift, E), write(")").
 x(csharp, bool(E)) :- !, x(csharp, E), write(".ToString().ToLowerInvariant()").
+x(swift, msg(E)) :- !, x(swift, E), write(".map(friendlyMessage)").
+x(csharp, msg(E)) :- !, write("Msg("), x(csharp, E), write(")").
 x(swift, token(S)) :- !, write("extractTokenFromText("), x(swift, S), write(")").
 x(csharp, token(S)) :- !, write("Token.ExtractTokenFromText("), x(csharp, S), write(")").
 x(T, bars(J)) :- !, ( T == swift -> write("bars(") ; write("Bars(") ), x(T, J), write(")").
@@ -168,6 +174,7 @@ namespace ClaudeLimits.Spec
             failed++;
             Console.WriteLine($\"FAIL {name}\\n  got:  {got ?? \"null\"}\\n  want: {want ?? \"null\"}\");
         }
+        static string Msg(AppError e) => e == null ? null : FriendlyMessage(e);
         static HistorySample S(double ago, double u) => new HistorySample { TimestampUnix = Format.ToUnix(now.AddSeconds(-ago)), Utilization = u };
         static string Bars(string json) =>
             string.Join(\", \", WeeklyRows(Json.Parse<UsageResponse>(json)).Where(r => r.Kind == RowKind.Bar).Select(r => $\"{r.Label}={Percent(r.Utilization)}\"));

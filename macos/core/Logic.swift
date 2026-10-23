@@ -312,6 +312,23 @@ func marqueeText(_ error: AppError, _ until: Date?, _ now: Date) -> String {
     fatalError("unreachable")
 }
 
+func statusError(_ c: Int, _ r: Double?, _ body: String) -> AppError? {
+    if c == 200 {
+        return nil
+    }
+    if c == 401 {
+        return AppError.authFailed
+    }
+    if c == 403 {
+        return AppError.forbidden
+    }
+    if c == 429 {
+        return AppError.rateLimited(r)
+    }
+    let p = String(body.prefix(200))
+    return AppError.httpError(c, p)
+}
+
 func countdown(_ iso: String?, _ now: Date) -> String? {
     let d = parseISO(iso)
     if d == nil {

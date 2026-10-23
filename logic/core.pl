@@ -115,6 +115,14 @@ marquee_text(command_failed(M), _, _, S) :- prefix(M, 50, P), format(string(S), 
 marquee_text(parse_failed(M), _, _, S) :- prefix(M, 50, P), format(string(S), "parse error: ~w", [P]).
 marquee_text(http_error(C, _), _, _, S) :- format(string(S), "HTTP ~d from anthropic", [C]).
 
+% HTTP status → error (none for 200). Each app parses Retry-After itself.
+:- fn status_error(int, opt(float), str) -> opt(error).   % status, Retry-After, body
+status_error(200, _, _, none).
+status_error(401, _, _, auth_failed).
+status_error(403, _, _, forbidden).
+status_error(429, R, _, rate_limited(R)).
+status_error(C, _, Body, http_error(C, P)) :- prefix(Body, 200, P).
+
 % ── Durations ────────────────────────────────────────────────────────────────
 % Countdown to resets_at: "4:32" / "18m"; none once it has passed, rather than
 % a dishonest "0m".

@@ -16,6 +16,7 @@ namespace ClaudeLimits.Spec
             failed++;
             Console.WriteLine($"FAIL {name}\n  got:  {got ?? "null"}\n  want: {want ?? "null"}");
         }
+        static string Msg(AppError e) => e == null ? null : FriendlyMessage(e);
         static HistorySample S(double ago, double u) => new HistorySample { TimestampUnix = Format.ToUnix(now.AddSeconds(-ago)), Utilization = u };
         static string Bars(string json) =>
             string.Join(", ", WeeklyRows(Json.Parse<UsageResponse>(json)).Where(r => r.Kind == RowKind.Bar).Select(r => $"{r.Label}={Percent(r.Utilization)}"));
@@ -50,6 +51,12 @@ namespace ClaudeLimits.Spec
             Check("is_newer_version", IsNewerVersion("0.1.10", "0.1.9").ToString().ToLowerInvariant(), "true");
             Check("is_newer_version", IsNewerVersion("0.2", "0.2.0").ToString().ToLowerInvariant(), "false");
             Check("is_newer_version", IsNewerVersion("0.2.0", "0.10.0").ToString().ToLowerInvariant(), "false");
+            Check("status_error", Msg(StatusError(200, null, "{}")), null);
+            Check("status_error", Msg(StatusError(401, null, "")), "Your Claude token is invalid or expired. Run `claude` in a terminal to sign back in.");
+            Check("status_error", Msg(StatusError(403, null, "")), "Access forbidden. Your account may not have access to the usage API.");
+            Check("status_error", Msg(StatusError(429, 30.0, "")), "Rate limited by Anthropic — retrying in 30 seconds.");
+            Check("status_error", Msg(StatusError(429, null, "")), "Rate limited by Anthropic. Will retry shortly.");
+            Check("status_error", Msg(StatusError(500, null, "oops")), "Anthropic returned HTTP 500. oops");
             Check("extract_token", Token.ExtractTokenFromText("{\"claudeAiOauth\":{\"accessToken\":\"tok-a\",\"refreshToken\":\"r\"}}"), "tok-a");
             Check("extract_token", Token.ExtractTokenFromText("{\"accessToken\":\"tok-b\"}"), "tok-b");
             Check("extract_token", Token.ExtractTokenFromText("sk-ant-oat01-xyz\n"), "sk-ant-oat01-xyz");

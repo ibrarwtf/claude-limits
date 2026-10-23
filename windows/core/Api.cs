@@ -92,22 +92,14 @@ namespace ClaudeLimits
 
                 using (resp)
                 {
-                    switch ((int)resp.StatusCode)
-                    {
-                        case 200: break;
-                        case 401: return Result<UsageResponse>.Fail(AppError.AuthFailed());
-                        case 403: return Result<UsageResponse>.Fail(AppError.Forbidden());
-                        case 429:
-                            double? retry = null;
-                            var ra = resp.Headers.RetryAfter;
-                            if (ra?.Delta != null) retry = ra.Delta.Value.TotalSeconds;
-                            else if (ra?.Date != null) retry = Math.Max(0, (ra.Date.Value - DateTimeOffset.UtcNow).TotalSeconds);
-                            else if (resp.Headers.TryGetValues("retry-after", out var vals)
-                                     && double.TryParse(vals.FirstOrDefault()?.Trim(), out var n)) retry = n;
-                            return Result<UsageResponse>.Fail(AppError.RateLimited(retry));
-                        default:
-                            return Result<UsageResponse>.Fail(AppError.HttpError((int)resp.StatusCode, Prefix(body, 200)));
-                    }
+                    double? retry = null;
+                    var ra = resp.Headers.RetryAfter;
+                    if (ra?.Delta != null) retry = ra.Delta.Value.TotalSeconds;
+                    else if (ra?.Date != null) retry = Math.Max(0, (ra.Date.Value - DateTimeOffset.UtcNow).TotalSeconds);
+                    else if (resp.Headers.TryGetValues("retry-after", out var vals)
+                             && double.TryParse(vals.FirstOrDefault()?.Trim(), out var n)) retry = n;
+                    var err = StatusError((int)resp.StatusCode, retry, body);
+                    if (err != null) return Result<UsageResponse>.Fail(err);
                     if (string.IsNullOrEmpty(body)) return Result<UsageResponse>.Fail(AppError.ParseFailed("empty response"));
                     try { return Result<UsageResponse>.Ok(Json.Parse<UsageResponse>(body)); }
                     catch (Exception e) { return Result<UsageResponse>.Fail(AppError.ParseFailed(e.Message)); }

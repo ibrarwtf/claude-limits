@@ -330,6 +330,28 @@ public static partial class Logic
         throw new InvalidOperationException();
     }
 
+    public static AppError StatusError(int c, double? r, string body)
+    {
+        if (c == 200)
+        {
+            return null;
+        }
+        if (c == 401)
+        {
+            return AppError.AuthFailed();
+        }
+        if (c == 403)
+        {
+            return AppError.Forbidden();
+        }
+        if (c == 429)
+        {
+            return AppError.RateLimited(r);
+        }
+        var p = Prefix(body, 200);
+        return AppError.HttpError(c, p);
+    }
+
     public static string Countdown(string iso, DateTime now)
     {
         var d = Format.ParseISO(iso);
