@@ -33,7 +33,7 @@ VERSION, CHANGELOG.md, .github/workflows/{ci,release}.yml
 ## Changing behaviour
 
 - **Logic changes go in `logic/core.pl`**, then `swipl logic/plc.pl && swipl logic/oracle.pl` regenerates `Logic.swift`, `Logic.cs` and both test suites and checks `spec/cases.json` in Prolog. Commit the regenerated files; CI fails if they're stale. Install SWI-Prolog with `winget install SWI-Prolog.SWI-Prolog` / `brew install swi-prolog`.
-- **Spec cases live in `spec/cases.json`**: Prolog evaluates every one, then emits literal checks for both apps. Add a case when you change a rule.
+- **Spec cases live in `spec/cases.json`**: Prolog evaluates every one, then emits literal checks for both apps. Add a case when you change a rule — usually a `calls` entry (`fn`, JSON `args` typed by the signature, `expect`). `oracle.pl` also prints how many `core.pl` clauses the spec runs.
 - **The compiler supports a deterministic subset** (first matching clause wins, bodies are bindings ending in an if-then-else tree, optionals narrow when tested). If `plc.pl` rejects something it names the goal — rewrite it in the subset rather than special-casing the compiler.
 - **Native code that remains in both apps** (`AppDelegate.swift` ↔ `TrayApp.cs`, the Settings windows, the API clients) still pairs up by name; mirror changes by hand.
 - **You don't need a Mac to change the Mac app.** Push a branch: CI compiles it, runs the generated spec, renders `snapshots/macos/` from the fixture and commits PNGs back to the PR only if the UI changed.
