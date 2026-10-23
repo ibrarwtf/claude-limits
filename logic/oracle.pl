@@ -52,7 +52,7 @@ arg_in(_, opt(_), null, none, none) :- !.
 arg_in(Now, _, V, Iso, Iso) :- is_dict(V), get_dict(in, V, S), !, iso_in(S, Now, Iso).
 arg_in(Now, opt(T), V, P, L) :- !, arg_in(Now, T, V, P, L).
 arg_in(Now, list(sample), Ps, S, samples(Ps)) :- !, samples(Ps, Now, S).
-arg_in(Now, list(T), Vs, Ps, list(Ls)) :- !, maplist(arg_in(Now, T), Vs, Ps, Ls).
+arg_in(Now, list(T), Vs, Ps, list(T, Ls)) :- !, maplist(arg_in(Now, T), Vs, Ps, Ls).
 arg_in(_, float, V, F, F) :- !, F is float(V).
 arg_in(Now, T, V, P, enum(T, K, Ls)) :- enum(T, Cs), !,
     ( string(V) -> atom_string(K, V), As = [] ; dict_pairs(V, _, [K-As]) ),
@@ -62,6 +62,7 @@ arg_in(_, _, V, V, V).
 
 got([opt(error)], [E], G) :- !, ( E == none -> G = none ; once(friendly_message(E, G)) ).
 got([C], [V], G) :- choice(C, _), !, cname(swift, V, N), atom_string(N, G).
+got([list(int)], [L], G) :- !, atomic_list_concat(L, ', ', A), format(string(G), "[~w]", [A]).
 got([_, _], [A, B], G) :- !, format(string(G), "(~w, ~w)", [A, B]).
 got([_], [V], V).
 
@@ -118,11 +119,12 @@ x(T, out([bool], E)) :- !, x(T, bool(E)).
 x(T, out([opt(error)], E)) :- !, x(T, msg(E)).
 x(swift, out([O], E)) :- O \= str, O \= opt(str), !, write("String(describing: "), x(swift, E), write(")").
 x(swift, out([_, _], E)) :- !, write("String(describing: "), x(swift, E), write(")").
+x(csharp, out([list(int)], E)) :- !, write("$\"[{string.Join(\", \", "), x(csharp, E), write(")}]\"").
 x(csharp, out([C], E)) :- choice(C, _), !, write("Case("), x(csharp, E), write(")").
 x(csharp, out(Os, E)) :- Os \= [str], Os \= [opt(str)], !, x(csharp, E), write(".ToString()").
 x(T, out(_, E)) :- !, x(T, E).
-x(swift, list(Ls)) :- !, write("["), xs(swift, Ls), write("]").
-x(csharp, list(Ls)) :- !, write("new[] { "), xs(csharp, Ls), write(" }").
+x(swift, list(_, Ls)) :- !, write("["), xs(swift, Ls), write("]").
+x(csharp, list(T, Ls)) :- !, nth1(I, [int, str, float], T), nth1(I, [int, string, double], CT), format("new ~w[] { ", [CT]), xs(csharp, Ls), write(" }").
 x(T, enum(E, K, Ls)) :- !, ( native(E, N), atom(N) -> true ; cname(csharp, E, N) ), cname(T, K, KN), format("~w.~w", [N, KN]),
     ( T == swift, Ls == [] -> true ; write("("), xs(T, Ls), write(")") ).
 x(T, choice(C, A)) :- !, cname(csharp, C, CN), cname(T, A, AN), format("~w.~w", [CN, AN]).

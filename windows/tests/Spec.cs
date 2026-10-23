@@ -88,9 +88,9 @@ namespace ClaudeLimits.Spec
             Check("is_newer_version", IsNewerVersion("0.1.10", "0.1.9").ToString().ToLowerInvariant(), "true");
             Check("is_newer_version", IsNewerVersion("0.2", "0.2.0").ToString().ToLowerInvariant(), "false");
             Check("is_newer_version", IsNewerVersion("0.2.0", "0.10.0").ToString().ToLowerInvariant(), "false");
-            Check("flag_value", FlagValue(new[] { "a", "--fixture", "x.json", "--snapshot-all" }, "--fixture"), "x.json");
-            Check("flag_value", FlagValue(new[] { "--fixture" }, "--fixture"), null);
-            Check("flag_value", FlagValue(new[] { "a" }, "--snapshot-all"), null);
+            Check("flag_value", FlagValue(new string[] { "a", "--fixture", "x.json", "--snapshot-all" }, "--fixture"), "x.json");
+            Check("flag_value", FlagValue(new string[] { "--fixture" }, "--fixture"), null);
+            Check("flag_value", FlagValue(new string[] { "a" }, "--snapshot-all"), null);
             Check("source_hint", SourceHint(TokenSource.File, true, "p"), "Path to a Claude credentials JSON or a file containing just the access token.");
             Check("source_hint", SourceHint(TokenSource.Auto, true, "~\\.claude\\.credentials.json"), "Reads the credentials file Claude Code writes when you sign in (~\\.claude\\.credentials.json, or under CLAUDE_CONFIG_DIR when that's set).");
             Check("source_hint", SourceHint(TokenSource.Auto, false, "~/.claude/.credentials.json"), "We check the macOS Keychain (where Claude Code stores credentials by default), then fall back to common file paths like ~/.claude/.credentials.json.");
@@ -173,6 +173,13 @@ namespace ClaudeLimits.Spec
             Check("error_symbol", ErrorSymbol(AppError.HttpError(500, "")), "HTTP 500");
             Check("friendly_message", FriendlyMessage(AppError.CommandFailed("exit 1: nope")), "Shell command failed: exit 1: nope");
             Check("friendly_message", FriendlyMessage(AppError.ParseFailed("bad json")), "Couldn't parse the response: bad json");
+            Check("crossed", $"[{string.Join(", ", Crossed(85.0, new int[] {  }))}]", "[80]");
+            Check("crossed", $"[{string.Join(", ", Crossed(96.0, new int[] { 80 }))}]", "[95]");
+            Check("crossed", $"[{string.Join(", ", Crossed(50.0, new int[] {  }))}]", "[]");
+            Check("token_label", TokenLabel(TokenStep.Keychain(), true), "keychain (auto)");
+            Check("token_label", TokenLabel(TokenStep.File("~/.claude/.credentials.json"), true), "file ~/.claude/.credentials.json (auto)");
+            Check("token_label", TokenLabel(TokenStep.File("/tmp/c.json"), false), "file /tmp/c.json (custom)");
+            Check("token_label", TokenLabel(TokenStep.Shell("cat x"), false), "shell command (custom)");
             Console.WriteLine($"windows spec: {passed} passed, {failed} failed");
             return failed == 0 ? 0 : 1;
         }

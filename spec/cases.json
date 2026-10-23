@@ -165,6 +165,13 @@
     {"fn": "error_symbol", "args": ["forbidden"], "expect": "403"},
     {"fn": "error_symbol", "args": [{"http_error": [500, ""]}], "expect": "HTTP 500"},
     {"fn": "friendly_message", "args": [{"command_failed": ["exit 1: nope"]}], "expect": "Shell command failed: exit 1: nope"},
-    {"fn": "friendly_message", "args": [{"parse_failed": ["bad json"]}], "expect": "Couldn't parse the response: bad json"}
+    {"fn": "friendly_message", "args": [{"parse_failed": ["bad json"]}], "expect": "Couldn't parse the response: bad json"},
+    {"fn": "crossed", "args": [85.0, []], "expect": "[80]"},
+    {"fn": "crossed", "args": [96.0, [80]], "expect": "[95]"},
+    {"fn": "crossed", "args": [50.0, []], "expect": "[]"},
+    {"fn": "token_label", "args": ["keychain", true], "expect": "keychain (auto)"},
+    {"fn": "token_label", "args": [{"file": ["~/.claude/.credentials.json"]}, true], "expect": "file ~/.claude/.credentials.json (auto)"},
+    {"fn": "token_label", "args": [{"file": ["/tmp/c.json"]}, false], "expect": "file /tmp/c.json (custom)"},
+    {"fn": "token_label", "args": [{"shell": ["cat x"]}, false], "expect": "shell command (custom)"}
   ]
 }
