@@ -621,21 +621,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         item.view = view
     }
 
-    /// Section header — dimmed colour, default menu font, non-clickable.
-    func sectionHeader(_ s: String) -> NSMenuItem {
+    /// Info-only row (status, reset, headers, pay-as-you-go): dimmed, non-clickable.
+    func dimItem(_ s: String, attributes: [NSAttributedString.Key: Any] = [:]) -> NSMenuItem {
         let item = NSMenuItem(title: s, action: nil, keyEquivalent: "")
         item.isEnabled = false
-        wrapAsView(item, attr: NSAttributedString(string: s, attributes: [
-            .foregroundColor: NSColor.secondaryLabelColor,
-        ]))
-        return item
-    }
-
-    func plainItem(_ s: String, dim: Bool = false, color: NSColor? = nil) -> NSMenuItem {
-        let item = NSMenuItem(title: s, action: nil, keyEquivalent: "")
-        item.isEnabled = false
-        let fg: NSColor = color ?? (dim ? NSColor.secondaryLabelColor : NSColor.labelColor)
-        wrapAsView(item, attr: NSAttributedString(string: s, attributes: [.foregroundColor: fg]))
+        wrapAsView(item, attr: NSAttributedString(string: s, attributes: attributes.merging([.foregroundColor: NSColor.secondaryLabelColor]) { a, _ in a }))
         return item
     }
 
@@ -655,14 +645,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let para = NSMutableParagraphStyle()
         para.tabStops = [NSTextTab(textAlignment: .right,
                                    location: AppDelegate.menuRowWidth - MenuRowView.rightPad - MenuRowView.leftPad)]
-        let s = "\(label)\t\(value)"
-        let item = NSMenuItem(title: s, action: nil, keyEquivalent: "")
-        item.isEnabled = false
-        wrapAsView(item, attr: NSAttributedString(string: s, attributes: [
-            .paragraphStyle: para,
-            .foregroundColor: NSColor.secondaryLabelColor,
-        ]))
-        return item
+        return dimItem("\(label)\t\(value)", attributes: [.paragraphStyle: para])
     }
 
     /// Clickable row; nil target walks the responder chain (NSApp.terminate).
@@ -680,16 +663,16 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         for row in menuRows(lastError, lastResponse) {
             switch row {
             case .status:
-                let item = plainItem(formatTopStatusLine(), dim: true)
+                let item = dimItem(formatTopStatusLine())
                 menu.addItem(item)
                 lastUpdatedMenuItem = item
             case .reset:
                 guard let f = lastResponse?.fiveHour else { continue }
-                let item = plainItem(formatResetLine(f), dim: true)
+                let item = dimItem(formatResetLine(f))
                 menu.addItem(item)
                 resetMenuItem = item
             case .separator: menu.addItem(.separator())
-            case .header(let text): menu.addItem(sectionHeader(text))
+            case .header(let text): menu.addItem(dimItem(text))
             case .bar(let label, let u, let value): menu.addItem(tabularItem(label: label, utilization: u, value: value))
             case .pair(let label, let value): menu.addItem(payAsYouGoItem(label: label, value: value))
             case .action(let label, .refresh): menu.addItem(actionItem(label, action: #selector(refreshAction), target: self))
