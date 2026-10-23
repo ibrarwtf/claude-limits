@@ -9,6 +9,8 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Shapes;
 
+using static ClaudeLimits.Logic;
+
 namespace ClaudeLimits
 {
     sealed class SettingsWindow : Window
@@ -353,7 +355,7 @@ namespace ClaudeLimits
         {
             if (app.LastResponse != null) { SetCredentialsDotConnected(true); return; }
             var last = Settings.Shared.LastSuccessfulPoll;
-            if (last.HasValue && (DateTime.UtcNow - last.Value).TotalSeconds < UsageHistory.PollIntervalSeconds)
+            if (last.HasValue && (DateTime.UtcNow - last.Value).TotalSeconds < PollInterval)
             { SetCredentialsDotConnected(true); return; }
             if (app.IsRefreshing) { SetCredentialsState(CredentialsState.Unverified); return; }
             var until = Settings.Shared.NextAllowedPoll;
@@ -361,7 +363,7 @@ namespace ClaudeLimits
             // Throttle the probe so reopening Settings in a tight loop can't
             // fire an ungated fetch per reopen (cold-start / prior non-429
             // error state, where nothing above short-circuits).
-            if (app.LastManualClickAt.HasValue && (DateTime.UtcNow - app.LastManualClickAt.Value).TotalSeconds < TrayApp.ManualClickCooldown)
+            if (app.LastManualClickAt.HasValue && (DateTime.UtcNow - app.LastManualClickAt.Value).TotalSeconds < ClickCooldown)
             { SetCredentialsState(CredentialsState.Unverified); return; }
             app.LastManualClickAt = DateTime.UtcNow;
             var r = await Api.FetchUsageAsync();
@@ -546,7 +548,7 @@ namespace ClaudeLimits
                 // Feed a 429 into the shared back-off so a test fetch can't
                 // silently reset Anthropic's cooldown while the poller waits.
                 if (r.Error.Kind == AppErrorKind.RateLimited) app.RecordRateLimit(r.Error.RetryAfter);
-                SetStatus(r.Error.FriendlyMessage, "Fg");
+                SetStatus(FriendlyMessage(r.Error), "Fg");
                 SetCredentialsDotConnected(false);
             }
         }

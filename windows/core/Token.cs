@@ -5,6 +5,7 @@ using System.IO;
 using System.Runtime.Serialization;
 using System.Text;
 using System.Threading.Tasks;
+using static ClaudeLimits.Logic;
 
 namespace ClaudeLimits
 {
@@ -62,10 +63,7 @@ namespace ClaudeLimits
                 if (!string.IsNullOrEmpty(obj?.AccessToken)) return obj.AccessToken;
             }
             catch { }
-            var trimmed = text.Trim();
-            if (trimmed.Length > 0 && !trimmed.Contains(" ") && !trimmed.Contains("\n") && trimmed.StartsWith("sk-"))
-                return trimmed;
-            return null;
+            return RawToken(text);
         }
 
         public static string LoadTokenFromFile(string rawPath)
@@ -120,7 +118,7 @@ namespace ClaudeLimits
                 p.WaitForExit(); // flush async readers
                 var output = outTask.Result;
                 if (p.ExitCode != 0)
-                    throw AppError.CommandFailed($"exit {p.ExitCode}: {AppError.Prefix(errTask.Result.Trim(), 200)}");
+                    throw AppError.CommandFailed($"exit {p.ExitCode}: {Prefix(errTask.Result.Trim(), 200)}");
                 return output;
             }
         }

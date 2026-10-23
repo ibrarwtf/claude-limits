@@ -7,6 +7,8 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using Forms = System.Windows.Forms;
 
+using static ClaudeLimits.Logic;
+
 namespace ClaudeLimits
 {
     /// All snapshot capture lives here. Triggered by `--fixture … --snapshot-all`
@@ -71,7 +73,7 @@ namespace ClaudeLimits
             string text = t.TrayNumber?.ToString() ?? (t.IsError ? "!" : t.Plain == "—" ? "–" : null);
             if (text != null)
             {
-                var level = t.TrayNumber.HasValue ? TrayIcon.LevelFor(t.Utilization) : t.IsError ? IconLevel.Error : IconLevel.Normal;
+                var level = t.TrayNumber.HasValue ? (IconLevel)IconLevel(t.Utilization) : t.IsError ? IconLevel.Error : IconLevel.Normal;
                 using (var bmp = TrayIcon.RenderBitmap(text, level, dark, (int)(16 * scale)))
                 {
                     var ms = new MemoryStream();

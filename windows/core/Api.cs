@@ -5,6 +5,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading;
 using System.Threading.Tasks;
+using static ClaudeLimits.Logic;
 
 namespace ClaudeLimits
 {
@@ -105,7 +106,7 @@ namespace ClaudeLimits
                                      && double.TryParse(vals.FirstOrDefault()?.Trim(), out var n)) retry = n;
                             return Result<UsageResponse>.Fail(AppError.RateLimited(retry));
                         default:
-                            return Result<UsageResponse>.Fail(AppError.HttpError((int)resp.StatusCode, AppError.Prefix(body, 200)));
+                            return Result<UsageResponse>.Fail(AppError.HttpError((int)resp.StatusCode, Prefix(body, 200)));
                     }
                     if (string.IsNullOrEmpty(body)) return Result<UsageResponse>.Fail(AppError.ParseFailed("empty response"));
                     try { return Result<UsageResponse>.Ok(Json.Parse<UsageResponse>(body)); }

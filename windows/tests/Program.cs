@@ -5,6 +5,8 @@ using System.IO;
 using System.Linq;
 using System.Web.Script.Serialization;
 
+using static ClaudeLimits.Logic;
+
 namespace ClaudeLimits.Spec
 {
     /// spec/cases.json runner for the Windows core. macos/tests/main.swift is the
@@ -26,31 +28,26 @@ namespace ClaudeLimits.Spec
             foreach (var c in Cases(root, "timeRemaining"))
             {
                 var resetsAt = c["resetsIn"] == null ? null : Iso(now.AddSeconds(Num(c["resetsIn"])));
-                Check($"timeRemaining {c["resetsIn"] ?? "null"}", Format.TimeRemaining(resetsAt), (string)c["expect"]);
+                Check($"timeRemaining {c["resetsIn"] ?? "null"}", Countdown(resetsAt, now), (string)c["expect"]);
             }
             foreach (var c in Cases(root, "nextAttempt"))
-                Check($"nextAttempt {c["secs"]}", Format.NextAttempt((int)Num(c["secs"])), (string)c["expect"]);
+                Check($"nextAttempt {c["secs"]}", NextAttempt((int)Num(c["secs"])), (string)c["expect"]);
             foreach (var c in Cases(root, "relativeTime"))
-                Check($"relativeTime {c["ago"]}", Format.LiveRelativeTime(now.AddSeconds(-Num(c["ago"]))), (string)c["expect"]);
+                Check($"relativeTime {c["ago"]}", RelativeTime(now.AddSeconds(-Num(c["ago"])), now), (string)c["expect"]);
             foreach (var c in Cases(root, "isNewerVersion"))
                 Check($"isNewerVersion {c["latest"]} > {c["current"]}",
-                    Updates.IsNewerVersion((string)c["latest"], (string)c["current"]).ToString().ToLowerInvariant(),
+                    IsNewerVersion((string)c["latest"], (string)c["current"]).ToString().ToLowerInvariant(),
                     ((bool)c["expect"]).ToString().ToLowerInvariant());
             foreach (var c in Cases(root, "extractToken"))
                 Check($"extractToken {Short((string)c["text"])}", Token.ExtractTokenFromText((string)c["text"]), (string)c["expect"]);
             foreach (var c in Cases(root, "sparkline"))
             {
-                UsageHistory.Shared.ReplaceSamples(Samples(c["samples"]));
-                Check($"sparkline: {c["name"]}", UsageHistory.Shared.Sparkline((int)Num(c["width"])), (string)c["expect"]);
+                Check($"sparkline: {c["name"]}", Sparkline(Samples(c["samples"]), (int)Num(c["width"])), (string)c["expect"]);
             }
             foreach (var c in Cases(root, "resetLine"))
             {
-                var bucket = new UsageBucket
-                {
-                    UtilizationRaw = Num(c["utilization"]),
-                    ResetsAt = c["resetsIn"] == null ? null : Iso(now.AddSeconds(Num(c["resetsIn"]))),
-                };
-                Check($"resetLine: {c["name"]}", Format.ResetLine(bucket, Samples(c["samples"]), now), (string)c["expect"]);
+                var resetsAt = c["resetsIn"] == null ? null : Iso(now.AddSeconds(Num(c["resetsIn"])));
+                Check($"resetLine: {c["name"]}", ResetLine(Num(c["utilization"]), resetsAt, Samples(c["samples"]), now), (string)c["expect"]);
             }
             foreach (var c in Cases(root, "weeklyRows"))
             {
@@ -83,7 +80,7 @@ namespace ClaudeLimits.Spec
 
         static string Iso(DateTime utc) => utc.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture);
 
-        static IEnumerable<HistorySample> Samples(object arr) =>
+        static IReadOnlyList<HistorySample> Samples(object arr) =>
             ((object[])arr).Cast<object[]>().Select(p => new HistorySample
             {
                 TimestampUnix = Format.ToUnix(now.AddSeconds(-Num(p[0]))),

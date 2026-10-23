@@ -3,6 +3,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
+using static ClaudeLimits.Logic;
 
 namespace ClaudeLimits
 {
@@ -57,25 +58,5 @@ namespace ClaudeLimits
         static readonly System.Collections.Generic.IComparer<string> Comparer =
             System.Collections.Generic.Comparer<string>.Create((a, b) =>
                 IsNewerVersion(a, b) ? 1 : IsNewerVersion(b, a) ? -1 : 0);
-
-        /// Compare two semver-ish strings ("v0.1.4", "0.1.10"). Strips a leading "v",
-        /// splits on ".", compares numerically. Missing components count as 0.
-        public static bool IsNewerVersion(string latest, string current)
-        {
-            int[] Parse(string s)
-            {
-                var stripped = s.StartsWith("v") ? s.Substring(1) : s;
-                return stripped.Split('.').Select(p => int.TryParse(p, out var n) ? (int?)n : null)
-                               .Where(n => n.HasValue).Select(n => n.Value).ToArray();
-            }
-            var l = Parse(latest); var c = Parse(current);
-            for (int i = 0; i < Math.Max(l.Length, c.Length); i++)
-            {
-                int a = i < l.Length ? l[i] : 0, b = i < c.Length ? c[i] : 0;
-                if (a > b) return true;
-                if (a < b) return false;
-            }
-            return false;
-        }
     }
 }

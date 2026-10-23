@@ -3,6 +3,8 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Text;
 
+using static ClaudeLimits.Logic;
+
 namespace ClaudeLimits
 {
     enum IconLevel { Normal, Warn, Critical, Error }
@@ -22,8 +24,6 @@ namespace ClaudeLimits
             return appIcon == null ? SystemIcons.Application : new Icon(appIcon, size, size);
         }
 
-        public static IconLevel LevelFor(double utilization) =>
-            utilization >= 95 ? IconLevel.Critical : utilization >= 80 ? IconLevel.Warn : IconLevel.Normal;
 
         public static Bitmap RenderBitmap(string text, IconLevel level, bool darkTaskbar, int size)
         {

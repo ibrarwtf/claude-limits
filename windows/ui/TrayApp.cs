@@ -8,6 +8,8 @@ using System.Windows;
 using System.Windows.Threading;
 using Forms = System.Windows.Forms;
 
+using static ClaudeLimits.Logic;
+
 namespace ClaudeLimits
 {
     /// The AppDelegate port: owns state, timers, polling, animations, the tray
@@ -24,9 +26,6 @@ namespace ClaudeLimits
         DispatcherTimer pollTimer, animationTimer, tickTimer, rateLimitCycleTimer, updateCheckTimer;
         int animationFrame;
         DateTime? animationStartedAt;
-        /// One full bounce of the wave palindrome is 18 frames @ 12 fps = 1.5 s.
-        /// Animation must run at least that long for the bounce to be visible.
-        const double minAnimationDuration = 1.5;
         /// Bumped each time StartAnimation() begins a cycle. Deferred stops capture
         /// this value when scheduled and no-op if a newer cycle has since started,
         /// so a stale timer can't tear down a fresh animation.
@@ -51,7 +50,6 @@ namespace ClaudeLimits
         /// manual fetches are throttled to one per `ManualClickCooldown` seconds;
         /// excess clicks just play the acknowledgement wave.
         public DateTime? LastManualClickAt { get; set; }
-        public const double ManualClickCooldown = 5.0;
         /// Used for "next in Xs" rendering.
         DateTime? nextPollAt;
 
@@ -111,7 +109,7 @@ namespace ClaudeLimits
                 if (LastResponse == null) StartRateLimitCycle();
             }
 
-            if (ShouldPollNow()) TriggerRefresh(animated: true);
+            if (ShouldPoll(Settings.Shared.NextAllowedPoll, Settings.Shared.LastSuccessfulPoll, Now)) TriggerRefresh(animated: true);
             else UpdateTitle();
             SchedulePoll();
 
@@ -141,7 +139,7 @@ namespace ClaudeLimits
             ComputeWidthBudget();
             LastResponse = FixtureMode.Fixture.Response;
             LastUpdated = Now;
-            nextPollAt = Now.AddSeconds(UsageHistory.PollIntervalSeconds);
+            nextPollAt = Now.AddSeconds(PollInterval);
             if (FixtureMode.SnapshotDest != null)
             {
                 currentTitle = DataTitle(respectToggles: true);
@@ -191,7 +189,7 @@ namespace ClaudeLimits
             try
             {
                 var r = await Updates.FetchLatestReleaseAsync();
-                LatestVersionAvailable = r != null && Updates.IsNewerVersion(r.TagName, Platform.Version) ? r : null;
+                LatestVersionAvailable = r != null && IsNewerVersion(r.TagName, Platform.Version) ? r : null;
                 return (LatestVersionAvailable, null);
             }
             catch (Exception e) { return (null, e); }
@@ -203,27 +201,14 @@ namespace ClaudeLimits
             tray.ShowBalloonTip(4000, "Updating claude-limits",
                 $"Installing {version} — the tray icon will return in a few seconds.", Forms.ToolTipIcon.Info);
 
-        /// Returns true if we may issue a fetch right now.
-        /// Rate-limit suspension and a per-launch debounce protect Anthropic's API.
-        bool ShouldPollNow()
-        {
-            var until = Settings.Shared.NextAllowedPoll;
-            if (until.HasValue && until.Value > Now) return false;
-            var last = Settings.Shared.LastSuccessfulPoll;
-            // Don't burst on relaunch — wait at least half a poll interval since
-            // the most recent successful fetch (may be from a previous process).
-            if (last.HasValue && (Now - last.Value).TotalSeconds < UsageHistory.PollIntervalSeconds / 2) return false;
-            return true;
-        }
-
         void SchedulePoll()
         {
             pollTimer?.Stop();
-            nextPollAt = Now.AddSeconds(UsageHistory.PollIntervalSeconds);
-            pollTimer = Every(UsageHistory.PollIntervalSeconds, () =>
+            nextPollAt = Now.AddSeconds(PollInterval);
+            pollTimer = Every(PollInterval, () =>
             {
-                nextPollAt = Now.AddSeconds(UsageHistory.PollIntervalSeconds);
-                if (ShouldPollNow()) TriggerRefresh(animated: false);
+                nextPollAt = Now.AddSeconds(PollInterval);
+                if (ShouldPoll(Settings.Shared.NextAllowedPoll, Settings.Shared.LastSuccessfulPoll, Now)) TriggerRefresh(animated: false);
                 else UpdateTitle();
             });
         }
@@ -240,7 +225,7 @@ namespace ClaudeLimits
                 return;
             }
             // Click-storm cooldown → wave only, no fetch.
-            if (LastManualClickAt.HasValue && (Now - LastManualClickAt.Value).TotalSeconds < ManualClickCooldown)
+            if (CoolingDown(LastManualClickAt, Now))
             {
                 PlayClickAnimation();
                 return;
@@ -276,12 +261,12 @@ namespace ClaudeLimits
             if (LastResponse?.FiveHour is UsageBucket f)
             {
                 var s = Settings.Shared;
-                int pct = (int)Math.Round(f.Utilization, MidpointRounding.AwayFromZero);
+                int pct = Percent(f.Utilization);
                 var t = new MenuBarTitle
                 {
                     Pct = !respectToggles || s.ShowPercentage ? $"{pct}%" : null,
-                    Wave = !respectToggles || s.ShowWave ? UsageHistory.Shared.Sparkline(10) : null,
-                    Reset = !respectToggles || s.ShowResetTime ? Format.TimeRemaining(f.ResetsAt) : null,
+                    Wave = !respectToggles || s.ShowWave ? Sparkline(UsageHistory.Shared.Samples, SparkWidth) : null,
+                    Reset = !respectToggles || s.ShowResetTime ? Countdown(f.ResetsAt, Now) : null,
                     TrayNumber = s.ShowPercentage || !respectToggles ? pct : (int?)null,
                     Utilization = f.Utilization,
                 };
@@ -289,7 +274,7 @@ namespace ClaudeLimits
                 if (t.IsEmpty) t.Plain = "·";
                 return t;
             }
-            if (LastError != null) return new MenuBarTitle { Plain = LastError.TitleSymbol, IsError = true };
+            if (LastError != null) return new MenuBarTitle { Plain = ErrorSymbol(LastError), IsError = true };
             return new MenuBarTitle { Plain = "—" };
         }
 
@@ -310,7 +295,7 @@ namespace ClaudeLimits
         void UpdateTrayIcon(MenuBarTitle t)
         {
             string text; IconLevel level;
-            if (t.TrayNumber is int n) { text = n.ToString(CultureInfo.InvariantCulture); level = TrayIcon.LevelFor(t.Utilization); }
+            if (t.TrayNumber is int n) { text = n.ToString(CultureInfo.InvariantCulture); level = (IconLevel)IconLevel(t.Utilization); }
             else if (t.IsError || LastResponse == null && LastError != null) { text = "!"; level = IconLevel.Error; }
             else if (t.Plain == "—") { text = "–"; level = IconLevel.Normal; }
             else { text = null; level = IconLevel.Normal; }
@@ -325,23 +310,7 @@ namespace ClaudeLimits
                 tray.Icon = text == null ? TrayIcon.AppIcon(size) : TrayIcon.Render(text, level, dark, size);
                 old?.Dispose();
             }
-            var tip = TooltipText();
-            // NotifyIcon.Text throws past 63 chars on .NET Framework.
-            tray.Text = tip.Length > 63 ? tip.Substring(0, 62) + "…" : tip;
-        }
-
-        string TooltipText()
-        {
-            if (LastResponse?.FiveHour is UsageBucket f)
-            {
-                var reset = Format.TimeRemaining(f.ResetsAt);
-                var tip = $"claude-limits · {(int)Math.Round(f.Utilization, MidpointRounding.AwayFromZero)}%";
-                if (reset != null) tip += $" · resets in {reset}";
-                if (LastError != null) tip += $" · {LastError.TitleSymbol}";
-                return tip;
-            }
-            if (LastError != null) return $"claude-limits · {LastError.TitleSymbol}";
-            return "claude-limits";
+            tray.Text = Tooltip(LastResponse?.FiveHour?.Utilization, LastResponse?.FiveHour?.ResetsAt, LastError, Now);
         }
 
         // Snapshot capture lives in Snapshot.cs.
@@ -349,18 +318,11 @@ namespace ClaudeLimits
 
         // ── Refresh + animation ──────────────────────────────────────────────
 
-        /// Apply exponential back-off after a rate-limit response and return the
-        /// "do not poll until" deadline. Shared by the poller and the Settings
-        /// "Test fetch" button so no entry point can hammer Anthropic during a
-        /// cooldown without recording it. 1st 5min, 2nd 10min, 3rd 20min, 4th+
-        /// capped at 30min; honours a server Retry-After when it's longer.
+        /// Record a 429 and return the "do not poll until" deadline. Shared by the
+        /// poller and Settings "Test fetch" so no entry point can skip the back-off.
         public DateTime RecordRateLimit(double? retry)
         {
-            Settings.Shared.ConsecutiveRateLimits += 1;
-            int count = Settings.Shared.ConsecutiveRateLimits;
-            double exp = Math.Min(300.0 * Math.Pow(2.0, count - 1), 1800.0);
-            double secs = Math.Max(retry ?? 0, exp);
-            var until = Now.AddSeconds(secs);
+            var until = Now.AddSeconds(BackoffSecs(++Settings.Shared.ConsecutiveRateLimits, retry));
             Settings.Shared.NextAllowedPoll = until;
             return until;
         }
@@ -414,38 +376,13 @@ namespace ClaudeLimits
                 }
                 else
                 {
-                    Log.Write($"claude-limits fetch error: {e.FriendlyMessage}");
+                    Log.Write($"claude-limits fetch error: {FriendlyMessage(e)}");
                 }
                 if (LastResponse == null) StartRateLimitCycle();
                 else StopRateLimitCycle();
             }
             UpdateTitle();
         }
-
-        /// Wave frames: a single peak (█) moves index 0..9 with symmetric falloff.
-        /// Palindrome flips this so the peak visibly bounces off the right wall
-        /// and returns, instead of jumping back.
-        static readonly string[] errorWaveFrames =
-        {
-            "█▇▆▅▄▃▂▁▁▁",
-            "▇█▇▆▅▄▃▂▁▁",
-            "▆▇█▇▆▅▄▃▂▁",
-            "▅▆▇█▇▆▅▄▃▂",
-            "▄▅▆▇█▇▆▅▄▃",
-            "▃▄▅▆▇█▇▆▅▄",
-            "▂▃▄▅▆▇█▇▆▅",
-            "▁▂▃▄▅▆▇█▇▆",
-            "▁▁▂▃▄▅▆▇█▇",
-            "▁▁▁▂▃▄▅▆▇█",
-        };
-        static readonly int[] errorWavePalindrome =
-            Enumerable.Range(0, errorWaveFrames.Length)
-                      .Concat(Enumerable.Range(1, errorWaveFrames.Length - 2).Reverse()).ToArray();
-        static readonly int errorPhaseAFrames = errorWavePalindrome.Length;  // 18 — ~1.5s @ 12fps
-        const int errorPhaseBFrames = 60;                                    // ~5.0s marquee
-        static readonly int errorCycleFrames = errorPhaseAFrames + errorPhaseBFrames;
-        /// Cap cold-start error animation. 3 × ~6.5 s = ~19.5 s, then static.
-        const int errorMaxCycles = 3;
 
         /// Bouncing-peak palindrome animation, 12 fps, while a refresh is in flight.
         void StartAnimation()
@@ -456,8 +393,7 @@ namespace ClaudeLimits
             animationGeneration += 1;
             animationTimer = Every(1.0 / 12.0, () =>
             {
-                int step = animationFrame % errorWavePalindrome.Length;
-                var frame = errorWaveFrames[errorWavePalindrome[step]];
+                var frame = WaveFrame(animationFrame);
                 // Slot-machine reels: % and reset spin while bars dance. Each
                 // piece is gated by its visibility toggle so a hidden part stays
                 // hidden during the click-acknowledgement animation.
@@ -479,8 +415,8 @@ namespace ClaudeLimits
 
         void ScheduleAnimationStop()
         {
-            double elapsed = animationStartedAt.HasValue ? (Now - animationStartedAt.Value).TotalSeconds : minAnimationDuration;
-            double remaining = Math.Max(0, minAnimationDuration - elapsed);
+            double elapsed = animationStartedAt.HasValue ? (Now - animationStartedAt.Value).TotalSeconds : MinAnimation;
+            double remaining = Math.Max(0, MinAnimation - elapsed);
             if (remaining <= 0) StopAnimation();
             else
             {
@@ -520,63 +456,14 @@ namespace ClaudeLimits
             var until = Settings.Shared.NextAllowedPoll;
             if (LastError.Kind == AppErrorKind.RateLimited && until.HasValue && until.Value <= Now)
             { StopRateLimitCycle(); UpdateTitle(); return; }
-            if (rateLimitAnimFrame >= errorMaxCycles * errorCycleFrames)
-            { StopRateLimitCycle(); UpdateTitle(); return; }
-
-            int cyclePos = rateLimitAnimFrame % errorCycleFrames;
-            if (cyclePos < errorPhaseAFrames)
-            {
-                // Phase A: bouncing-peak wave — fits the budget.
-                var wave = errorWaveFrames[errorWavePalindrome[cyclePos % errorWavePalindrome.Length]];
-                ApplyTitle(new MenuBarTitle { Plain = wave, Mono = true, IsError = true });
-            }
-            else
-            {
-                // Phase B: marquee. ~1.17 chars/frame at 12 fps → ~14 chars/sec.
-                int phaseFrame = cyclePos - errorPhaseAFrames;
-                var core = RateLimitTypewriterText() + "    ";
-                int windowWidth = marqueeWindowChars;
-                var chars = (new string(' ', windowWidth) + core).ToCharArray();
-                int charPos = (int)(phaseFrame * 1.17) % chars.Length;
-                var visible = new char[windowWidth];
-                for (int i = 0; i < windowWidth; i++) visible[i] = chars[(charPos + i) % chars.Length];
-                ApplyTitle(new MenuBarTitle { Plain = new string(visible), Mono = true, IsError = true });
-            }
-            rateLimitAnimFrame += 1;
-        }
-
-        /// Friendly per-error message rendered in the marquee phase.
-        string RateLimitTypewriterText()
-        {
-            var err = LastError;
-            if (err == null) return "—";
-            switch (err.Kind)
-            {
-                case AppErrorKind.RateLimited:
-                    var until = Settings.Shared.NextAllowedPoll;
-                    if (until.HasValue)
-                    {
-                        int secs = Math.Max(0, (int)(until.Value - Now).TotalSeconds);
-                        int m = secs / 60, s = secs % 60;
-                        return $"rate limit reached, retry in {(m > 0 ? $"{m}m {s}s" : $"{s}s")}";
-                    }
-                    return "rate limit reached";
-                case AppErrorKind.AuthFailed: return "sign in: run `claude` in terminal";
-                case AppErrorKind.TokenNotFound: return "token not configured · open settings";
-                case AppErrorKind.Forbidden: return "access forbidden · check account access";
-                case AppErrorKind.NetworkUnavailable: return "cannot reach api.anthropic.com";
-                case AppErrorKind.RequestTimeout: return "request timed out · trying again soon";
-                case AppErrorKind.CommandFailed: return $"shell command failed: {AppError.Prefix(err.Detail, 50)}";
-                case AppErrorKind.ParseFailed: return $"parse error: {AppError.Prefix(err.Detail, 50)}";
-                default: return $"HTTP {err.StatusCode} from anthropic";
-            }
+            var text = ErrorFrame(rateLimitAnimFrame++, MarqueeText(LastError, until, Now), marqueeWindowChars);
+            if (text == null) { StopRateLimitCycle(); UpdateTitle(); return; }
+            ApplyTitle(new MenuBarTitle { Plain = text, Mono = true, IsError = true });
         }
 
         // ── Flyout text ──────────────────────────────────────────────────────
 
-        /// Reset clock + burn-rate projection; the logic lives in core
-        /// (Format.ResetLine) so spec/cases.json can test it without WPF.
-        public string FormatResetLine(UsageBucket f) => Format.ResetLine(f, UsageHistory.Shared.Samples);
+        public string FormatResetLine(UsageBucket f) => ResetLine(f.Utilization, f.ResetsAt, UsageHistory.Shared.Samples, Now);
 
         /// Fire one-shot notifications when 5h utilization first crosses 80% / 95%.
         /// State is keyed to the live `resets_at` so each new window starts fresh,
@@ -593,46 +480,16 @@ namespace ClaudeLimits
                 s.NotifiedThresholds = new System.Collections.Generic.HashSet<int>();
             }
             var fired = s.NotifiedThresholds;
-            var crossings = new[]
+            foreach (var t in Crossed(f.Utilization, fired.ToList()))
             {
-                (80, "Claude usage at 80%", "Slow down or risk capping before the window resets."),
-                (95, "Claude usage at 95%", "About to cap — finish the current task and pause."),
-            };
-            foreach (var (threshold, title, body) in crossings)
-            {
-                if (f.Utilization >= threshold && !fired.Contains(threshold))
-                {
-                    // Balloon tips surface as Windows toasts on 10/11.
-                    tray.ShowBalloonTip(8000, title, body, Forms.ToolTipIcon.Warning);
-                    fired.Add(threshold);
-                }
+                // Balloon tips surface as Windows toasts on 10/11.
+                tray.ShowBalloonTip(8000, AlertTitle(t), AlertBody(t), Forms.ToolTipIcon.Warning);
+                fired.Add(t);
             }
             s.NotifiedThresholds = fired;
         }
 
-        /// Single-line top status: "[error · ]Last updated: X · next in Y".
-        public string FormatTopStatusLine()
-        {
-            var prefix = "";
-            if (LastError != null)
-                prefix = LastError.Kind == AppErrorKind.RateLimited ? "rate-limited · " : $"{LastError.TitleSymbol} · ";
-            var lastSeen = LastUpdated.HasValue ? Format.LiveRelativeTime(LastUpdated.Value) : "never";
-            string nextClause;
-            var np = Settings.Shared.NextAllowedPoll;
-            if (LastError?.Kind == AppErrorKind.RateLimited && np.HasValue)
-                nextClause = $"next in {Format.NextAttempt(Math.Max(0, (int)(np.Value - Now).TotalSeconds))}";
-            else if (LastUpdated == null)
-                nextClause = "click to refresh";
-            else if (nextPollAt.HasValue)
-            {
-                int secs = Math.Max(0, (int)(nextPollAt.Value - Now).TotalSeconds);
-                if (secs <= 0) nextClause = "next now…";
-                else if (secs < 60) nextClause = $"next in {secs}s";
-                else nextClause = $"next in {secs / 60}m {secs % 60}s";
-            }
-            else nextClause = "—";
-            return $"{prefix}Last updated: {lastSeen} · {nextClause}";
-        }
+        public string FormatTopStatusLine() => StatusLine(LastError, LastUpdated, Settings.Shared.NextAllowedPoll, nextPollAt, Now);
 
         // ── Actions ──────────────────────────────────────────────────────────
 
@@ -642,7 +499,7 @@ namespace ClaudeLimits
             if (until.HasValue && until.Value > Now) return;
             // Share the pill click-storm cooldown so repeated "Refresh now"
             // taps can't bypass the throttle PrimaryClick enforces.
-            if (LastManualClickAt.HasValue && (Now - LastManualClickAt.Value).TotalSeconds < ManualClickCooldown)
+            if (CoolingDown(LastManualClickAt, Now))
             {
                 PlayClickAnimation();
                 return;
