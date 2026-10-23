@@ -8,18 +8,7 @@ enum Clock {
     static func now() -> Date { pinned ?? Date() }
 }
 
-struct FixtureHistoryPoint: Codable {
-    /// Seconds before the fixture's `now`.
-    let ago: Double
-    let u: Double
-}
-
-/// spec/fixtures/*.json — a canned API response plus usage history.
-struct Fixture: Codable {
-    let now: String
-    let response: UsageResponse
-    let history: [FixtureHistoryPoint]
-}
+// Fixture / FixturePoint are generated from logic/core.pl (Logic.swift).
 
 /// `--fixture <file>` loads a Fixture instead of polling Anthropic and keeps
 /// settings/history off disk; `--snapshot-all <dir>` then renders every view

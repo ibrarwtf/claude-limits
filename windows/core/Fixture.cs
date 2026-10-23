@@ -1,7 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
-using System.Runtime.Serialization;
+using System.Collections.Generic;
 
 namespace ClaudeLimits
 {
@@ -14,22 +14,7 @@ namespace ClaudeLimits
         public static DateTime Now => Pinned ?? DateTime.UtcNow;
     }
 
-    [DataContract]
-    public sealed class FixtureHistoryPoint
-    {
-        /// Seconds before the fixture's `now`.
-        [DataMember(Name = "ago")] public double Ago { get; set; }
-        [DataMember(Name = "u")] public double U { get; set; }
-    }
-
-    /// spec/fixtures/*.json — a canned API response plus usage history.
-    [DataContract]
-    public sealed class Fixture
-    {
-        [DataMember(Name = "now")] public string Now { get; set; }
-        [DataMember(Name = "response")] public UsageResponse Response { get; set; }
-        [DataMember(Name = "history")] public FixtureHistoryPoint[] History { get; set; }
-    }
+    // Fixture / FixturePoint are generated from logic/core.pl (Logic.cs).
 
     /// `--fixture <file>` loads a Fixture instead of polling Anthropic and keeps
     /// settings/history off disk; `--snapshot-all <dir>` then renders every view
@@ -58,7 +43,7 @@ namespace ClaudeLimits
             Fixture = fx;
             var dest = ValueAfter("--snapshot-all");
             SnapshotDest = dest == null ? null : Path.GetFullPath(Token.ExpandPath(dest));
-            UsageHistory.Shared.ReplaceSamples((fx.History ?? new FixtureHistoryPoint[0]).Select(h =>
+            UsageHistory.Shared.ReplaceSamples((fx.History ?? new List<FixturePoint>()).Select(h =>
                 new HistorySample { TimestampUnix = Format.ToUnix(now.AddSeconds(-h.Ago)), Utilization = h.U }));
         }
     }

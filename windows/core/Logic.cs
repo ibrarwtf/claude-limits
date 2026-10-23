@@ -139,6 +139,23 @@ public sealed class GitHubRelease
 }
 
 [System.Runtime.Serialization.DataContract]
+public sealed class FixturePoint
+{
+    [System.Runtime.Serialization.DataMember(Name = "ago", EmitDefaultValue = false)] public double? AgoRaw { get; set; }
+    public double Ago => AgoRaw ?? 0;
+    [System.Runtime.Serialization.DataMember(Name = "u", EmitDefaultValue = false)] public double? URaw { get; set; }
+    public double U => URaw ?? 0;
+}
+
+[System.Runtime.Serialization.DataContract]
+public sealed class Fixture
+{
+    [System.Runtime.Serialization.DataMember(Name = "now", EmitDefaultValue = false)] public string Now { get; set; }
+    [System.Runtime.Serialization.DataMember(Name = "response", EmitDefaultValue = false)] public UsageResponse Response { get; set; }
+    [System.Runtime.Serialization.DataMember(Name = "history", EmitDefaultValue = false)] public List<FixturePoint> History { get; set; }
+}
+
+[System.Runtime.Serialization.DataContract]
 sealed class SettingsData
 {
     [System.Runtime.Serialization.DataMember(EmitDefaultValue = false)] public int tokenSourceMode;

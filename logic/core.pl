@@ -40,6 +40,10 @@
 :- native github_asset = 'GitHubAsset'.
 :- native github_release = 'GitHubRelease'.
 
+% spec/fixtures/*.json — a canned response + history for snapshots (ago = seconds before now).
+:- json fixture_point = [ago: float, u: float].
+:- json fixture = [now: str, response: usage_response, history: list(fixture_point)].
+
 % ── Persisted settings ───────────────────────────────────────────────────────
 % UserDefaults on macOS, settings.json on Windows; the key is the camelCase
 % name unless given. hide(Key) stores the inverse, so an unset key reads as

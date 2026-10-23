@@ -133,6 +133,17 @@ struct GitHubRelease: Codable {
     enum CodingKeys: String, CodingKey { case tagName = "tag_name", draft, prerelease, assets }
 }
 
+struct FixturePoint: Codable {
+    let ago: Double
+    let u: Double
+}
+
+struct Fixture: Codable {
+    let now: String
+    let response: UsageResponse
+    let history: [FixturePoint]
+}
+
 extension Settings {
     var tokenSource: TokenSource {
         get { TokenSource(rawValue: d.integer(forKey: "tokenSourceMode")) ?? .auto }
