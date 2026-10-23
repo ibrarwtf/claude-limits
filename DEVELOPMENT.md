@@ -101,7 +101,7 @@ swiftc -o build/spec-macos macos/core/*.swift macos/tests/main.swift && build/sp
 
 ```powershell
 # Windows
-dotnet build windows	ests\spec.csproj -c Release -o build\spec-windows; build\spec-windows\claude-limits-spec.exe
+dotnet build windows\tests\spec.csproj -c Release -o build\spec-windows; build\spec-windows\claude-limits-spec.exe
 ```
 
 Commit the regenerated files — CI fails if they don't match what `plc.pl` / `oracle.pl` produce.
