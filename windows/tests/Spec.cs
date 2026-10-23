@@ -49,11 +49,6 @@ namespace ClaudeLimits.Spec
             Check("extract_token", Token.ExtractTokenFromText("sk-ant-oat01-xyz\n"), "sk-ant-oat01-xyz");
             Check("extract_token", Token.ExtractTokenFromText("not a token"), null);
             Check("extract_token", Token.ExtractTokenFromText("{\"claudeAiOauth\":{\"accessToken\":\"\"}}"), null);
-            Check("sparkline", Sparkline(new List<HistorySample> {  }, 10), "▁▁▁▁▁▁▁▁▁▁");
-            Check("sparkline", Sparkline(new List<HistorySample> { S(540, 10), S(360, 11), S(180, 13), S(0, 13) }, 10), "▁▁▁▁▁▁▁▃▆▁");
-            Check("sparkline", Sparkline(new List<HistorySample> { S(3780, 10), S(0, 16) }, 10), "▁▁▁▁▁▁▁▁▁▂");
-            Check("sparkline", Sparkline(new List<HistorySample> { S(360, 10), S(180, -1), S(0, 13) }, 10), "▁▁▁▁▁▁▁▁▁▅");
-            Check("sparkline", Sparkline(new List<HistorySample> { S(180, 10), S(0, 20) }, 10), "▁▁▁▁▁▁▁▁▁█");
             Check("reset_line", ResetLine(0.0, null, new List<HistorySample> {  }, now.AddSeconds(0)), "No active 5-hour window — starts on your next Claude request");
             Check("reset_line", ResetLine(10.0, "2030-01-15T11:59:50Z", new List<HistorySample> {  }, now.AddSeconds(0)), "Window just reset — refreshing soon");
             Check("reset_line", ResetLine(100.0, "2030-01-15T13:30:00Z", new List<HistorySample> {  }, now.AddSeconds(0)), "Capped — resets in 1h 30m (@ 1:30 PM)");
@@ -70,6 +65,11 @@ namespace ClaudeLimits.Spec
             Check("rollover", Replay(new[] { (-360.0, 40.0, "2030-01-15T13:00:00Z"), (-180.0, 41.0, "2030-01-15T13:00:00Z"), (0.0, 41.0, "2030-01-15T18:00:00Z") }), "1");
             Check("rollover", Replay(new[] { (-180.0, 60.0, "2030-01-15T13:00:00Z"), (0.0, 2.0, "2030-01-15T13:00:00Z") }), "1");
             Check("rollover", Replay(new[] { (-180.0, 10.0, "2030-01-15T13:00:00Z"), (0.0, 6.0, "2030-01-15T13:00:00Z") }), "2");
+            Check("sparkline", Sparkline(new List<HistorySample> {  }, 10), "▁▁▁▁▁▁▁▁▁▁");
+            Check("sparkline", Sparkline(new List<HistorySample> { S(540, 10), S(360, 11), S(180, 13), S(0, 13) }, 10), "▁▁▁▁▁▁▁▃▆▁");
+            Check("sparkline", Sparkline(new List<HistorySample> { S(3780, 10), S(0, 16) }, 10), "▁▁▁▁▁▁▁▁▁▂");
+            Check("sparkline", Sparkline(new List<HistorySample> { S(360, 10), S(180, -1), S(0, 13) }, 10), "▁▁▁▁▁▁▁▁▁▅");
+            Check("sparkline", Sparkline(new List<HistorySample> { S(180, 10), S(0, 20) }, 10), "▁▁▁▁▁▁▁▁▁█");
             Check("status_error", Msg(StatusError(200, null, "{}")), null);
             Check("status_error", Msg(StatusError(401, null, "")), "Your Claude token is invalid or expired. Run `claude` in a terminal to sign back in.");
             Check("status_error", Msg(StatusError(403, null, "")), "Access forbidden. Your account may not have access to the usage API.");

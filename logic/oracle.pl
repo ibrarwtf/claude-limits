@@ -32,8 +32,6 @@ case(D, _, newest_windows, newest(J), Got, W) :-
 case(D, _, extract_token, token(T), Got, W) :-
     member(C, D.extractToken), T = C.text, W = C.expect,
     ( catch(atom_json_dict(T, J, []), _, fail), is_dict(J) -> true ; J = none ), once(token_from(J, T, Got)).
-case(D, Now, sparkline, call(sparkline, [samples(Ps), Wd]), Got, W) :-
-    member(C, D.sparkline), Ps = C.samples, Wd = C.width, W = C.expect, samples(Ps, Now, S), once(sparkline(S, Wd, Got)).
 case(D, Now, reset_line, call(reset_line, [U, Iso, samples(Ps), at(0)]), Got, W) :-
     member(C, D.resetLine), U is float(C.utilization), iso_in(C.resetsIn, Now, Iso), Ps = C.samples, W = C.expect,
     samples(Ps, Now, S), once(reset_line(U, Iso, S, Now, Got)).
@@ -56,6 +54,7 @@ case(D, Now, F, out(Out, call(F, Ls)), Got, W) :-
 arg_in(Now, time, Off, T, at(Off)) :- !, T is Now + Off.
 arg_in(_, opt(_), null, none, none) :- !.
 arg_in(Now, opt(T), V, P, L) :- !, arg_in(Now, T, V, P, L).
+arg_in(Now, list(sample), Ps, S, samples(Ps)) :- !, samples(Ps, Now, S).
 arg_in(Now, list(T), Vs, Ps, list(Ls)) :- !, maplist(arg_in(Now, T), Vs, Ps, Ls).
 arg_in(_, float, V, F, F) :- !, F is float(V).
 arg_in(_, T, V, A, choice(T, A)) :- string(V), T \== str, !, atom_string(A, V).

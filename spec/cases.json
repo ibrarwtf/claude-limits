@@ -19,14 +19,6 @@
     { "text": "{\"claudeAiOauth\":{\"accessToken\":\"\"}}", "expect": null }
   ],
 
-  "sparkline": [
-    { "name": "empty pads with floor bars", "width": 10, "samples": [], "expect": "▁▁▁▁▁▁▁▁▁▁" },
-    { "name": "per-interval rate", "width": 10, "samples": [[540, 10], [360, 11], [180, 13], [0, 13]], "expect": "▁▁▁▁▁▁▁▃▆▁" },
-    { "name": "long gap is normalized, not a spike", "width": 10, "samples": [[3780, 10], [0, 16]], "expect": "▁▁▁▁▁▁▁▁▁▂" },
-    { "name": "error sentinels skipped; 3.5 rounds up", "width": 10, "samples": [[360, 10], [180, -1], [0, 13]], "expect": "▁▁▁▁▁▁▁▁▁▅" },
-    { "name": "clamps at full bar", "width": 10, "samples": [[180, 10], [0, 20]], "expect": "▁▁▁▁▁▁▁▁▁█" }
-  ],
-
   "resetLine": [
     { "name": "no window", "utilization": 0, "resetsIn": null, "samples": [],
       "expect": "No active 5-hour window — starts on your next Claude request" },
@@ -81,6 +73,11 @@
   ],
 
   "calls": [
+    {"fn": "sparkline", "args": [[], 10], "expect": "▁▁▁▁▁▁▁▁▁▁"},
+    {"fn": "sparkline", "args": [[[540, 10], [360, 11], [180, 13], [0, 13]], 10], "expect": "▁▁▁▁▁▁▁▃▆▁"},
+    {"fn": "sparkline", "args": [[[3780, 10], [0, 16]], 10], "expect": "▁▁▁▁▁▁▁▁▁▂"},
+    {"fn": "sparkline", "args": [[[360, 10], [180, -1], [0, 13]], 10], "expect": "▁▁▁▁▁▁▁▁▁▅"},
+    {"fn": "sparkline", "args": [[[180, 10], [0, 20]], 10], "expect": "▁▁▁▁▁▁▁▁▁█"},
     {"fn": "status_error", "args": [200, null, "{}"], "expect": null},
     {"fn": "status_error", "args": [401, null, ""], "expect": "Your Claude token is invalid or expired. Run `claude` in a terminal to sign back in."},
     {"fn": "status_error", "args": [403, null, ""], "expect": "Access forbidden. Your account may not have access to the usage API."},
