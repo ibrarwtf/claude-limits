@@ -9,13 +9,7 @@ let knownCredentialPaths: [String] = [
 let shellCommandExample = "ssh devbox 'cat ~/.claude/.credentials.json'"
 
 func extractTokenFromText(_ text: String) -> String? {
-    if let data = text.data(using: .utf8),
-       let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-        if let oauth = obj["claudeAiOauth"] as? [String: Any],
-           let tok = oauth["accessToken"] as? String, !tok.isEmpty { return tok }
-        if let tok = obj["accessToken"] as? String, !tok.isEmpty { return tok }
-    }
-    return rawToken(text)
+    tokenFrom(try? JSONDecoder().decode(Credentials.self, from: Data(text.utf8)), text)
 }
 
 func loadTokenFromFile(_ rawPath: String) throws -> String {

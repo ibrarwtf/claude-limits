@@ -133,6 +133,15 @@ struct GitHubRelease: Codable {
     enum CodingKeys: String, CodingKey { case tagName = "tag_name", draft, prerelease, assets }
 }
 
+struct CredentialsOauth: Codable {
+    let accessToken: String?
+}
+
+struct Credentials: Codable {
+    let claudeAiOauth: CredentialsOauth?
+    let accessToken: String?
+}
+
 struct FixturePoint: Codable {
     let ago: Double
     let u: Double
@@ -915,6 +924,26 @@ func head0(_ a1: [Int]) -> (Int, [Int]) {
         return (a1[0], Array(a1.dropFirst()))
     }
     fatalError("unreachable")
+}
+
+func tokenFrom(_ c: Credentials?, _ text: String) -> String? {
+    if c == nil {
+        return rawToken(text)
+    } else {
+        let a: String?
+        if c!.claudeAiOauth != nil {
+            a = c!.claudeAiOauth!.accessToken
+        } else {
+            a = nil
+        }
+        if (a != nil) && (a! != "") {
+            return a!
+        } else if (c!.accessToken != nil) && (c!.accessToken! != "") {
+            return c!.accessToken!
+        } else {
+            return rawToken(text)
+        }
+    }
 }
 
 func rawToken(_ text: String) -> String? {

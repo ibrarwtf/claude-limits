@@ -40,6 +40,10 @@
 :- native github_asset = 'GitHubAsset'.
 :- native github_release = 'GitHubRelease'.
 
+% Claude Code's credentials file (or a shell command printing it).
+:- json credentials_oauth = [accessToken: opt(str)].
+:- json credentials = [claudeAiOauth: opt(credentials_oauth), accessToken: opt(str)].
+
 % spec/fixtures/*.json — a canned response + history for snapshots (ago = seconds before now).
 :- json fixture_point = [ago: float, u: float].
 :- json fixture = [now: str, response: usage_response, history: list(fixture_point)].
@@ -391,6 +395,12 @@ newer(L, C, Out) :- head0(L, A, Lt), head0(C, B, Ct), ( A > B -> Out = true ; A 
 :- fn head0(list(int)) -> (int, list(int)).
 head0([], 0, []).
 head0([X|Xs], X, Xs).
+
+:- fn token_from(opt(credentials), str) -> opt(str).   % parsed JSON (none if it wasn't), raw text
+token_from(C, Text, T) :-
+    (   C == none -> raw_token(Text, T)
+    ;   get(C, claudeAiOauth, O), ( O \== none -> get(O, accessToken, A) ; A = none ), get(C, accessToken, B),
+        ( A \== none, A \== "" -> T = A ; B \== none, B \== "" -> T = B ; raw_token(Text, T) ) ).
 
 :- fn raw_token(str) -> opt(str).   % a bare "sk-…" token pasted instead of credentials JSON
 raw_token(Text, Out) :-

@@ -4,7 +4,6 @@
 %      the reference implementation) and fails on any mismatch;
 %   2. writes macos/tests/main.swift and windows/tests/Spec.cs — the same
 %      cases as literal checks against each app's generated Logic code.
-% Token-JSON cases need a JSON-reading app path, so Prolog only emits them.
 :- use_module(library(http/json)).  % library(json) in SWI 10+; this path works on both
 :- ensure_loaded(core).
 :- initialization(main, main).
@@ -14,8 +13,8 @@ main :-
     open('spec/cases.json', read, In, [encoding(utf8)]), json_read_dict(In, D), close(In),
     parse_iso(D.now, Now),
     findall(c(L, E, Got, Want), case(D, Now, L, E, Got, Want), Cs),
-    include([c(_, _, G, W)]>>(G == skip ; same(G, W)), Cs, Ok),
-    forall(( member(c(L, E, G, W), Cs), G \== skip, \+ same(G, W) ),
+    include([c(_, _, G, W)]>>same(G, W), Cs, Ok),
+    forall(( member(c(L, E, G, W), Cs), \+ same(G, W) ),
            format("FAIL ~w ~q~n  got:  ~q~n  want: ~q~n", [L, E, G, W])),
     length(Cs, N), length(Ok, P), F is N - P,
     format("prolog spec: ~d passed, ~d failed~n", [P, F]),
@@ -40,8 +39,9 @@ case(D, _, status_error, msg(call(status_error, [St, R, B])), Got, W) :-
 case(D, _, newest_windows, newest(J), Got, W) :-
     member(C, D.newestWindows), Rs = C.releases, W = C.expect, with_output_to(string(J), jw(Rs)),
     once(newest_windows(Rs, R)), ( R == none -> Got = none ; Got = R.tag_name ).
-case(D, _, extract_token, token(T), skip, W) :-
-    member(C, D.extractToken), T = C.text, W = C.expect.
+case(D, _, extract_token, token(T), Got, W) :-
+    member(C, D.extractToken), T = C.text, W = C.expect,
+    ( catch(atom_json_dict(T, J, []), _, fail), is_dict(J) -> true ; J = none ), once(token_from(J, T, Got)).
 case(D, Now, sparkline, call(sparkline, [samples(Ps), Wd]), Got, W) :-
     member(C, D.sparkline), Ps = C.samples, Wd = C.width, W = C.expect, samples(Ps, Now, S), once(sparkline(S, Wd, Got)).
 case(D, Now, reset_line, call(reset_line, [U, Iso, samples(Ps), at(0)]), Got, W) :-

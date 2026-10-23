@@ -2,26 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Runtime.Serialization;
 using System.Text;
 using System.Threading.Tasks;
 using static ClaudeLimits.Logic;
 
 namespace ClaudeLimits
 {
-    [DataContract]
-    sealed class CredentialsOAuth
-    {
-        [DataMember(Name = "accessToken", EmitDefaultValue = false)] public string AccessToken { get; set; }
-    }
-
-    [DataContract]
-    sealed class CredentialsFile
-    {
-        [DataMember(Name = "claudeAiOauth", EmitDefaultValue = false)] public CredentialsOAuth ClaudeAiOauth { get; set; }
-        [DataMember(Name = "accessToken", EmitDefaultValue = false)] public string AccessToken { get; set; }
-    }
-
     public static class Token
     {
         /// Claude Code on Windows stores credentials in a plain file (no
@@ -54,16 +40,9 @@ namespace ClaudeLimits
 
         public static string ExtractTokenFromText(string text)
         {
-            if (string.IsNullOrWhiteSpace(text)) return null;
-            try
-            {
-                var obj = Json.Parse<CredentialsFile>(text.Trim());
-                var tok = obj?.ClaudeAiOauth?.AccessToken;
-                if (!string.IsNullOrEmpty(tok)) return tok;
-                if (!string.IsNullOrEmpty(obj?.AccessToken)) return obj.AccessToken;
-            }
-            catch { }
-            return RawToken(text);
+            Credentials c = null;
+            try { c = Json.Parse<Credentials>((text ?? "").Trim()); } catch { }
+            return TokenFrom(c, text ?? "");
         }
 
         public static string LoadTokenFromFile(string rawPath)

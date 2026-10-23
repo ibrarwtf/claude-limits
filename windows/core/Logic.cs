@@ -139,6 +139,19 @@ public sealed class GitHubRelease
 }
 
 [System.Runtime.Serialization.DataContract]
+public sealed class CredentialsOauth
+{
+    [System.Runtime.Serialization.DataMember(Name = "accessToken", EmitDefaultValue = false)] public string AccessToken { get; set; }
+}
+
+[System.Runtime.Serialization.DataContract]
+public sealed class Credentials
+{
+    [System.Runtime.Serialization.DataMember(Name = "claudeAiOauth", EmitDefaultValue = false)] public CredentialsOauth ClaudeAiOauth { get; set; }
+    [System.Runtime.Serialization.DataMember(Name = "accessToken", EmitDefaultValue = false)] public string AccessToken { get; set; }
+}
+
+[System.Runtime.Serialization.DataContract]
 public sealed class FixturePoint
 {
     [System.Runtime.Serialization.DataMember(Name = "ago", EmitDefaultValue = false)] public double? AgoRaw { get; set; }
@@ -1175,6 +1188,38 @@ public static partial class Logic
             return (a1[0], a1.Skip(1).ToList());
         }
         throw new InvalidOperationException();
+    }
+
+    public static string TokenFrom(Credentials c, string text)
+    {
+        if (c == null)
+        {
+            return RawToken(text);
+        }
+        else
+        {
+            string a;
+            if (c.ClaudeAiOauth != null)
+            {
+                a = c.ClaudeAiOauth.AccessToken;
+            }
+            else
+            {
+                a = null;
+            }
+            if ((a != null) && (a != ""))
+            {
+                return a;
+            }
+             else if ((c.AccessToken != null) && (c.AccessToken != ""))
+            {
+                return c.AccessToken;
+            }
+            else
+            {
+                return RawToken(text);
+            }
+        }
     }
 
     public static string RawToken(string text)
