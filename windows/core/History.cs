@@ -10,8 +10,8 @@ namespace ClaudeLimits
     [DataContract]
     public sealed class HistorySample
     {
-        [DataMember(Name = "t")] public double TimestampUnix { get; set; }
-        [DataMember(Name = "u")] public double Utilization { get; set; }
+        [DataMember(Name = "t")] public double TimestampUnix;
+        [DataMember(Name = "u")] public double Utilization;
         public DateTime Timestamp => Format.FromUnix(TimestampUnix);
     }
 
