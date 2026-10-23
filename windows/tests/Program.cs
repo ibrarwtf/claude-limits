@@ -52,7 +52,7 @@ namespace ClaudeLimits.Spec
             foreach (var c in Cases(root, "weeklyRows"))
             {
                 var json = new JavaScriptSerializer().Serialize(c["response"]);
-                var rows = Json.Parse<UsageResponse>(json).WeeklyRows();
+                var rows = WeeklyRows(Json.Parse<UsageResponse>(json));
                 var got = string.Join(", ", rows.Select(r => $"{r.label}={(int)Math.Round(r.bucket.Utilization, MidpointRounding.AwayFromZero)}"));
                 Check($"weeklyRows: {c["name"]}", got, (string)c["expect"]);
             }

@@ -30,6 +30,60 @@ public sealed class AppError : Exception
 public enum TokenSource { Auto, File, Shell }
 
 [System.Runtime.Serialization.DataContract]
+public sealed class UsageBucket
+{
+    [System.Runtime.Serialization.DataMember(Name = "utilization", EmitDefaultValue = false)] public double? UtilizationRaw { get; set; }
+    public double Utilization => UtilizationRaw ?? 0;
+    [System.Runtime.Serialization.DataMember(Name = "resets_at", EmitDefaultValue = false)] public string ResetsAt { get; set; }
+}
+
+[System.Runtime.Serialization.DataContract]
+public sealed class ExtraUsage
+{
+    [System.Runtime.Serialization.DataMember(Name = "is_enabled", EmitDefaultValue = false)] public bool? IsEnabled { get; set; }
+    [System.Runtime.Serialization.DataMember(Name = "monthly_limit", EmitDefaultValue = false)] public double? MonthlyLimit { get; set; }
+    [System.Runtime.Serialization.DataMember(Name = "used_credits", EmitDefaultValue = false)] public double? UsedCredits { get; set; }
+    [System.Runtime.Serialization.DataMember(Name = "utilization", EmitDefaultValue = false)] public double? Utilization { get; set; }
+    [System.Runtime.Serialization.DataMember(Name = "currency", EmitDefaultValue = false)] public string Currency { get; set; }
+}
+
+[System.Runtime.Serialization.DataContract]
+public sealed class LimitModel
+{
+    [System.Runtime.Serialization.DataMember(Name = "display_name", EmitDefaultValue = false)] public string DisplayName { get; set; }
+}
+
+[System.Runtime.Serialization.DataContract]
+public sealed class LimitScope
+{
+    [System.Runtime.Serialization.DataMember(Name = "model", EmitDefaultValue = false)] public LimitModel Model { get; set; }
+}
+
+[System.Runtime.Serialization.DataContract]
+public sealed class UsageLimit
+{
+    [System.Runtime.Serialization.DataMember(Name = "kind", EmitDefaultValue = false)] public string Kind { get; set; }
+    [System.Runtime.Serialization.DataMember(Name = "group", EmitDefaultValue = false)] public string Group { get; set; }
+    [System.Runtime.Serialization.DataMember(Name = "percent", EmitDefaultValue = false)] public double? Percent { get; set; }
+    [System.Runtime.Serialization.DataMember(Name = "resets_at", EmitDefaultValue = false)] public string ResetsAt { get; set; }
+    [System.Runtime.Serialization.DataMember(Name = "scope", EmitDefaultValue = false)] public LimitScope Scope { get; set; }
+}
+
+[System.Runtime.Serialization.DataContract]
+public sealed class UsageResponse
+{
+    [System.Runtime.Serialization.DataMember(Name = "five_hour", EmitDefaultValue = false)] public UsageBucket FiveHour { get; set; }
+    [System.Runtime.Serialization.DataMember(Name = "seven_day", EmitDefaultValue = false)] public UsageBucket SevenDay { get; set; }
+    [System.Runtime.Serialization.DataMember(Name = "seven_day_oauth_apps", EmitDefaultValue = false)] public UsageBucket SevenDayOauthApps { get; set; }
+    [System.Runtime.Serialization.DataMember(Name = "seven_day_opus", EmitDefaultValue = false)] public UsageBucket SevenDayOpus { get; set; }
+    [System.Runtime.Serialization.DataMember(Name = "seven_day_sonnet", EmitDefaultValue = false)] public UsageBucket SevenDaySonnet { get; set; }
+    [System.Runtime.Serialization.DataMember(Name = "seven_day_cowork", EmitDefaultValue = false)] public UsageBucket SevenDayCowork { get; set; }
+    [System.Runtime.Serialization.DataMember(Name = "seven_day_omelette", EmitDefaultValue = false)] public UsageBucket SevenDayOmelette { get; set; }
+    [System.Runtime.Serialization.DataMember(Name = "extra_usage", EmitDefaultValue = false)] public ExtraUsage ExtraUsage { get; set; }
+    [System.Runtime.Serialization.DataMember(Name = "limits", EmitDefaultValue = false)] public UsageLimit[] Limits { get; set; }
+}
+
+[System.Runtime.Serialization.DataContract]
 sealed class SettingsData
 {
     [System.Runtime.Serialization.DataMember(EmitDefaultValue = false)] public int tokenSourceMode;

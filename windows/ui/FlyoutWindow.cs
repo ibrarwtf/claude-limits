@@ -10,6 +10,8 @@ using System.Windows.Media.Effects;
 using System.Windows.Shapes;
 using System.Windows.Threading;
 
+using static ClaudeLimits.Logic;
+
 namespace ClaudeLimits
 {
     /// The dropdown's rows, built from app state. Shared by the live flyout and
@@ -63,7 +65,7 @@ namespace ClaudeLimits
 
             if (r != null)
             {
-                var weekly = r.WeeklyRows();
+                var weekly = WeeklyRows(r);
                 if (weekly.Count > 0)
                 {
                     s.Children.Add(Separator());

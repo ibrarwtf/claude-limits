@@ -30,6 +30,52 @@ enum AppError: LocalizedError {
 
 enum TokenSource: Int { case auto, file, shell }
 
+struct UsageBucket: Codable {
+    let utilization: Double
+    let resetsAt: String?
+    enum CodingKeys: String, CodingKey { case utilization, resetsAt = "resets_at" }
+}
+
+struct ExtraUsage: Codable {
+    let isEnabled: Bool?
+    let monthlyLimit: Double?
+    let usedCredits: Double?
+    let utilization: Double?
+    let currency: String?
+    enum CodingKeys: String, CodingKey { case isEnabled = "is_enabled", monthlyLimit = "monthly_limit", usedCredits = "used_credits", utilization, currency }
+}
+
+struct LimitModel: Codable {
+    let displayName: String?
+    enum CodingKeys: String, CodingKey { case displayName = "display_name" }
+}
+
+struct LimitScope: Codable {
+    let model: LimitModel?
+}
+
+struct UsageLimit: Codable {
+    let kind: String?
+    let group: String?
+    let percent: Double?
+    let resetsAt: String?
+    let scope: LimitScope?
+    enum CodingKeys: String, CodingKey { case kind, group, percent, resetsAt = "resets_at", scope }
+}
+
+struct UsageResponse: Codable {
+    let fiveHour: UsageBucket?
+    let sevenDay: UsageBucket?
+    let sevenDayOauthApps: UsageBucket?
+    let sevenDayOpus: UsageBucket?
+    let sevenDaySonnet: UsageBucket?
+    let sevenDayCowork: UsageBucket?
+    let sevenDayOmelette: UsageBucket?
+    let extraUsage: ExtraUsage?
+    let limits: [UsageLimit]?
+    enum CodingKeys: String, CodingKey { case fiveHour = "five_hour", sevenDay = "seven_day", sevenDayOauthApps = "seven_day_oauth_apps", sevenDayOpus = "seven_day_opus", sevenDaySonnet = "seven_day_sonnet", sevenDayCowork = "seven_day_cowork", sevenDayOmelette = "seven_day_omelette", extraUsage = "extra_usage", limits }
+}
+
 extension Settings {
     var tokenSource: TokenSource {
         get { TokenSource(rawValue: d.integer(forKey: "tokenSourceMode")) ?? .auto }

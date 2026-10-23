@@ -18,6 +18,22 @@
 :- record sample(t: time, u: float).
 :- native sample = 'HistorySample'(swift(timestamp, utilization), csharp('Timestamp', 'Utilization')).
 
+% ── API response (GET /api/oauth/usage) ─────────────────────────────────────
+% Field names are the JSON keys; each app gets them camelCased (Codable /
+% DataContract). Since late 2026 the seven_day* buckets come back null and
+% weekly usage arrives in `limits`.
+:- json usage_bucket = [utilization: float, resets_at: opt(str)].
+:- json extra_usage = [is_enabled: opt(bool), monthly_limit: opt(float), used_credits: opt(float),
+                       utilization: opt(float), currency: opt(str)].
+:- json limit_model = [display_name: opt(str)].
+:- json limit_scope = [model: opt(limit_model)].
+:- json usage_limit = [kind: opt(str), group: opt(str), percent: opt(float), resets_at: opt(str), scope: opt(limit_scope)].
+:- json usage_response = [five_hour: opt(usage_bucket), seven_day: opt(usage_bucket),
+                          seven_day_oauth_apps: opt(usage_bucket), seven_day_opus: opt(usage_bucket),
+                          seven_day_sonnet: opt(usage_bucket), seven_day_cowork: opt(usage_bucket),
+                          seven_day_omelette: opt(usage_bucket), extra_usage: opt(extra_usage),
+                          limits: opt(list(usage_limit))].
+
 % ── Persisted settings ───────────────────────────────────────────────────────
 % UserDefaults on macOS, settings.json on Windows; the key is the camelCase
 % name unless given. hide(Key) stores the inverse, so an unset key reads as

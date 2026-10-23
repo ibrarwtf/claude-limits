@@ -10,12 +10,13 @@
 :- op(1150, fx, native).
 :- op(1150, fx, setting).
 :- op(1150, fx, choice).
+:- op(1150, fx, json).
 :- use_module(library(arithmetic)).
 
 % Declarations only matter to the compiler — except constants, which also
 % become arithmetic functions so rules can write `X is poll_interval * 2`.
 term_expansion((:- const Name = Value), [Fact, (:- arithmetic_function(Name/0))]) :- Fact =.. [Name, Value].
-term_expansion((:- Decl), []) :- compound(Decl), functor(Decl, F, 1), memberchk(F, [fn, enum, record, native, setting, choice]).
+term_expansion((:- Decl), []) :- compound(Decl), functor(Decl, F, 1), memberchk(F, [fn, enum, record, native, setting, choice, json]).
 
 % Time is seconds since 1970 here; Date / DateTime in the apps.
 :- arithmetic_function(secs/2).
