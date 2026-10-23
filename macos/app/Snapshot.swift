@@ -1,5 +1,4 @@
 import AppKit
-import Foundation
 
 // Snapshot capture: URL handler + view-to-PNG. Renders our own NSViews
 // (cacheDisplay, or a synthetic redraw for the status button and NSMenu,
