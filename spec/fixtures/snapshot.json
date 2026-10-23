@@ -1,0 +1,35 @@
+{
+  "now": "2030-01-15T12:00:00Z",
+  "response": {
+    "five_hour": { "utilization": 42.0, "resets_at": "2030-01-15T14:32:00Z" },
+    "seven_day": null,
+    "seven_day_opus": null,
+    "seven_day_sonnet": null,
+    "extra_usage": {
+      "is_enabled": true,
+      "monthly_limit": 5000,
+      "used_credits": 1250,
+      "utilization": 25.0,
+      "currency": "USD"
+    },
+    "limits": [
+      { "kind": "session", "group": "session", "percent": 42, "resets_at": "2030-01-15T14:32:00Z", "scope": null },
+      { "kind": "weekly", "group": "weekly", "percent": 31, "resets_at": "2030-01-20T17:00:00Z", "scope": null },
+      { "kind": "weekly_scoped", "group": "weekly", "percent": 18, "resets_at": "2030-01-20T17:00:00Z",
+        "scope": { "model": { "id": null, "display_name": "Fable" }, "surface": null } }
+    ]
+  },
+  "history": [
+    { "ago": 1800, "u": 30 },
+    { "ago": 1620, "u": 30 },
+    { "ago": 1440, "u": 31 },
+    { "ago": 1260, "u": 33 },
+    { "ago": 1080, "u": 34 },
+    { "ago": 900,  "u": 34 },
+    { "ago": 720,  "u": 36 },
+    { "ago": 540,  "u": 38 },
+    { "ago": 360,  "u": 39 },
+    { "ago": 180,  "u": 41 },
+    { "ago": 0,    "u": 42 }
+  ]
+}

@@ -1,0 +1,84 @@
+name: Release
+
+# Pushed by scripts/release.ps1. Builds both apps from the tag and creates a
+# DRAFT release with both zips. release.ps1 then points the Homebrew cask at
+# the Mac zip and publishes the draft, so Mac users are never offered a
+# release before brew can install it.
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  mac:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check VERSION matches tag
+        run: test "v$(tr -d '[:space:]' < VERSION)" = "$GITHUB_REF_NAME"
+
+      - name: Build
+        run: bash mac/scripts/build.sh
+
+      - name: Zip
+        run: |
+          mkdir -p dist
+          # ditto preserves macOS metadata + symlinks; what Apple recommends
+          # for distributing app bundles, not plain zip.
+          ditto -c -k --keepParent "$HOME/Applications/claude-limits.app" "dist/claude-limits-${GITHUB_REF_NAME#v}.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: zip-mac
+          path: dist/*.zip
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        shell: powershell
+        run: ./win/scripts/build.ps1
+
+      - name: Zip
+        shell: powershell
+        run: |
+          $v = $env:GITHUB_REF_NAME.TrimStart('v')
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Compress-Archive -Path build/win/claude-limits.exe -DestinationPath "dist/claude-limits-windows-$v.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: zip-win
+          path: dist/*.zip
+
+  draft:
+    needs: [mac, windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Release notes = the CHANGELOG.md section for this version.
+          awk -v ver="## $GITHUB_REF_NAME" '
+              $0 == ver {found=1; next}
+              found && /^## / {exit}
+              found {print}
+          ' CHANGELOG.md > notes.md
+          [ -s notes.md ] || echo "Release ${GITHUB_REF_NAME#v}" > notes.md
+          gh release delete "$GITHUB_REF_NAME" --yes 2>/dev/null || true
+          gh release create "$GITHUB_REF_NAME" dist/*.zip --draft \
+              --title "$GITHUB_REF_NAME" --notes-file notes.md

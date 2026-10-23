@@ -1,0 +1,89 @@
+{
+  "_doc": "Shared behaviour spec. mac/tests (Swift) and win/tests (C#) both run every case; CI fails if either app disagrees. Times are offsets in seconds from `now`; `samples` are [secondsAgo, utilization] pairs, oldest first. Clock text is UTC, en-US.",
+  "now": "2030-01-15T12:00:00Z",
+
+  "timeRemaining": [
+    { "resetsIn": 9030, "expect": "2:30" },
+    { "resetsIn": 3600, "expect": "1:00" },
+    { "resetsIn": 300,  "expect": "5m" },
+    { "resetsIn": 59,   "expect": "0m" },
+    { "resetsIn": -5,   "expect": null },
+    { "resetsIn": null, "expect": null }
+  ],
+
+  "nextAttempt": [
+    { "secs": 0,    "expect": "trying now…" },
+    { "secs": 45,   "expect": "45s" },
+    { "secs": 125,  "expect": "2m 5s" },
+    { "secs": 3725, "expect": "1h 2m" }
+  ],
+
+  "relativeTime": [
+    { "ago": 0,    "expect": "0s ago" },
+    { "ago": 75,   "expect": "1m 15s ago" },
+    { "ago": 3725, "expect": "1h 2m ago" }
+  ],
+
+  "isNewerVersion": [
+    { "latest": "v0.3.1", "current": "0.3.0",  "expect": true },
+    { "latest": "0.3.0",  "current": "v0.3.0", "expect": false },
+    { "latest": "0.1.10", "current": "0.1.9",  "expect": true },
+    { "latest": "0.2",    "current": "0.2.0",  "expect": false },
+    { "latest": "0.2.0",  "current": "0.10.0", "expect": false }
+  ],
+
+  "extractToken": [
+    { "text": "{\"claudeAiOauth\":{\"accessToken\":\"tok-a\",\"refreshToken\":\"r\"}}", "expect": "tok-a" },
+    { "text": "{\"accessToken\":\"tok-b\"}", "expect": "tok-b" },
+    { "text": "sk-ant-oat01-xyz\n", "expect": "sk-ant-oat01-xyz" },
+    { "text": "not a token", "expect": null },
+    { "text": "{\"claudeAiOauth\":{\"accessToken\":\"\"}}", "expect": null }
+  ],
+
+  "sparkline": [
+    { "name": "empty pads with floor bars", "width": 10, "samples": [], "expect": "▁▁▁▁▁▁▁▁▁▁" },
+    { "name": "per-interval rate", "width": 10, "samples": [[540, 10], [360, 11], [180, 13], [0, 13]], "expect": "▁▁▁▁▁▁▁▃▆▁" },
+    { "name": "long gap is normalized, not a spike", "width": 10, "samples": [[3780, 10], [0, 16]], "expect": "▁▁▁▁▁▁▁▁▁▂" },
+    { "name": "error sentinels skipped; 3.5 rounds up", "width": 10, "samples": [[360, 10], [180, -1], [0, 13]], "expect": "▁▁▁▁▁▁▁▁▁▅" },
+    { "name": "clamps at full bar", "width": 10, "samples": [[180, 10], [0, 20]], "expect": "▁▁▁▁▁▁▁▁▁█" }
+  ],
+
+  "resetLine": [
+    { "name": "no window", "utilization": 0, "resetsIn": null, "samples": [],
+      "expect": "No active 5-hour window — starts on your next Claude request" },
+    { "name": "just reset", "utilization": 10, "resetsIn": -10, "samples": [],
+      "expect": "Window just reset — refreshing soon" },
+    { "name": "capped", "utilization": 100, "resetsIn": 5400, "samples": [],
+      "expect": "Capped — resets in 1h 30m (@ 1:30 PM)" },
+    { "name": "too few samples", "utilization": 20, "resetsIn": 7200, "samples": [[180, 19], [0, 20]],
+      "expect": "Resets @ 2:00 PM · click to refresh" },
+    { "name": "idle", "utilization": 20, "resetsIn": 7200, "samples": [[720, 20], [540, 20], [360, 20], [180, 20], [0, 20]],
+      "expect": "Resets @ 2:00 PM · idle" },
+    { "name": "too fresh to call idle", "utilization": 20, "resetsIn": 7200, "samples": [[300, 20], [150, 20], [0, 20]],
+      "expect": "Resets @ 2:00 PM · measuring…" },
+    { "name": "on pace", "utilization": 40, "resetsIn": 10800, "samples": [[720, 36], [540, 37], [360, 38], [180, 39], [0, 40]],
+      "expect": "Resets @ 3:00 PM · 20%/h · safe ≤ 20%/h" },
+    { "name": "over pace", "utilization": 53, "resetsIn": 9000, "samples": [[540, 47], [360, 49], [180, 51], [0, 53]],
+      "expect": "Resets @ 2:30 PM · 40%/h over safe 19%/h · 100% in 1h 10m" },
+    { "name": "sleep gap restarts the window", "utilization": 30, "resetsIn": 7200, "samples": [[2000, 10], [360, 28], [180, 29], [0, 30]],
+      "expect": "Resets @ 2:00 PM · 20%/h · safe ≤ 35%/h" }
+  ],
+
+  "weeklyRows": [
+    { "name": "legacy buckets", "response": { "seven_day": { "utilization": 34.4, "resets_at": null }, "seven_day_opus": { "utilization": 12.5 } },
+      "expect": "Overall=34, Opus=13" },
+    { "name": "limits fallback", "response": { "seven_day": null, "limits": [
+        { "kind": "session", "group": "session", "percent": 19 },
+        { "kind": "weekly_scoped", "group": "weekly", "percent": 2, "scope": { "model": { "display_name": "Fable" } } },
+        { "kind": "weekly", "group": "weekly", "percent": 7, "scope": null } ] },
+      "expect": "Fable=2, Overall=7" },
+    { "name": "nothing", "response": {}, "expect": "" }
+  ],
+
+  "rollover": [
+    { "name": "same window keeps history", "steps": [{ "t": -360, "u": 40, "r": 3600 }, { "t": -180, "u": 42, "r": 3600 }, { "t": 0, "u": 43, "r": 3600 }], "expectCount": 3 },
+    { "name": "resets_at advanced", "steps": [{ "t": -360, "u": 40, "r": 3600 }, { "t": -180, "u": 41, "r": 3600 }, { "t": 0, "u": 41, "r": 21600 }], "expectCount": 1 },
+    { "name": "big drop", "steps": [{ "t": -180, "u": 60, "r": 3600 }, { "t": 0, "u": 2, "r": 3600 }], "expectCount": 1 },
+    { "name": "small drop is jitter", "steps": [{ "t": -180, "u": 10, "r": 3600 }, { "t": 0, "u": 6, "r": 3600 }], "expectCount": 2 }
+  ]
+}

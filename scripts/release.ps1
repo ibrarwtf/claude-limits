@@ -1,126 +1,105 @@
-﻿# Build, package, and publish a Windows release.
+﻿# Ship a release of both apps. Maintainer-only; runs on any machine with git,
+# gh and PowerShell — no Mac needed (CI builds the Mac app).
 #
-# Usage:
-#   powershell -File scripts\release.ps1 0.3.0             # build zip, print next steps
-#   powershell -File scripts\release.ps1 0.3.0 -Publish    # also: tag, push, GitHub release
+#   powershell -File scripts\release.ps1 0.3.1
 #
-# What -Publish does that the default doesn't:
-#   - git tag v<VERSION> + push tag and main
-#   - uploads claude-limits-windows-<VERSION>.zip to the GitHub release for
-#     that tag — onto the existing release if release.sh already made one on a
-#     Mac, otherwise creates it with --latest=false (see below)
-#   - uses release notes from the matching section of CHANGELOG.md if present
-#
-# Why --latest=false for Windows-only releases: the Mac app's update check reads
-# /releases/latest and upgrades via `brew upgrade`. A release with no Mac zip
-# (and no cask bump) would show Mac users an update brew can't install. The
-# Windows app reads the full release list instead, so it still finds it.
-param(
-    [Parameter(Mandatory = $true)][string]$Version,
-    [switch]$Publish
-)
+# 1. Checks you're on a clean, up-to-date main with a "## v<VERSION>" section
+#    in CHANGELOG.md (it becomes the release notes).
+# 2. Bumps VERSION, commits "v<VERSION>", tags, pushes.
+# 3. Waits for .github/workflows/release.yml to build both zips into a DRAFT
+#    release.
+# 4. Points mac/homebrew/claude-limits.rb at the Mac zip (version + sha256),
+#    commits + pushes it, and copies it into the tap clone (TAP_DIR, default
+#    ..\homebrew-lab next to this repo; cloned if missing).
+# 5. Publishes the draft as the latest release. Only now do the Mac app (via
+#    brew) and the Windows app (via self-update) see the new version.
+param([Parameter(Mandatory = $true)][string]$Version)
 $ErrorActionPreference = 'Stop'
 
-if ($Version -notmatch '^[0-9]+\.[0-9]+\.[0-9]+$') {
-    Write-Error "first argument must be a semver version like 0.3.0 (got '$Version')."
-    exit 2
-}
-
+if ($Version -notmatch '^[0-9]+\.[0-9]+\.[0-9]+$') { throw "version must be semver like 0.3.1 (got '$Version')" }
+$Tag = "v$Version"
 $Root = Split-Path -Parent $PSScriptRoot
-$Name = 'claude-limits'
-$DistDir = Join-Path $Root 'dist'
-$ZipName = "$Name-windows-$Version.zip"
-$ZipPath = Join-Path $DistDir $ZipName
-New-Item -ItemType Directory -Force $DistDir | Out-Null
+$Repo = 'ibrarwtf/claude-limits'
+$TapDir = if ($env:TAP_DIR) { $env:TAP_DIR } else { Join-Path (Split-Path -Parent $Root) 'homebrew-lab' }
+$Cask = Join-Path $Root 'mac\homebrew\claude-limits.rb'
 
-# ── 1. Bump VERSION file (single source of truth) ────────────────────────────
-[IO.File]::WriteAllText((Join-Path $Root 'VERSION'), "$Version`n")
-Write-Host "→ VERSION → $Version"
+# Native tools write progress to stderr; under Stop, PowerShell 5.1 would turn
+# that into a terminating error. Check exit codes explicitly instead.
+function Run([string]$exe) {
+    $ErrorActionPreference = 'Continue'
+    & $exe @args
+    if ($LASTEXITCODE -ne 0) { throw "$exe $($args -join ' ') failed (exit $LASTEXITCODE)" }
+}
+function Git { Run git -C $Root @args }
 
-# ── 2. Build (the csproj reads VERSION → bakes it into the exe) ──────────────
-& (Join-Path $PSScriptRoot 'build.ps1')
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-# ── 3. Zip the exe ───────────────────────────────────────────────────────────
-Write-Host "→ Zipping → $ZipPath"
-if (Test-Path $ZipPath) { Remove-Item $ZipPath }
-Compress-Archive -Path (Join-Path $Root "build\win\$Name.exe") -DestinationPath $ZipPath
-
-# ── 4. SHA256 ────────────────────────────────────────────────────────────────
-$Sha = (Get-FileHash -Algorithm SHA256 $ZipPath).Hash.ToLower()
-$Size = (Get-Item $ZipPath).Length
-Write-Host "→ SHA256: $Sha"
-Write-Host "→ Size:   $Size bytes"
-
-# ── 5. Resolve release notes (CHANGELOG.md section if present) ───────────────
-$NotesFile = [IO.Path]::GetTempFileName()
-$notes = @()
-$changelog = Join-Path $Root 'CHANGELOG.md'
-if (Test-Path $changelog) {
-    # Pull the section under "## v<VERSION>" up to (but not including) the next "## " header.
-    $found = $false
-    foreach ($line in Get-Content $changelog -Encoding UTF8) {
-        if ($line -eq "## v$Version") { $found = $true; continue }
-        if ($found -and $line -match '^## ') { break }
-        if ($found) { $notes += $line }
+function Assert-PersonalIdentity([string]$dir) {
+    $email = git -C $dir config user.email
+    if ($email -notlike '*ibrarwtf*' -and $email -notlike '*@users.noreply.github.com') {
+        throw "$dir commits as <$email> — set: git -C `"$dir`" config user.email ibrarwtf@users.noreply.github.com"
     }
 }
-if (-not ($notes -join '').Trim()) { $notes = @("Release $Version") }
-[IO.File]::WriteAllLines($NotesFile, $notes, (New-Object Text.UTF8Encoding $false))
 
-# ── 6. Either print next-steps or run them under -Publish ────────────────────
-if (-not $Publish) {
-    Write-Host @"
-
-Release artifact ready (NOT published — re-run with -Publish to ship).
-
-   File:    $ZipPath
-   SHA256:  $Sha
-
-To publish:
-  powershell -File scripts\release.ps1 $Version -Publish
-
-"@
-    Remove-Item $NotesFile
-    exit 0
+# ── 1. Preflight ─────────────────────────────────────────────────────────────
+Assert-PersonalIdentity $Root
+if ((git -C $Root rev-parse --abbrev-ref HEAD) -ne 'main') { throw 'release from main' }
+if (git -C $Root status --porcelain) { throw 'working tree not clean' }
+Git fetch -q origin main
+if ((git -C $Root rev-parse HEAD) -ne (git -C $Root rev-parse origin/main)) { throw 'main is not in sync with origin/main' }
+if (-not (Select-String -Path (Join-Path $Root 'CHANGELOG.md') -Pattern "^## $([regex]::Escape($Tag))$" -Quiet)) {
+    throw "CHANGELOG.md has no '## $Tag' section — write the release notes first"
 }
 
-Write-Host ''
-Write-Host '→ -Publish: checking git identity'
-$email = git -C $Root config user.email
-if ($email -notlike '*ibrarwtf*' -and $email -notlike '*@users.noreply.github.com') {
-    Write-Error "repo is committing as <$email> — looks like a work identity. Run: git config user.email ibrarwtf@users.noreply.github.com"
-    exit 4
+# ── 2. Bump, tag, push ───────────────────────────────────────────────────────
+[IO.File]::WriteAllText((Join-Path $Root 'VERSION'), "$Version`n")
+Git add VERSION
+Git commit -q -m $Tag
+Git tag -f $Tag
+Git push -q origin main
+Git push -q --force origin $Tag
+Write-Host "→ Pushed $Tag; waiting for the Release workflow…"
+
+# ── 3. Wait for CI to build the draft ────────────────────────────────────────
+$runId = $null
+for ($i = 0; $i -lt 60 -and -not $runId; $i++) {
+    Start-Sleep -Seconds 5
+    $runId = gh run list --repo $Repo --workflow release.yml --branch $Tag --limit 1 --json databaseId --jq '.[0].databaseId'
 }
+if (-not $runId) { throw "Release workflow didn't start for $Tag" }
+Run gh run watch $runId --repo $Repo --exit-status --interval 15
 
-Write-Host '→ -Publish: tagging + pushing source repo'
-git -C $Root add -A
-# Allow re-running after a partial failure: skip commit if nothing staged.
-git -C $Root diff --cached --quiet
-if ($LASTEXITCODE -ne 0) { git -C $Root commit -m "v$Version" }
-git -C $Root tag -f "v$Version"
-git -C $Root push origin main
-# Force-push the tag: `git tag -f` may have moved it (re-ship of the same version).
-git -C $Root push --force origin "v$Version"
+# ── 4. Homebrew cask ─────────────────────────────────────────────────────────
+$tmp = Join-Path ([IO.Path]::GetTempPath()) "claude-limits-release-$Version"
+if (Test-Path $tmp) { Remove-Item -Recurse -Force $tmp }
+Run gh release download $Tag --repo $Repo --pattern "claude-limits-$Version.zip" --dir $tmp
+$sha = (Get-FileHash -Algorithm SHA256 (Join-Path $tmp "claude-limits-$Version.zip")).Hash.ToLower()
+Write-Host "→ Mac zip sha256: $sha"
 
-Write-Host ''
-Write-Host '→ -Publish: GitHub release'
-# Probe with Stop relaxed: PowerShell 5.1 turns a redirected native stderr
-# line ("release not found") into a terminating error under Stop.
-$ErrorActionPreference = 'Continue'
-gh release view "v$Version" --repo ibrarwtf/claude-limits *> $null
-$releaseExists = ($LASTEXITCODE -eq 0)
-$ErrorActionPreference = 'Stop'
-if ($releaseExists) {
-    # Release exists (made by release.sh on a Mac) — add/replace the Windows asset.
-    gh release upload "v$Version" $ZipPath --clobber --repo ibrarwtf/claude-limits
+$c = [IO.File]::ReadAllText($Cask)
+$c = $c -replace '(?m)^  version ".*"', "  version `"$Version`"" -replace '(?m)^  sha256 ".*"', "  sha256 `"$sha`""
+[IO.File]::WriteAllText($Cask, $c)
+Git add $Cask
+Git commit -q -m "claude-limits $Version cask"
+Git push -q origin main
+
+if (-not (Test-Path (Join-Path $TapDir '.git'))) { Run gh repo clone ibrarwtf/homebrew-lab $TapDir }
+Assert-PersonalIdentity $TapDir
+Run git -C $TapDir pull -q --ff-only
+Copy-Item $Cask (Join-Path $TapDir 'Casks\claude-limits.rb') -Force
+Run git -C $TapDir add Casks/claude-limits.rb
+git -C $TapDir diff --cached --quiet
+if ($LASTEXITCODE -ne 0) {
+    Run git -C $TapDir commit -q -m "claude-limits $Version"
+    Run git -C $TapDir push -q
 } else {
-    gh release create "v$Version" $ZipPath --title "v$Version" --notes-file $NotesFile --latest=false --repo ibrarwtf/claude-limits
+    Write-Host '  (tap already up to date)'
 }
-if ($LASTEXITCODE -ne 0) { Remove-Item $NotesFile; exit $LASTEXITCODE }
-Remove-Item $NotesFile
+
+# ── 5. Publish ───────────────────────────────────────────────────────────────
+Run gh release edit $Tag --repo $Repo --draft=false --latest
+Remove-Item -Recurse -Force $tmp
 
 Write-Host ''
-Write-Host "✓ Published v$Version (Windows)."
-Write-Host "  Release: https://github.com/ibrarwtf/claude-limits/releases/tag/v$Version"
-Write-Host "  Installed copies pick it up via Settings → Check for updates."
+Write-Host "✓ Published $Tag."
+Write-Host "  Release: https://github.com/$Repo/releases/tag/$Tag"
+Write-Host '  Mac:     brew upgrade --cask claude-limits (or Settings → Update)'
+Write-Host '  Windows: Settings → Update'

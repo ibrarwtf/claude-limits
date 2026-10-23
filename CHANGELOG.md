@@ -2,6 +2,12 @@
 
 `release.sh --publish` reads the section matching the version being shipped and feeds it to `gh release create --notes-file`. So write each section as user-facing release notes — what changed, why someone running `brew upgrade` would care.
 
+## v0.3.1
+
+- **Weekly limits are back on macOS.** Anthropic's usage API stopped filling the per-model weekly fields and now reports weekly usage in a new `limits` list; the Mac dropdown showed no weekly rows. Both apps now read the new list (the Windows app already did).
+- First release built entirely by CI: one release carries both the Mac zip (for `brew upgrade`) and the Windows zip (for in-app update).
+- Internals: repo split into `mac/` and `win/`, with shared behaviour tests in `spec/` that both apps must pass, and deterministic screenshots rendered from a fixture on every PR.
+
 ## v0.3.0
 
 - **Windows app.** claude-limits now runs on Windows 10/11 as a ~140 KB exe with nothing to install (.NET Framework 4.8 ships with Windows). Download `claude-limits-windows-0.3.0.zip`, extract, run.

@@ -1,0 +1,8 @@
+* text=auto
+# bash on macOS chokes on CRLF; Windows PowerShell is happiest with CRLF.
+*.sh    text eol=lf
+*.swift text eol=lf
+*.ps1   text eol=crlf
+*.png   binary
+*.icns  binary
+*.ico   binary

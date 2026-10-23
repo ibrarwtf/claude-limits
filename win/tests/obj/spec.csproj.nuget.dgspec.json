@@ -1,0 +1,66 @@
+{
+  "format": 1,
+  "restore": {
+    "C:\\p\\claude-limits\\win\\tests\\spec.csproj": {}
+  },
+  "projects": {
+    "C:\\p\\claude-limits\\win\\tests\\spec.csproj": {
+      "version": "0.3.0",
+      "restore": {
+        "projectUniqueName": "C:\\p\\claude-limits\\win\\tests\\spec.csproj",
+        "projectName": "claude-limits-spec",
+        "projectPath": "C:\\p\\claude-limits\\win\\tests\\spec.csproj",
+        "packagesPath": "C:\\Users\\i\\.nuget\\packages\\",
+        "outputPath": "C:\\p\\claude-limits\\win\\tests\\obj\\",
+        "projectStyle": "PackageReference",
+        "configFilePaths": [
+          "C:\\Users\\i\\AppData\\Roaming\\NuGet\\NuGet.Config"
+        ],
+        "originalTargetFrameworks": [
+          "net48"
+        ],
+        "sources": {
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net48": {
+            "framework": "net48",
+            "targetAlias": "net48",
+            "projectReferences": {}
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "10.0.400"
+      },
+      "frameworks": {
+        "net48": {
+          "framework": "net48",
+          "targetAlias": "net48",
+          "dependencies": {
+            "Microsoft.NETFramework.ReferenceAssemblies": {
+              "suppressParent": "All",
+              "target": "Package",
+              "version": "[1.0.3, )",
+              "autoReferenced": true
+            }
+          },
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.402\\RuntimeIdentifierGraph.json"
+        }
+      },
+      "runtimes": {
+        "win-x86": {
+          "#import": []
+        }
+      }
+    }
+  }
+}
