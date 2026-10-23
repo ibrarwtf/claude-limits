@@ -368,24 +368,10 @@ namespace ClaudeLimits
         void ModeChanged()
         {
             if (hintLabel == null || fileRow == null || shellRow == null) return;
-            switch (SelectedMode)
-            {
-                case TokenSource.Auto:
-                    hintLabel.Text = $@"Reads the credentials file Claude Code writes when you sign in ({Token.KnownCredentialPaths.Last(p => p.StartsWith("~"))}, or under CLAUDE_CONFIG_DIR when that's set).";
-                    fileRow.Visibility = Visibility.Collapsed;
-                    shellRow.Visibility = Visibility.Collapsed;
-                    break;
-                case TokenSource.File:
-                    hintLabel.Text = "Path to a Claude credentials JSON or a file containing just the access token.";
-                    fileRow.Visibility = Visibility.Visible;
-                    shellRow.Visibility = Visibility.Collapsed;
-                    break;
-                case TokenSource.Shell:
-                    hintLabel.Text = "A PowerShell command that prints credentials JSON or a token to stdout. Useful when Claude runs in WSL (wsl cat ~/.claude/.credentials.json), Docker, or on a remote machine over SSH.";
-                    fileRow.Visibility = Visibility.Collapsed;
-                    shellRow.Visibility = Visibility.Visible;
-                    break;
-            }
+            var mode = SelectedMode;
+            hintLabel.Text = SourceHint(mode, true, Token.KnownCredentialPaths.Last(p => p.StartsWith("~")));
+            fileRow.Visibility = mode == TokenSource.File ? Visibility.Visible : Visibility.Collapsed;
+            shellRow.Visibility = mode == TokenSource.Shell ? Visibility.Visible : Visibility.Collapsed;
         }
 
         TokenSource SelectedMode

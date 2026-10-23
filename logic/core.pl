@@ -428,6 +428,17 @@ token_label(keychain, _, "keychain (auto)").
 token_label(file(P), Auto, S) :- ( Auto == true -> M = "auto" ; M = "custom" ), format(string(S), "file ~w (~w)", [P, M]).
 token_label(shell(_), _, "shell command (custom)").
 
+% Settings' hint under the token source. Win = the Windows app (no Keychain,
+% PowerShell); P = the default credentials path to mention.
+:- fn source_hint(token_source, bool, str) -> str.
+source_hint(Src, Win, P, S) :-
+    (   Src == file -> S = "Path to a Claude credentials JSON or a file containing just the access token."
+    ;   Src == shell, Win == true ->
+        S = "A PowerShell command that prints credentials JSON or a token to stdout. Useful when Claude runs in WSL (wsl cat ~/.claude/.credentials.json), Docker, or on a remote machine over SSH."
+    ;   Src == shell -> S = "A shell command that prints credentials JSON or a token to stdout. Useful when Claude runs in Docker, on a remote machine over SSH, etc."
+    ;   Win == true -> format(string(S), "Reads the credentials file Claude Code writes when you sign in (~w, or under CLAUDE_CONFIG_DIR when that's set).", [P])
+    ;   format(string(S), "We check the macOS Keychain (where Claude Code stores credentials by default), then fall back to common file paths like ~w.", [P]) ).
+
 % ── Menu-bar title ───────────────────────────────────────────────────────────
 % The pieces in order, each only if its toggle is on (the countdown also needs
 % an active window). No pieces at all → the apps show a lone "·".

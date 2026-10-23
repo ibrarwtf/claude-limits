@@ -1022,6 +1022,20 @@ func tokenLabel(_ token_step: TokenStep, _ auto: Bool) -> String {
     fatalError("unreachable")
 }
 
+func sourceHint(_ src: TokenSource, _ win: Bool, _ p: String) -> String {
+    if src == TokenSource.file {
+        return "Path to a Claude credentials JSON or a file containing just the access token."
+    } else if (src == TokenSource.shell) && (win == true) {
+        return "A PowerShell command that prints credentials JSON or a token to stdout. Useful when Claude runs in WSL (wsl cat ~/.claude/.credentials.json), Docker, or on a remote machine over SSH."
+    } else if src == TokenSource.shell {
+        return "A shell command that prints credentials JSON or a token to stdout. Useful when Claude runs in Docker, on a remote machine over SSH, etc."
+    } else if win == true {
+        return "Reads the credentials file Claude Code writes when you sign in (\(p), or under CLAUDE_CONFIG_DIR when that's set)."
+    } else {
+        return "We check the macOS Keychain (where Claude Code stores credentials by default), then fall back to common file paths like \(p)."
+    }
+}
+
 func titleParts(_ showP: Bool, _ showW: Bool, _ showR: Bool, _ p: String, _ w: String, _ r: String?) -> [Part] {
     let a: [Part]
     if showP == true {

@@ -448,20 +448,9 @@ class SettingsViewController: NSViewController {
 
     @objc func modeChanged() {
         let mode = TokenSource(rawValue: modePopup.indexOfSelectedItem) ?? .auto
-        switch mode {
-        case .auto:
-            hintLabel.stringValue = "We check the macOS Keychain (where Claude Code stores credentials by default), then fall back to common file paths like " + knownCredentialPaths.first! + "."
-            fileRow.isHidden = true
-            shellRow.isHidden = true
-        case .file:
-            hintLabel.stringValue = "Path to a Claude credentials JSON or a file containing just the access token."
-            fileRow.isHidden = false
-            shellRow.isHidden = true
-        case .shell:
-            hintLabel.stringValue = "A shell command that prints credentials JSON or a token to stdout. Useful when Claude runs in Docker, on a remote machine over SSH, etc."
-            fileRow.isHidden = true
-            shellRow.isHidden = false
-        }
+        hintLabel.stringValue = sourceHint(mode, false, knownCredentialPaths.first!)
+        fileRow.isHidden = mode != .file
+        shellRow.isHidden = mode != .shell
     }
 
     func collect() {

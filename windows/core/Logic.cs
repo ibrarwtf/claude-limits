@@ -1325,6 +1325,30 @@ public static partial class Logic
         throw new InvalidOperationException();
     }
 
+    public static string SourceHint(TokenSource src, bool win, string p)
+    {
+        if (src == TokenSource.File)
+        {
+            return "Path to a Claude credentials JSON or a file containing just the access token.";
+        }
+         else if ((src == TokenSource.Shell) && (win == true))
+        {
+            return "A PowerShell command that prints credentials JSON or a token to stdout. Useful when Claude runs in WSL (wsl cat ~/.claude/.credentials.json), Docker, or on a remote machine over SSH.";
+        }
+         else if (src == TokenSource.Shell)
+        {
+            return "A shell command that prints credentials JSON or a token to stdout. Useful when Claude runs in Docker, on a remote machine over SSH, etc.";
+        }
+         else if (win == true)
+        {
+            return $"Reads the credentials file Claude Code writes when you sign in ({(p)}, or under CLAUDE_CONFIG_DIR when that's set).";
+        }
+        else
+        {
+            return $"We check the macOS Keychain (where Claude Code stores credentials by default), then fall back to common file paths like {(p)}.";
+        }
+    }
+
     public static IReadOnlyList<Part> TitleParts(bool showP, bool showW, bool showR, string p, string w, string r)
     {
         IReadOnlyList<Part> a;
