@@ -42,9 +42,7 @@ namespace ClaudeLimits
         }
     }
 
-    /// Historic utilization plot across the top of Settings — coral line with soft
-    /// fill below. Real data only; leaves the strip empty when there's < 2
-    /// samples instead of faking a curve.
+    /// Utilization history: coral line, soft fill; empty below 2 samples (never faked).
     sealed class TopWaveView : FrameworkElement
     {
 
@@ -82,8 +80,7 @@ namespace ClaudeLimits
 
     }
 
-    /// Settings content. Built standalone (not inside the Window class) so the
-    /// snapshot renderer can lay it out offscreen in either theme.
+    /// Standalone (not in the Window) so snapshots can lay it out offscreen in either theme.
     sealed class SettingsView
     {
         public const double WindowWidth = 720;
@@ -239,8 +236,7 @@ namespace ClaudeLimits
 
         static FrameworkElement Divider()
         {
-            // Width matches the section content: icon column (150) + gap (18) +
-            // controls (460), so the rule doesn't overshoot the toggle column.
+            // icon column 150 + gap 18 + controls 460, so the rule stops at the toggles.
             var b = new Border { Height = 1, Width = 628, HorizontalAlignment = HorizontalAlignment.Left };
             b.SetResourceReference(Border.BackgroundProperty, "Divider");
             return b;
@@ -280,7 +276,7 @@ namespace ClaudeLimits
             return d;
         }
 
-        /// Minimal credentials.json glyph: bordered rect with a status dot.
+        /// credentials.json glyph: bordered rect with a status dot.
         FrameworkElement MakeKeyArt(string text)
         {
             var g = new Grid { Width = 110, Height = 60 };
@@ -298,8 +294,7 @@ namespace ClaudeLimits
             return g;
         }
 
-        /// Three states: gray = unverified (initial / not yet probed),
-        /// green-pulsing = token reachable, red-pulsing = token verified failed.
+        /// gray = not yet probed, green pulse = token reachable, red pulse = failed.
         enum CredentialsState { Unverified, Connected, Disconnected }
 
         void SetCredentialsState(CredentialsState state)
@@ -343,8 +338,7 @@ namespace ClaudeLimits
             ApplyUpdateButtonState();
         }
 
-        /// Tiny mock of the pill. Always dark, like the Mac's menu-bar mock, so
-        /// toggle changes preview the real thing.
+        /// Always-dark pill mock, like the Mac's, so toggles preview the real thing.
         FrameworkElement MakeMenubarArt()
         {
             mockContainer = new Border { MinWidth = 130, Height = 28, CornerRadius = new CornerRadius(6), BorderThickness = new Thickness(1) };
@@ -437,9 +431,7 @@ namespace ClaudeLimits
             if (err == null) ApplyUpdateButtonState();
         }
 
-        /// Reflect known update availability on the action button: a pending update
-        /// turns "Check for updates" into "Update to vX" (which performs it). Driven
-        /// by the app's cached LatestVersionAvailable (set at launch + daily).
+        /// A known newer version turns "Check for updates" into "Update to vX".
         public void ApplyUpdateButtonState()
         {
             if (updateBtn == null) return;
@@ -454,8 +446,7 @@ namespace ClaudeLimits
             if (latest == null) { CheckForUpdates(); return; }
             SetStatus(UpdatingStatus(latest.TagName));
             updateBtn.IsEnabled = false;
-            // Breadcrumb for the brief gap where the tray icon disappears while
-            // the new exe starts.
+            // Covers the gap while the tray icon is gone and the new exe starts.
             app.NotifyUpdating(latest.TagName);
             try
             {
@@ -487,8 +478,7 @@ namespace ClaudeLimits
         async void TestFetch()
         {
             Collect();
-            // Respect the rate-limit cooldown — a diagnostic button shouldn't hit
-            // Anthropic during an active 429 window.
+            // No diagnostic hits during an active 429 window.
             var until = Settings.Shared.NextAllowedPoll;
             if (until.HasValue && until.Value > DateTime.UtcNow)
             {
@@ -505,8 +495,7 @@ namespace ClaudeLimits
             }
             else
             {
-                // Feed a 429 into the shared back-off so a test fetch can't
-                // silently reset Anthropic's cooldown while the poller waits.
+                // Feed the 429 into the shared back-off so testing can't reset the cooldown.
                 if (r.Error.Kind == AppErrorKind.RateLimited) app.RecordRateLimit(r.Error.RetryAfter);
                 SetStatus(FriendlyMessage(r.Error), "Fg");
                 SetCredentialsDotConnected(false);

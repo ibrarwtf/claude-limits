@@ -17,9 +17,7 @@ enum SettingsWindow {
     }
 }
 
-/// Historic utilization plot in the Settings window — coral line with soft
-/// fill below. Real data only; leaves the strip empty when there's < 2
-/// samples instead of faking a curve.
+/// Utilization history: coral line, soft fill; empty below 2 samples (never faked).
 final class TopWaveView: NSView {
     override var isFlipped: Bool { false } // Cocoa-default Y-up
 
@@ -184,11 +182,8 @@ class SettingsViewController: NSViewController {
         buttonStack.translatesAutoresizingMaskIntoConstraints = false
 
         // ── Footer (author | version) ───────────────────────────────────────
-        // "made by ibr" — clickable link to the maintainer's GitHub.
-        // Rendered as a borderless NSButton (not an NSTextField) so it paints
-        // correctly into the offscreen bitmap context used for snapshots —
-        // NSTextField's selectable+attributedString-link trick uses NSTextView
-        // under the hood, which doesn't honour cacheDisplay.
+        // "made by ibr" is a borderless NSButton, not a link NSTextField: that one is
+        // an NSTextView underneath, which cacheDisplay (snapshots) won't paint.
         let byAttr = NSMutableAttributedString(string: "made by ibr")
         byAttr.addAttributes([
             .foregroundColor: NSColor.linkColor,
@@ -207,10 +202,7 @@ class SettingsViewController: NSViewController {
         ver.textColor = .tertiaryLabelColor
         ver.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
 
-        // Dead-centre `by` in the container; `ver` rides the trailing edge.
-        // (NSStackView .fill distribution wasn't centring the text inside the
-        // expanded NSTextField — explicit constraints are simpler than fighting
-        // NSStackView's intrinsic-size logic.)
+        // Explicit constraints centre `by`; NSStackView .fill wouldn't.
         by.translatesAutoresizingMaskIntoConstraints = false
         ver.translatesAutoresizingMaskIntoConstraints = false
 
@@ -248,9 +240,7 @@ class SettingsViewController: NSViewController {
     // ── Section helpers ──────────────────────────────────────────────────────
 
     private func sectionDivider() -> NSView {
-        // Width matches the section content: icon column (150) + spacing (18)
-        // + controls (460) = 628. Stops the divider from overshooting past
-        // the toggle column.
+        // icon column 150 + spacing 18 + controls 460, so the rule stops at the toggles.
         let box = NSBox()
         box.boxType = .separator
         box.translatesAutoresizingMaskIntoConstraints = false
@@ -279,7 +269,7 @@ class SettingsViewController: NSViewController {
     }
 
     private func makeKeyArt(_ text: String) -> NSView {
-        // Minimal credentials.json glyph: bordered rect with a dot indicator.
+        // credentials.json glyph: bordered rect with a status dot.
         let v = NSView()
         v.wantsLayer = true
         let layer = v.layer!
@@ -311,8 +301,7 @@ class SettingsViewController: NSViewController {
         return v
     }
 
-    /// Three states: gray = unverified (initial / not yet probed),
-    /// green-pulsing = token reachable, red-pulsing = token verified failed.
+    /// gray = not yet probed, green pulse = token reachable, red pulse = failed.
     private enum CredentialsState { case unverified, connected, disconnected }
 
     private func setCredentialsState(_ state: CredentialsState) {
@@ -365,8 +354,7 @@ class SettingsViewController: NSViewController {
     }
 
     private func makeMenubarArt() -> NSView {
-        // Tiny mock of the menu-bar widget on a dark pill. Stored on the
-        // controller so toggle changes can hide/show individual parts.
+        // Dark-pill mock of the menu-bar widget; toggles show/hide its parts.
         let v = NSView()
         v.wantsLayer = true
         v.layer!.backgroundColor = NSColor(white: 0.15, alpha: 1.0).cgColor
@@ -400,8 +388,7 @@ class SettingsViewController: NSViewController {
         return v
     }
 
-    /// Mirror toggle state into the live preview mock. NSStackView removes
-    /// hidden subviews from layout so the pill naturally narrows.
+    /// Mirror toggles into the mock; hidden stack subviews drop out so it narrows.
     private func applyMockToToggles() {
         guard mockContainer != nil else { return }
         mockPct.isHidden   = switches[0].state != .on
@@ -438,8 +425,7 @@ class SettingsViewController: NSViewController {
         return sw
     }
 
-    /// Horizontal "[label] ........... [switch]" with a flexible spacer so
-    /// switches stack vertically aligned. systemFontSize for accessibility.
+    /// "[label] ...... [switch]" with a flexible spacer so switches align.
     private func makeToggleRow(_ label: String, sw: NSSwitch) -> NSView {
         let lbl = NSTextField(labelWithString: label)
         lbl.font = .systemFont(ofSize: NSFont.systemFontSize)
@@ -497,9 +483,7 @@ class SettingsViewController: NSViewController {
         }
     }
 
-    /// Reflect known update availability on the action button: a pending update
-    /// turns "Check for updates" into "Update to vX" (which performs it). Driven
-    /// by the AppDelegate's cached latestVersionAvailable (set at launch + daily).
+    /// A known newer version turns "Check for updates" into "Update to vX".
     private func applyUpdateButtonState() {
         guard updateBtn != nil else { return }
         let latest = (NSApp.delegate as? AppDelegate)?.latestVersionAvailable
@@ -507,14 +491,10 @@ class SettingsViewController: NSViewController {
         updateBtn.action = latest == nil ? #selector(checkForUpdates) : #selector(performUpdate)
     }
 
-    /// Simplest self-update for a Homebrew-distributed app: run `brew upgrade`.
-    /// The work is DETACHED — a subshell that waits for this process to exit,
-    /// then upgrades — because the cask's own `uninstall quit:` stanza force-
-    /// quits us mid-upgrade; if brew were our child it'd die with us. The cask
-    /// postflight re-opens the freshly installed app; the trailing `open`
-    /// guarantees the app comes back even if brew was a no-op or failed, so we
-    /// never leave the user with a quit app. Dev installs (~/Applications, not a
-    /// brew cask) can't `brew upgrade`, so they're sent to the releases page.
+    /// Runs `brew upgrade` DETACHED (waits for us to exit) because the cask's
+    /// `uninstall quit:` kills us mid-upgrade — a child brew would die too. The
+    /// trailing `open` brings us back even if brew no-ops or fails. Dev installs
+    /// (~/Applications, no cask) get the releases page instead.
     @objc func performUpdate() {
         guard let latest = (NSApp.delegate as? AppDelegate)?.latestVersionAvailable else {
             checkForUpdates(); return
@@ -531,17 +511,11 @@ class SettingsViewController: NSViewController {
         statusLabel.stringValue = updatingStatus(latest)
         statusLabel.textColor = .secondaryLabelColor
         updateBtn.isEnabled = false
-        // Breadcrumb during the brief gap where the app quits and the menu-bar
-        // icon disappears while brew swaps the bundle. Posted ~0.7s before we
-        // terminate, so it has time to deliver.
+        // Posted ~0.7s before quitting so it delivers while the icon is gone.
         (NSApp.delegate as? AppDelegate)?.notifyUpdating(to: latest)
-        // Watch THIS pid, not a pgrep pattern. The watcher carries our pattern
-        // string in its own argv, so `pgrep -f '/Contents/MacOS/claude-limits'`
-        // would self-match and the loop would never exit (brew never runs).
-        // `kill -0 <pid>` polls liveness without that trap. After we quit, brew
-        // upgrades and the cask postflight reopens us; the trailing `open`
-        // covers a brew no-op/failure — it just activates the app if it's
-        // already running, never launches a duplicate.
+        // Watch our pid with `kill -0`, not pgrep -f: the watcher's own argv holds
+        // the pattern, so it would self-match forever. `open` only activates an
+        // already-running app, never launches a duplicate.
         let pid = getpid()
         let cmd = """
         ( while kill -0 \(pid) 2>/dev/null; do sleep 0.5; done; \
@@ -581,8 +555,7 @@ class SettingsViewController: NSViewController {
 
     @objc func testFetch() {
         collect()
-        // Respect the rate-limit cooldown — a diagnostic button shouldn't hit
-        // Anthropic during an active 429 window.
+        // No diagnostic hits during an active 429 window.
         if let until = Settings.shared.nextAllowedPoll, until > Date() {
             statusLabel.stringValue = waitStatus(max(0, Int(until.timeIntervalSinceNow)))
             statusLabel.textColor = .secondaryLabelColor
@@ -599,8 +572,7 @@ class SettingsViewController: NSViewController {
                     self.statusLabel.textColor = .labelColor
                     self.setCredentialsDotConnected(true)
                 case .failure(let e):
-                    // Feed a 429 into the shared back-off so a test fetch can't
-                    // silently reset Anthropic's cooldown while the poller waits.
+                    // Feed the 429 into the shared back-off so testing can't reset the cooldown.
                     if case .rateLimited(let retry) = e {
                         (NSApp.delegate as? AppDelegate)?.recordRateLimit(retry)
                     }
