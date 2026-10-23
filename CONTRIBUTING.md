@@ -6,43 +6,43 @@ PRs welcome. Keep them small, focused, and dependency-free.
 
 - Bug fixes — incorrect math, layout glitches, edge cases in API parsing, etc.
 - Performance and battery improvements.
-- Polish to the menu-bar widget, the dropdown, the Settings window.
+- Polish to the menu-bar / taskbar widget, the dropdown, the Settings window — on either platform.
 - Better diagnostics or error UX.
 - More token sources that fit the existing three-mode pattern.
 
 ## What's out of scope
 
-- New dependencies (Swift packages, frameworks). Every dependency is a liability for a single-binary app.
+- New dependencies (Swift packages, NuGet packages, frameworks). Every dependency is a liability for a single-binary app.
 - Major UI rewrites without prior agreement. Open an issue to talk first.
 
 ## Not in focus right now (but open if you want to build it)
 
-- **More platforms.** Windows lives in `src/win/` as a C# port (see [CLAUDE.md](CLAUDE.md) for why it isn't shared Swift). A Linux port is open — open an issue first so we can coordinate the layout.
-- **Telemetry or analytics.** Not needed at the current user base. Reconsider later if it ever becomes hard to debug what's happening for users.
+- **A Linux port.** Would sit alongside `mac/` and `win/`, run `spec/cases.json`, and render the fixture in CI. Open an issue first so we can coordinate.
+- **Telemetry or analytics.** Not needed at the current user base.
 
 ## Sending a pull request
 
-1. Set up the local build — see [DEVELOPMENT.md](DEVELOPMENT.md).
+1. Set up the local build for your OS — see [DEVELOPMENT.md](DEVELOPMENT.md). You don't need the other OS: CI builds and tests both.
 2. Fork, branch off `main`, make your change. One PR per concern.
-3. Verify it visually in your menu bar (`bash scripts/install.sh`). There is no automated test suite.
-4. If your change affects rendering, attach a before/after screenshot. `bash scripts/snapshot.sh --auto-all` produces PNGs you can drop into the PR.
+3. If you changed shared behaviour (formatting, burn rate, weekly rows, rollover, token parsing), update `spec/cases.json` and make both apps pass it — or say in the PR which side you couldn't change.
+4. Push. CI builds both apps, runs the spec, and re-renders `snapshots/`. On branches in this repo it commits changed PNGs to your PR; on forks they're attached to the CI run as artifacts — drop them in the PR description if your change is visible.
 5. Open the PR with a clear summary: what changed and why.
 
 ## Code conventions
 
-Conventions live in [CLAUDE.md](CLAUDE.md). Two things the build itself enforces:
+Conventions live in [CLAUDE.md](CLAUDE.md). Things the build enforces:
 
-- `src/core/` must not import AppKit or Cocoa — `scripts/build.sh` greps for it and aborts. Likewise `src/win/core/` must not reference WPF/WinForms — `scripts/build.ps1` aborts.
-- No new dependencies. AppKit + Foundation only on macOS; in-box .NET Framework 4.8 assemblies only on Windows.
-- Behaviour shared by both apps (polling, back-off, burn-rate math, alerts) is duplicated — change both, or say in the PR which one you couldn't test.
+- `mac/core/` must not import AppKit or Cocoa, and `win/core/` must not reference WPF/WinForms — the build scripts grep for it and abort.
+- No new dependencies: AppKit + Foundation on macOS; in-box .NET Framework 4.8 assemblies on Windows.
+- `spec/cases.json` must pass on both apps.
 
 ## Reporting bugs
 
 Open an issue at https://github.com/ibrarwtf/claude-limits/issues with:
 
-- macOS version (`sw_vers`) and Mac model (Apple Silicon vs Intel) — or Windows version (`winver`)
+- OS version (`sw_vers` on macOS, `winver` on Windows) — and Apple Silicon vs Intel on a Mac
 - App version — visible in Settings
 - Steps to reproduce
-- Relevant lines from `tail /tmp/claude-limits.log` (macOS) or `%TEMP%\claude-limits.log` (Windows)
+- Relevant lines from `/tmp/claude-limits.log` (macOS) or `%TEMP%\claude-limits.log` (Windows)
 
-A screenshot of the menu bar / dropdown helps if it's a layout or rendering bug.
+A screenshot of the widget / dropdown helps if it's a layout or rendering bug.

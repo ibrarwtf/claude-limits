@@ -1,0 +1,110 @@
+name: CI
+
+# Both apps on every PR and push to main: build, run the shared spec
+# (spec/cases.json), render fixture snapshots. On same-repo PRs the fresh
+# PNGs are committed back to the branch, so the diff shows any UI change.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        shell: powershell
+        run: ./win/scripts/build.ps1
+
+      - name: Spec tests
+        shell: powershell
+        run: |
+          dotnet build win/tests/spec.csproj -c Release -o build/spec-win --nologo -v quiet -clp:ErrorsOnly
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ./build/spec-win/claude-limits-spec.exe spec/cases.json
+          exit $LASTEXITCODE
+
+      - name: Snapshots
+        shell: powershell
+        run: ./win/scripts/snapshot.ps1
+
+      - name: Show log on failure
+        if: failure()
+        shell: powershell
+        run: if (Test-Path $env:TEMP\claude-limits.log) { Get-Content $env:TEMP\claude-limits.log }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: snapshots-win
+          path: snapshots/win/*.png
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: claude-limits-win
+          path: build/win/claude-limits.exe
+
+  mac:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: bash mac/scripts/build.sh
+
+      - name: Spec tests
+        run: |
+          mkdir -p build
+          swiftc -o build/spec-mac mac/core/*.swift mac/tests/main.swift
+          build/spec-mac spec/cases.json
+
+      - name: Snapshots
+        run: bash mac/scripts/snapshot.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: snapshots-mac
+          path: snapshots/mac/*.png
+
+  commit-snapshots:
+    # Fork PRs get a read-only token; their snapshots stay as artifacts.
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    needs: [windows, mac]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: snapshots-win
+          path: snapshots/win
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: snapshots-mac
+          path: snapshots/mac
+
+      # Pushes made with GITHUB_TOKEN don't trigger another CI run, so this
+      # can't loop.
+      - name: Commit changed snapshots
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add snapshots
+          if git diff --cached --quiet; then
+            echo "Snapshots unchanged."
+            exit 0
+          fi
+          git commit -m "Update snapshots"
+          git push

@@ -1,0 +1,8 @@
+C:\p\claude-limits\win\tests\obj\Release\net48\spec.csproj.AssemblyReference.cache
+C:\p\claude-limits\win\tests\obj\Release\net48\spec.GeneratedMSBuildEditorConfig.editorconfig
+C:\p\claude-limits\win\tests\obj\Release\net48\spec.AssemblyInfoInputs.cache
+C:\p\claude-limits\win\tests\obj\Release\net48\spec.AssemblyInfo.cs
+C:\p\claude-limits\win\tests\obj\Release\net48\spec.csproj.CoreCompileInputs.cache
+C:\p\claude-limits\build\spec-win\claude-limits-spec.exe.config
+C:\p\claude-limits\build\spec-win\claude-limits-spec.exe
+C:\p\claude-limits\win\tests\obj\Release\net48\claude-limits-spec.exe

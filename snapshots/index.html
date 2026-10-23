@@ -19,7 +19,7 @@
 <body>
 
 <h1>claude-limits — snapshots (light + dark)</h1>
-<p>1:1 from the running app. Refresh after running <code>bash scripts/snapshot.sh --auto-all</code> on a Mac (writes to <code>mac/</code>), or <code>powershell -File scripts\snapshot.ps1</code> on Windows (writes to <code>windows/</code>).</p>
+<p>Rendered by each app from <code>spec/fixtures/snapshot.json</code> — by CI on every PR, or locally with <code>bash mac/scripts/snapshot.sh</code> / <code>powershell -File win\scripts\snapshot.ps1</code>.</p>
 
 <div id="grid"></div>
 
@@ -30,7 +30,7 @@ const platforms = [
     { kind: 'dropdown', desc: 'Right-click dropdown' },
     { kind: 'settings', desc: 'Settings window' },
   ]},
-  { dir: 'windows/', label: 'Windows', kinds: [
+  { dir: 'win/',     label: 'Windows', kinds: [
     { kind: 'menubar',  desc: 'Taskbar pill + tray icon' },
     { kind: 'dropdown', desc: 'Flyout' },
     { kind: 'settings', desc: 'Settings window' },
@@ -70,7 +70,7 @@ async function loadAll() {
   if (!any) {
     const e = document.createElement('div');
     e.className = 'empty';
-    e.innerHTML = 'No screenshots yet. Trigger via <code>bash scripts/snapshot.sh --auto-all</code>.';
+    e.innerHTML = 'No screenshots yet. Run <code>mac/scripts/snapshot.sh</code> or <code>win\scripts\snapshot.ps1</code>.';
     grid.appendChild(e);
   }
 }

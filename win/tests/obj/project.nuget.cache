@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "dgSpecHash": "SNOA7/w316g=",
+  "success": true,
+  "projectFilePath": "C:\\p\\claude-limits\\win\\tests\\spec.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\i\\.nuget\\packages\\microsoft.netframework.referenceassemblies\\1.0.3\\microsoft.netframework.referenceassemblies.1.0.3.nupkg.sha512",
+    "C:\\Users\\i\\.nuget\\packages\\microsoft.netframework.referenceassemblies.net48\\1.0.3\\microsoft.netframework.referenceassemblies.net48.1.0.3.nupkg.sha512"
+  ],
+  "logs": []
+}
