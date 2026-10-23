@@ -70,8 +70,8 @@ Run gh run watch $runId --repo $Repo --exit-status --interval 15
 # ── 4. Homebrew cask ─────────────────────────────────────────────────────────
 $tmp = Join-Path ([IO.Path]::GetTempPath()) "claude-limits-release-$Version"
 if (Test-Path $tmp) { Remove-Item -Recurse -Force $tmp }
-Run gh release download $Tag --repo $Repo --pattern "claude-limits-$Version.zip" --dir $tmp
-$sha = (Get-FileHash -Algorithm SHA256 (Join-Path $tmp "claude-limits-$Version.zip")).Hash.ToLower()
+Run gh release download $Tag --repo $Repo --pattern "claude-limits-mac-$Version.zip" --dir $tmp
+$sha = (Get-FileHash -Algorithm SHA256 (Join-Path $tmp "claude-limits-mac-$Version.zip")).Hash.ToLower()
 Write-Host "→ Mac zip sha256: $sha"
 
 $c = [IO.File]::ReadAllText($Cask)

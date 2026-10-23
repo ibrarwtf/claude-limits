@@ -29,7 +29,7 @@ jobs:
           mkdir -p dist
           # ditto preserves macOS metadata + symlinks; what Apple recommends
           # for distributing app bundles, not plain zip.
-          ditto -c -k --keepParent "$HOME/Applications/claude-limits.app" "dist/claude-limits-${GITHUB_REF_NAME#v}.zip"
+          ditto -c -k --keepParent "$HOME/Applications/claude-limits.app" "dist/claude-limits-mac-${GITHUB_REF_NAME#v}.zip"
 
       - uses: actions/upload-artifact@v4
         with:

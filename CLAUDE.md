@@ -81,7 +81,7 @@ other OS: push a branch → CI builds, tests, commits snapshots → review the P
 ## CI and releasing
 
 - `.github/workflows/ci.yml` — on every PR and push to `main`: Windows + macOS jobs build, run the spec, render snapshots. On same-repo PRs a final job commits changed PNGs back to the branch (GITHUB_TOKEN pushes don't retrigger CI). The macOS runner has a non-Retina display, so Mac PNGs come out @1x.
-- `.github/workflows/release.yml` — on a `v*` tag: builds both zips (`claude-limits-X.Y.Z.zip` for the cask, `claude-limits-windows-X.Y.Z.zip`) into a **draft** release, notes from the CHANGELOG section.
+- `.github/workflows/release.yml` — on a `v*` tag: builds both zips (`claude-limits-mac-X.Y.Z.zip` for the cask, `claude-limits-windows-X.Y.Z.zip`) into a **draft** release, notes from the CHANGELOG section.
 - `scripts/release.ps1 X.Y.Z` — checks clean/synced `main` + a `## vX.Y.Z` CHANGELOG section, bumps `VERSION`, tags, pushes, waits for the draft, writes the Mac zip's sha256 into `mac/homebrew/claude-limits.rb` and the tap clone (`..\homebrew-lab`, or `TAP_DIR`), then publishes the draft as latest. Draft-first means neither app is offered a release before brew can install it.
 - The Mac app reads `/releases/latest` and updates via `brew upgrade`; the Windows app scans the release list for the newest release with a Windows zip and swaps its exe in place (sha256-checked against GitHub's asset digest).
 
