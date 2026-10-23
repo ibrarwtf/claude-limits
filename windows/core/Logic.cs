@@ -924,7 +924,7 @@ public static partial class Logic
         {
             return Click.Blocked;
         }
-         else if (cool == true)
+         else if (cool)
         {
             return Click.Cooling;
         }
@@ -1064,7 +1064,7 @@ public static partial class Logic
         }
         var best = NewestWindows(a1.Skip(1).ToList());
         var ok = Usable(a1[0]);
-        if (ok == false)
+        if (!ok)
         {
             return best;
         }
@@ -1077,7 +1077,7 @@ public static partial class Logic
             var t = (a1[0].TagName ?? "");
             var b = (best.TagName ?? "");
             var newer_ = IsNewerVersion(t, b);
-            if (newer_ == true)
+            if (newer_)
             {
                 return a1[0];
             }
@@ -1260,7 +1260,7 @@ public static partial class Logic
                 return new List<TokenStep> { TokenStep.Shell(cmd) };
             }
         }
-         else if (keychain == true)
+         else if (keychain)
         {
             return Cons(TokenStep.Keychain(), fs);
         }
@@ -1289,7 +1289,7 @@ public static partial class Logic
         if (token_step.Kind == TokenStepKind.File)
         {
             string m;
-            if (auto == true)
+            if (auto)
             {
                 m = "auto";
             }
@@ -1308,7 +1308,7 @@ public static partial class Logic
         {
             return "Path to a Claude credentials JSON or a file containing just the access token.";
         }
-         else if ((src == TokenSource.Shell) && (win == true))
+         else if ((src == TokenSource.Shell) && win)
         {
             return "A PowerShell command that prints credentials JSON or a token to stdout. Useful when Claude runs in WSL (wsl cat ~/.claude/.credentials.json), Docker, or on a remote machine over SSH.";
         }
@@ -1316,7 +1316,7 @@ public static partial class Logic
         {
             return "A shell command that prints credentials JSON or a token to stdout. Useful when Claude runs in Docker, on a remote machine over SSH, etc.";
         }
-         else if (win == true)
+         else if (win)
         {
             return $"Reads the credentials file Claude Code writes when you sign in ({(p)}, or under CLAUDE_CONFIG_DIR when that's set).";
         }
@@ -1329,7 +1329,7 @@ public static partial class Logic
     public static IReadOnlyList<Part> TitleParts(bool showP, bool showW, bool showR, string p, string w, string r)
     {
         IReadOnlyList<Part> a;
-        if (showP == true)
+        if (showP)
         {
             a = new List<Part> { Part.Pct(p) };
         }
@@ -1338,7 +1338,7 @@ public static partial class Logic
             a = new List<Part> {  };
         }
         IReadOnlyList<Part> b;
-        if (showW == true)
+        if (showW)
         {
             b = new List<Part> { Part.Spark(w) };
         }
@@ -1347,7 +1347,7 @@ public static partial class Logic
             b = new List<Part> {  };
         }
         IReadOnlyList<Part> c;
-        if ((showR == true) && (r != null))
+        if (showR && (r != null))
         {
             c = new List<Part> { Part.Reset(r) };
         }
@@ -1537,7 +1537,7 @@ public static partial class Logic
         {
             return $"{(n.Value)}";
         }
-         else if (err == true)
+         else if (err)
         {
             return "!";
         }
@@ -1557,7 +1557,7 @@ public static partial class Logic
         {
             return IconLevel(u);
         }
-         else if (err == true)
+         else if (err)
         {
             return 3;
         }
@@ -1618,7 +1618,7 @@ public static partial class Logic
     public static Dot DotOnOpen(bool have, DateTime? last, bool busy, DateTime? until, DateTime? click, DateTime now)
     {
         var cool = CoolingDown(click, now);
-        if (have == true)
+        if (have)
         {
             return Dot.Connected;
         }
@@ -1626,7 +1626,7 @@ public static partial class Logic
         {
             return Dot.Connected;
         }
-         else if (busy == true)
+         else if (busy)
         {
             return Dot.Unverified;
         }
@@ -1634,7 +1634,7 @@ public static partial class Logic
         {
             return Dot.Unverified;
         }
-         else if (cool == true)
+         else if (cool)
         {
             return Dot.Unverified;
         }

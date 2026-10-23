@@ -285,6 +285,8 @@ cond('$v'(V) \== none, Env, op('!=', X, nil), ET, Env) :- !, narrow(V, Env, X, E
 cond('$v'(V) = P, Env, kind(X, Case), Env, Env) :- lookup(V, Env, X0, T0), strip_opt(X0, T0, X, T), enum(T, _), !, functor(P, Case, _).
 cond(A == [], Env, empty(EA), Env, Env) :- !, val(A, Env, EA, _).
 cond(A \== [], Env, not(empty(EA)), Env, Env) :- !, val(A, Env, EA, _).
+cond(A == true, Env, EA, Env, Env) :- catch(val(A, Env, EA, T), _, fail), T == bool, !.
+cond(A == false, Env, not(EA), Env, Env) :- catch(val(A, Env, EA, T), _, fail), T == bool, !.
 cond(A == B, Env, op('==', EA, EB), Env, Env) :- !, val(A, Env, EA, _), val(B, Env, EB, _).
 cond(A \== B, Env, op('!=', EA, EB), Env, Env) :- !, val(A, Env, EA, _), val(B, Env, EB, _).
 cond(member(X, L), Env, b(member, [EL, EX]), Env, Env) :- !, val(X, Env, EX, _), val(L, Env, EL, _).

@@ -739,7 +739,7 @@ func clickEffect(_ until: Date?, _ last: Date?, _ now: Date) -> Click {
     let cool = coolingDown(last, now)
     if (until != nil) && (until! > now) {
         return Click.blocked
-    } else if cool == true {
+    } else if cool {
         return Click.cooling
     } else {
         return Click.fetch
@@ -838,7 +838,7 @@ func newestWindows(_ a1: [GitHubRelease]) -> GitHubRelease? {
     }
     let best = newestWindows(Array(a1.dropFirst()))
     let ok = usable(a1[0])
-    if ok == false {
+    if !ok {
         return best
     } else if best == nil {
         return a1[0]
@@ -846,7 +846,7 @@ func newestWindows(_ a1: [GitHubRelease]) -> GitHubRelease? {
         let t = (a1[0].tagName ?? "")
         let b = (best!.tagName ?? "")
         let newer_ = isNewerVersion(t, b)
-        if newer_ == true {
+        if newer_ {
             return a1[0]
         } else {
             return best!
@@ -973,7 +973,7 @@ func tokenSteps(_ src: TokenSource, _ path: String, _ cmd: String, _ known: [Str
         } else {
             return [TokenStep.shell(cmd)]
         }
-    } else if keychain == true {
+    } else if keychain {
         return [TokenStep.keychain] + fs
     } else {
         return fs
@@ -994,7 +994,7 @@ func tokenLabel(_ token_step: TokenStep, _ auto: Bool) -> String {
     }
     if case .file(let p) = token_step {
         let m: String
-        if auto == true {
+        if auto {
             m = "auto"
         } else {
             m = "custom"
@@ -1007,11 +1007,11 @@ func tokenLabel(_ token_step: TokenStep, _ auto: Bool) -> String {
 func sourceHint(_ src: TokenSource, _ win: Bool, _ p: String) -> String {
     if src == TokenSource.file {
         return "Path to a Claude credentials JSON or a file containing just the access token."
-    } else if (src == TokenSource.shell) && (win == true) {
+    } else if (src == TokenSource.shell) && win {
         return "A PowerShell command that prints credentials JSON or a token to stdout. Useful when Claude runs in WSL (wsl cat ~/.claude/.credentials.json), Docker, or on a remote machine over SSH."
     } else if src == TokenSource.shell {
         return "A shell command that prints credentials JSON or a token to stdout. Useful when Claude runs in Docker, on a remote machine over SSH, etc."
-    } else if win == true {
+    } else if win {
         return "Reads the credentials file Claude Code writes when you sign in (\(p), or under CLAUDE_CONFIG_DIR when that's set)."
     } else {
         return "We check the macOS Keychain (where Claude Code stores credentials by default), then fall back to common file paths like \(p)."
@@ -1020,19 +1020,19 @@ func sourceHint(_ src: TokenSource, _ win: Bool, _ p: String) -> String {
 
 func titleParts(_ showP: Bool, _ showW: Bool, _ showR: Bool, _ p: String, _ w: String, _ r: String?) -> [Part] {
     let a: [Part]
-    if showP == true {
+    if showP {
         a = [Part.pct(p)]
     } else {
         a = []
     }
     let b: [Part]
-    if showW == true {
+    if showW {
         b = [Part.spark(w)]
     } else {
         b = []
     }
     let c: [Part]
-    if (showR == true) && (r != nil) {
+    if showR && (r != nil) {
         c = [Part.reset(r!)]
     } else {
         c = []
@@ -1165,7 +1165,7 @@ func iconLevel(_ u: Double) -> Int {
 func trayText(_ n: Int?, _ err: Bool, _ plain: String?) -> String? {
     if n != nil {
         return "\(n!)"
-    } else if err == true {
+    } else if err {
         return "!"
     } else if plain == "—" {
         return "–"
@@ -1177,7 +1177,7 @@ func trayText(_ n: Int?, _ err: Bool, _ plain: String?) -> String? {
 func trayLevel(_ n: Int?, _ u: Double, _ err: Bool) -> Int {
     if n != nil {
         return iconLevel(u)
-    } else if err == true {
+    } else if err {
         return 3
     } else {
         return 0
@@ -1219,15 +1219,15 @@ func tooltip(_ u: Double?, _ iso: String?, _ e: AppError?, _ now: Date) -> Strin
 
 func dotOnOpen(_ have: Bool, _ last: Date?, _ busy: Bool, _ until: Date?, _ click: Date?, _ now: Date) -> Dot {
     let cool = coolingDown(click, now)
-    if have == true {
+    if have {
         return Dot.connected
     } else if (last != nil) && (now.timeIntervalSince(last!) < pollInterval) {
         return Dot.connected
-    } else if busy == true {
+    } else if busy {
         return Dot.unverified
     } else if (until != nil) && (until! > now) {
         return Dot.unverified
-    } else if cool == true {
+    } else if cool {
         return Dot.unverified
     } else {
         return Dot.probe
