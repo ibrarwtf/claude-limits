@@ -71,25 +71,15 @@ namespace ClaudeLimits
             {
                 if (hwnd == IntPtr.Zero) return;
                 bool fullscreen = Native.FullscreenAppActive();
-                if (fullscreen && Visibility == Visibility.Visible) Visibility = Visibility.Hidden;
-                else if (!fullscreen && Visibility != Visibility.Visible) Visibility = Visibility.Visible;
+                if (fullscreen == (Visibility == Visibility.Visible)) Visibility = fullscreen ? Visibility.Hidden : Visibility.Visible;
                 if (!fullscreen)
                     Native.SetWindowPos(hwnd, Native.HWND_TOPMOST, 0, 0, 0, 0,
                         Native.SWP_NOMOVE | Native.SWP_NOSIZE | Native.SWP_NOACTIVATE);
             };
         }
 
-        public void ShowPill()
-        {
-            Show();
-            zTimer.Start();
-        }
-
-        public void HidePill()
-        {
-            zTimer.Stop();
-            Hide();
-        }
+        public void ShowPill() { Show(); zTimer.Start(); }
+        public void HidePill() { zTimer.Stop(); Hide(); }
 
         public void Render(MenuBarTitle t)
         {
