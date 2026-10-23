@@ -79,7 +79,7 @@ countdown(Iso, Now, Out) :-                     % inputs first, output last
 
 ## Adding or changing behaviour
 
-1. Edit `core.pl` (and `spec/cases.json` if it's covered there).
+1. Edit `core.pl` and add a `spec/cases.json` case — a `calls` entry (`fn`, JSON `args`, `expect`) tests any function directly; times are seconds from `now`.
 2. `swipl logic/plc.pl && swipl logic/oracle.pl` — regenerates `Logic.*` and
    the test suites, and checks the spec in Prolog.
 3. Call the generated function from the app (`camelCase` in Swift,

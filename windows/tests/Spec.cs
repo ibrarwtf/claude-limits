@@ -87,6 +87,28 @@ namespace ClaudeLimits.Spec
             Check("rollover", Replay(new[] { (-360.0, 40.0, "2030-01-15T13:00:00Z"), (-180.0, 41.0, "2030-01-15T13:00:00Z"), (0.0, 41.0, "2030-01-15T18:00:00Z") }), "1");
             Check("rollover", Replay(new[] { (-180.0, 60.0, "2030-01-15T13:00:00Z"), (0.0, 2.0, "2030-01-15T13:00:00Z") }), "1");
             Check("rollover", Replay(new[] { (-180.0, 10.0, "2030-01-15T13:00:00Z"), (0.0, 6.0, "2030-01-15T13:00:00Z") }), "2");
+            Check("flag_value", FlagValue(new[] { "a", "--fixture", "x.json", "--snapshot-all" }, "--fixture"), "x.json");
+            Check("flag_value", FlagValue(new[] { "--fixture" }, "--fixture"), null);
+            Check("flag_value", FlagValue(new[] { "a" }, "--snapshot-all"), null);
+            Check("source_hint", SourceHint(TokenSource.File, true, "p"), "Path to a Claude credentials JSON or a file containing just the access token.");
+            Check("source_hint", SourceHint(TokenSource.Auto, true, "~\\.claude\\.credentials.json"), "Reads the credentials file Claude Code writes when you sign in (~\\.claude\\.credentials.json, or under CLAUDE_CONFIG_DIR when that's set).");
+            Check("source_hint", SourceHint(TokenSource.Auto, false, "~/.claude/.credentials.json"), "We check the macOS Keychain (where Claude Code stores credentials by default), then fall back to common file paths like ~/.claude/.credentials.json.");
+            Check("wait_status", WaitStatus(now.AddSeconds(90.5), now.AddSeconds(0)), "Rate limited — wait 90s before testing again.");
+            Check("wait_status", WaitStatus(now.AddSeconds(-5), now.AddSeconds(0)), null);
+            Check("wait_status", WaitStatus(null, now.AddSeconds(0)), null);
+            Check("backoff_error", Msg(BackoffError(now.AddSeconds(120), now.AddSeconds(0))), "Rate limited by Anthropic — retrying in 120 seconds.");
+            Check("backoff_error", Msg(BackoffError(null, now.AddSeconds(0))), null);
+            Check("new_window", NewWindow("A", "B").ToString().ToLowerInvariant(), "true");
+            Check("new_window", NewWindow("B", "B").ToString().ToLowerInvariant(), "false");
+            Check("new_window", NewWindow(null, "B").ToString().ToLowerInvariant(), "false");
+            Check("filled_blocks", FilledBlocks(0.5, 24).ToString(), "1");
+            Check("filled_blocks", FilledBlocks(50.0, 24).ToString(), "12");
+            Check("filled_blocks", FilledBlocks(0.0, 24).ToString(), "0");
+            Check("filled_blocks", FilledBlocks(150.0, 24).ToString(), "24");
+            Check("flyout_origin", FlyoutOrigin(true, 1700, 1000, 1800, 1032, 0, 0, 1920, 1040, 360, 400, 12, 6).ToString(), "(1452, 606)");
+            Check("flyout_origin", FlyoutOrigin(true, 1700, 4, 1800, 36, 0, 0, 1920, 1040, 360, 400, 12, 6).ToString(), "(1452, 30)");
+            Check("flyout_origin", FlyoutOrigin(false, 1850, 1060, 1850, 1060, 0, 0, 1920, 1040, 360, 400, 12, 6).ToString(), "(1566, 646)");
+            Check("flyout_origin", FlyoutOrigin(false, 30, 500, 30, 500, -1920, 0, 0, 1080, 360, 400, 12, 6).ToString(), "(-354, 112)");
             Console.WriteLine($"windows spec: {passed} passed, {failed} failed");
             return failed == 0 ? 0 : 1;
         }
