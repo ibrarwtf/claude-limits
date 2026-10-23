@@ -19,13 +19,13 @@
 <body>
 
 <h1>claude-limits — snapshots (light + dark)</h1>
-<p>1:1 from the running app. Refresh after running <code>bash scripts/snapshot.sh --auto-all</code> on a Mac, or <code>powershell -File scripts\snapshot.ps1</code> on Windows (writes to <code>windows/</code>).</p>
+<p>1:1 from the running app. Refresh after running <code>bash scripts/snapshot.sh --auto-all</code> on a Mac (writes to <code>mac/</code>), or <code>powershell -File scripts\snapshot.ps1</code> on Windows (writes to <code>windows/</code>).</p>
 
 <div id="grid"></div>
 
 <script>
 const platforms = [
-  { dir: '',         label: 'macOS',   kinds: [
+  { dir: 'mac/',     label: 'macOS',   kinds: [
     { kind: 'menubar',  desc: 'Menu bar widget' },
     { kind: 'dropdown', desc: 'Right-click dropdown' },
     { kind: 'settings', desc: 'Settings window' },

@@ -49,7 +49,7 @@ bash scripts/snapshot.sh --auto-all
 open snapshots/index.html
 ```
 
-The app captures its own views via `cacheDisplay` (no Screen Recording grant needed) and overwrites the six PNGs in `snapshots/` in place. After any change that affects rendering: rerun and commit the updated PNGs so reviewers — and anyone else cloning the repo — see the UI without having to build it. See [CLAUDE.md](CLAUDE.md) for the snapshot mechanism.
+The app captures its own views via `cacheDisplay` (no Screen Recording grant needed) and overwrites the six PNGs in `snapshots/mac/` in place (Windows: `snapshots/windows/`). After any change that affects rendering: rerun and commit the updated PNGs so reviewers — and anyone else cloning the repo — see the UI without having to build it. See [CLAUDE.md](CLAUDE.md) for the snapshot mechanism.
 
 If you're not working with direct eyes on the menu bar (remote dev, Claude Code agent, CI), `snapshots/` is your verification step — not a post-hoc artifact. Build, snapshot, look at the PNGs, iterate.
 

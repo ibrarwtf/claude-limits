@@ -1,5 +1,5 @@
 #!/bin/bash
-# Capture current claude-limits visual state into snapshots/.
+# Capture current claude-limits visual state into snapshots/mac/.
 # Triggers in-app render via custom URL scheme — no Terminal popups, no
 # helper apps, no Screen Recording permission required (the app captures
 # its own views via NSView.cacheDisplay, which doesn't need any TCC grant).
@@ -13,7 +13,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-DEST="$ROOT/snapshots"
+DEST="$ROOT/snapshots/mac"
 MODE="${1:-interactive}"
 mkdir -p "$DEST"
 

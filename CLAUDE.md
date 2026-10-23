@@ -84,7 +84,7 @@ Run the `.ps1` scripts with `powershell -ExecutionPolicy Bypass -File scripts\<n
 For UI-visible changes:
 
 ```
-edit Swift → bash scripts/install.sh → bash scripts/snapshot.sh --auto-all → check snapshots/
+edit Swift → bash scripts/install.sh → bash scripts/snapshot.sh --auto-all → check snapshots/mac/
 ```
 
 For non-visual changes (logic, refactors, plumbing):
@@ -107,7 +107,7 @@ edit C# → powershell -File scripts\install.ps1 → check snapshots\windows\   
 
 ## Snapshots in the repo
 
-`snapshots/index.html` shows the current menu bar / dropdown / Settings in light + dark, sourced from six tracked PNGs (`{menubar,dropdown,settings}-{light,dark}.png`). After any change that affects rendering, run `bash scripts/snapshot.sh --auto-all` and commit the updated PNGs so anyone reading the repo can see what they're working with without building.
+`snapshots/index.html` shows the current menu bar / dropdown / Settings in light + dark, sourced from tracked PNGs in `snapshots/mac/` and `snapshots/windows/` (`{menubar,dropdown,settings}-{light,dark}.png` each). After any change that affects rendering, run `bash scripts/snapshot.sh --auto-all` and commit the updated PNGs so anyone reading the repo can see what they're working with without building.
 
 Each capture overwrites in place — no timestamped variants, no `latest-` prefix. Git is the history. The app handles `claude-limits://snapshot/<menubar|dropdown|settings>?dest=<dir>` itself; `snapshot.sh` just opens the URL and polls the destination file's mtime.
 
