@@ -11,7 +11,9 @@ $ErrorActionPreference = 'Stop'
 
 $Root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 if (-not $Exe) { $Exe = Join-Path $Root 'build\win\claude-limits.exe' }
-$Dest = Join-Path $Root 'snapshots\win'
+# CI writes the committed PNGs; local renders go under build\ so font and
+# encoder differences between machines don't churn snapshots\.
+$Dest = if ($env:CI) { Join-Path $Root 'snapshots\win' } else { Join-Path $Root 'build\snapshots\win' }
 $Fixture = Join-Path $Root 'spec\fixtures\snapshot.json'
 New-Item -ItemType Directory -Force $Dest | Out-Null
 

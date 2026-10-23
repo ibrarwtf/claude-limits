@@ -68,6 +68,6 @@ fi
 
 # Refresh repo snapshots so the working tree always reflects the just-built UI.
 # Snapshot capture failure ≠ install failure — log and continue.
-echo "→ Refreshing snapshots/mac/…"
+echo "→ Rendering snapshots…"
 bash "$ROOT/mac/scripts/snapshot.sh" || \
     echo "  (snapshot capture failed; install itself succeeded)"

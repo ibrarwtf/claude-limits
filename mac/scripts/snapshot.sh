@@ -1,5 +1,5 @@
 #!/bin/bash
-# Render the Mac UI into snapshots/mac/ from spec/fixtures/snapshot.json.
+# Render the Mac UI from spec/fixtures/snapshot.json (CI: snapshots/mac/, local: build/snapshots/mac/).
 #
 # Runs the built binary in fixture mode (canned response, pinned clock, no
 # network, no settings/history writes), which captures menubar + dropdown +
@@ -11,7 +11,9 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 APP_BUNDLE="${APP_BUNDLE:-$HOME/Applications/claude-limits.app}"
-DEST="$ROOT/snapshots/mac"
+# CI writes the committed PNGs; local renders go under build/ so font and
+# encoder differences between machines don't churn snapshots/.
+if [ -n "${CI:-}" ]; then DEST="$ROOT/snapshots/mac"; else DEST="$ROOT/build/snapshots/mac"; fi
 mkdir -p "$DEST"
 
 "$APP_BUNDLE/Contents/MacOS/claude-limits" \
@@ -30,4 +32,4 @@ if kill -0 "$pid" 2>/dev/null; then
 fi
 wait "$pid"
 
-echo "Saved to $DEST. Open snapshots/index.html to view."
+echo "Saved to $DEST."
