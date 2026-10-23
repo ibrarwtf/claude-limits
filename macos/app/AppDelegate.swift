@@ -371,7 +371,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         pollTimer = Timer.scheduledTimer(withTimeInterval: pollInterval, repeats: true) { [weak self] _ in
             guard let self = self else { return }
             self.nextPollAt = Date().addingTimeInterval(pollInterval)
-            if self.shouldPoll(Settings.shared.nextAllowedPoll, Settings.shared.lastSuccessfulPoll, Date()) { self.triggerRefresh(animated: false) }
+            if shouldPoll(Settings.shared.nextAllowedPoll, Settings.shared.lastSuccessfulPoll, Date()) { self.triggerRefresh(animated: false) }
             else { self.updateTitle() }
         }
     }

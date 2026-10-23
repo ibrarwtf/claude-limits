@@ -27,6 +27,49 @@ public sealed class AppError : Exception
     public override string Message => Logic.FriendlyMessage(this);
 }
 
+public enum TokenSource { Auto, File, Shell }
+
+[System.Runtime.Serialization.DataContract]
+sealed class SettingsData
+{
+    [System.Runtime.Serialization.DataMember(EmitDefaultValue = false)] public int tokenSourceMode;
+    [System.Runtime.Serialization.DataMember(EmitDefaultValue = false)] public string customFilePath;
+    [System.Runtime.Serialization.DataMember(EmitDefaultValue = false)] public string customShellCommand;
+    [System.Runtime.Serialization.DataMember(EmitDefaultValue = false)] public double? lastSuccessfulPoll;
+    [System.Runtime.Serialization.DataMember(EmitDefaultValue = false)] public double? nextAllowedPoll;
+    [System.Runtime.Serialization.DataMember(EmitDefaultValue = false)] public string lastResponseJSON;
+    [System.Runtime.Serialization.DataMember(EmitDefaultValue = false)] public int consecutiveRateLimits;
+    [System.Runtime.Serialization.DataMember(EmitDefaultValue = false)] public int[] notifiedThresholds;
+    [System.Runtime.Serialization.DataMember(EmitDefaultValue = false)] public string lastNotifiedResetsAt;
+    [System.Runtime.Serialization.DataMember(EmitDefaultValue = false)] public bool hidePercentage;
+    [System.Runtime.Serialization.DataMember(EmitDefaultValue = false)] public bool hideWave;
+    [System.Runtime.Serialization.DataMember(EmitDefaultValue = false)] public bool hideResetTime;
+    [System.Runtime.Serialization.DataMember(EmitDefaultValue = false)] public bool hidePill;
+    [System.Runtime.Serialization.DataMember(EmitDefaultValue = false)] public int? pillX;
+    [System.Runtime.Serialization.DataMember(EmitDefaultValue = false)] public int? pillY;
+    [System.Runtime.Serialization.DataMember(EmitDefaultValue = false)] public bool didFirstLaunch;
+}
+
+public sealed partial class Settings
+{
+    public TokenSource TokenSource { get => Get(x => (TokenSource)x.tokenSourceMode); set => Set(x => x.tokenSourceMode = (int)value); }
+    public string CustomFilePath { get => Get(x => x.customFilePath ?? ""); set => Set(x => x.customFilePath = value); }
+    public string CustomShellCommand { get => Get(x => x.customShellCommand ?? ""); set => Set(x => x.customShellCommand = value); }
+    public DateTime? LastSuccessfulPoll { get => Get(x => x.lastSuccessfulPoll.HasValue ? Format.FromUnix(x.lastSuccessfulPoll.Value) : (DateTime?)null); set => Set(x => x.lastSuccessfulPoll = value.HasValue ? Format.ToUnix(value.Value) : (double?)null); }
+    public DateTime? NextAllowedPoll { get => Get(x => x.nextAllowedPoll.HasValue ? Format.FromUnix(x.nextAllowedPoll.Value) : (DateTime?)null); set => Set(x => x.nextAllowedPoll = value.HasValue ? Format.ToUnix(value.Value) : (double?)null); }
+    public string LastResponseJSON { get => Get(x => x.lastResponseJSON); set => Set(x => x.lastResponseJSON = value); }
+    public int ConsecutiveRateLimits { get => Get(x => x.consecutiveRateLimits); set => Set(x => x.consecutiveRateLimits = value); }
+    public HashSet<int> NotifiedThresholds { get => Get(x => new HashSet<int>(x.notifiedThresholds ?? new int[0])); set => Set(x => x.notifiedThresholds = value.ToArray()); }
+    public string LastNotifiedResetsAt { get => Get(x => x.lastNotifiedResetsAt); set => Set(x => x.lastNotifiedResetsAt = value); }
+    public bool ShowPercentage { get => Get(x => !x.hidePercentage); set => Set(x => x.hidePercentage = !value); }
+    public bool ShowWave { get => Get(x => !x.hideWave); set => Set(x => x.hideWave = !value); }
+    public bool ShowResetTime { get => Get(x => !x.hideResetTime); set => Set(x => x.hideResetTime = !value); }
+    public bool ShowPill { get => Get(x => !x.hidePill); set => Set(x => x.hidePill = !value); }
+    public int? PillX { get => Get(x => x.pillX); set => Set(x => x.pillX = value); }
+    public int? PillY { get => Get(x => x.pillY); set => Set(x => x.pillY = value); }
+    public bool DidFirstLaunch { get => Get(x => x.didFirstLaunch); set => Set(x => x.didFirstLaunch = value); }
+}
+
 public static partial class Logic
 {
     public const double PollInterval = 180.0;

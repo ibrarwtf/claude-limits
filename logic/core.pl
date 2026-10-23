@@ -18,6 +18,28 @@
 :- record sample(t: time, u: float).
 :- native sample = 'HistorySample'(swift(timestamp, utilization), csharp('Timestamp', 'Utilization')).
 
+% ── Persisted settings ───────────────────────────────────────────────────────
+% UserDefaults on macOS, settings.json on Windows; the key is the camelCase
+% name unless given. hide(Key) stores the inverse, so an unset key reads as
+% "show" on a fresh install.
+:- choice token_source = [auto, file, shell].
+:- setting token_source: token_source = key(token_source_mode).
+:- setting custom_file_path: str.
+:- setting custom_shell_command: str.
+:- setting last_successful_poll: opt(time).    % survives relaunch: no burst on restart
+:- setting next_allowed_poll: opt(time).       % survives relaunch: honours Retry-After
+:- setting last_response_JSON: json.           % shown on launch before the first poll
+:- setting consecutive_rate_limits: int.       % back-off exponent
+:- setting notified_thresholds: set(int).      % 80/95 already alerted this window…
+:- setting last_notified_resets_at: opt(str).  % …keyed to this resets_at
+:- setting show_percentage: bool = hide(hide_percentage).
+:- setting show_wave: bool = hide(hide_wave).
+:- setting show_reset_time: bool = hide(hide_reset_time).
+:- setting show_pill: bool = hide(hide_pill).
+:- setting pill_x: opt(int).
+:- setting pill_y: opt(int).
+:- setting did_first_launch: bool.
+
 % ── Tuning ───────────────────────────────────────────────────────────────────
 % Anthropic recomputes usage every ~5 min, so polling faster buys nothing.
 :- const poll_interval = 180.0.

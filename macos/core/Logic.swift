@@ -28,6 +28,75 @@ enum AppError: LocalizedError {
     var errorDescription: String? { friendlyMessage(self) }
 }
 
+enum TokenSource: Int { case auto, file, shell }
+
+extension Settings {
+    var tokenSource: TokenSource {
+        get { TokenSource(rawValue: d.integer(forKey: "tokenSourceMode")) ?? .auto }
+        set { d.set(newValue.rawValue, forKey: "tokenSourceMode") }
+    }
+    var customFilePath: String {
+        get { d.string(forKey: "customFilePath") ?? "" }
+        set { d.set(newValue, forKey: "customFilePath") }
+    }
+    var customShellCommand: String {
+        get { d.string(forKey: "customShellCommand") ?? "" }
+        set { d.set(newValue, forKey: "customShellCommand") }
+    }
+    var lastSuccessfulPoll: Date? {
+        get { d.object(forKey: "lastSuccessfulPoll") as? Date }
+        set { d.set(newValue, forKey: "lastSuccessfulPoll") }
+    }
+    var nextAllowedPoll: Date? {
+        get { d.object(forKey: "nextAllowedPoll") as? Date }
+        set { d.set(newValue, forKey: "nextAllowedPoll") }
+    }
+    var lastResponseJSON: Data? {
+        get { d.data(forKey: "lastResponseJSON") }
+        set { d.set(newValue, forKey: "lastResponseJSON") }
+    }
+    var consecutiveRateLimits: Int {
+        get { d.integer(forKey: "consecutiveRateLimits") }
+        set { d.set(newValue, forKey: "consecutiveRateLimits") }
+    }
+    var notifiedThresholds: Set<Int> {
+        get { Set(d.array(forKey: "notifiedThresholds") as? [Int] ?? []) }
+        set { d.set(Array(newValue), forKey: "notifiedThresholds") }
+    }
+    var lastNotifiedResetsAt: String? {
+        get { d.string(forKey: "lastNotifiedResetsAt") }
+        set { d.set(newValue, forKey: "lastNotifiedResetsAt") }
+    }
+    var showPercentage: Bool {
+        get { !d.bool(forKey: "hidePercentage") }
+        set { d.set(!newValue, forKey: "hidePercentage") }
+    }
+    var showWave: Bool {
+        get { !d.bool(forKey: "hideWave") }
+        set { d.set(!newValue, forKey: "hideWave") }
+    }
+    var showResetTime: Bool {
+        get { !d.bool(forKey: "hideResetTime") }
+        set { d.set(!newValue, forKey: "hideResetTime") }
+    }
+    var showPill: Bool {
+        get { !d.bool(forKey: "hidePill") }
+        set { d.set(!newValue, forKey: "hidePill") }
+    }
+    var pillX: Int? {
+        get { d.object(forKey: "pillX") as? Int }
+        set { d.set(newValue, forKey: "pillX") }
+    }
+    var pillY: Int? {
+        get { d.object(forKey: "pillY") as? Int }
+        set { d.set(newValue, forKey: "pillY") }
+    }
+    var didFirstLaunch: Bool {
+        get { d.bool(forKey: "didFirstLaunch") }
+        set { d.set(newValue, forKey: "didFirstLaunch") }
+    }
+}
+
 let pollInterval = 180.0
 let clickCooldown = 5.0
 let minAnimation = 1.5
