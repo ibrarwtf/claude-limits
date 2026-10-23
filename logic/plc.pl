@@ -82,7 +82,8 @@ fn_ir(N, fn(N, Params, Ret, Body)) :-
     findall(H-B, cl(N/A, H, B), Cls),
     numlist(1, NI, Is), maplist(param_name(Cls), Is, InTs, Params0), dedup(Params0, Params),
     ret_type(OutTs, Ret),
-    clauses_ir(Cls, NI, Params, OutTs, Body).
+    ( exhaustive(Cls, NI, Params) -> X = total ; X = partial ),
+    clauses_ir(Cls, NI, Params, OutTs, X, Body).
 
 param_name(Cls, I, T, P-T) :-
     (   member(H-_, Cls), arg(I, H, '$v'(V)), V \== '_' -> local(V, P)
@@ -92,13 +93,23 @@ dedup(Ps, Out) :- dedup(Ps, [], Out).
 dedup([], _, []).
 dedup([P-T|Ps], Seen, [Q-T|Out]) :- ( memberchk(P, Seen) -> atom_concat(P, '2', Q) ; Q = P ), dedup(Ps, [Q|Seen], Out).
 
-clauses_ir([], _, _, _, [fail]).
-clauses_ir([H-B|Cls], NI, Params, OutTs, Stmts) :-
+% The last clause of a total set (one argument matched against every list
+% shape or enum case) needs no guard, unless its guard binds case fields.
+clauses_ir([], _, _, _, _, [fail]).
+clauses_ir([H-B|Cls], NI, Params, OutTs, X, Stmts) :-
     H =.. [_|Args], length(InArgs, NI), append(InArgs, OutArgs, Args),
     foldl(head_pat, InArgs, Params, []-[], Env-Guards0), reverse(Guards0, Guards),
     goals(B, Gs), body(Gs, Env, ret(OutArgs, OutTs), Body, _),
     (   Guards == [] -> Stmts = Body
-    ;   Stmts = [if(Guards, Body, [])|Rest], clauses_ir(Cls, NI, Params, OutTs, Rest) ).
+    ;   Cls == [], X == total, \+ memberchk(case(_, _, _, [_|_]), Guards) -> Stmts = Body
+    ;   Stmts = [if(Guards, Body, [])|Rest], clauses_ir(Cls, NI, Params, OutTs, X, Rest) ).
+
+exhaustive(Cls, NI, Params) :-
+    findall(I-P, ( member(H-_, Cls), H =.. [_|Args], length(In, NI), append(In, _, Args), nth1(I, In, P), P \= '$v'(_) ), IPs),
+    IPs = [I-_|_], forall(member(J-_, IPs), J == I), findall(P, member(_-P, IPs), Ps),
+    nth1(I, Params, _-T), covers(T, Ps).
+covers(list(_), Ps) :- !, memberchk([], Ps), member(['$v'(_)|'$v'(_)], Ps), !.
+covers(T, Ps) :- enum(T, Cases), forall(member(C, Cases), ( functor(C, N, _), member(P, Ps), P =.. [N|As], maplist(=('$v'(_)), As) )).
 
 % head_pat(+Pattern, +Param-Type, Env0-Guards0, Env-Guards)
 head_pat(P, Name-T, E0-G0, E-G) :- pat(P, var(Name), T, E0-G0, E-G).

@@ -446,15 +446,12 @@ func valid(_ a1: [HistorySample]) -> [HistorySample] {
     if a1.isEmpty {
         return []
     }
-    if !(a1.isEmpty) {
-        let v = valid(Array(a1.dropFirst()))
-        if a1[0].utilization >= 0.0 {
-            return [a1[0]] + v
-        } else {
-            return v
-        }
+    let v = valid(Array(a1.dropFirst()))
+    if a1[0].utilization >= 0.0 {
+        return [a1[0]] + v
+    } else {
+        return v
     }
-    fatalError("unreachable")
 }
 
 func burn(_ s: [HistorySample], _ i: Int, _ pp: Double, _ sec: Double) -> (Double, Double) {
@@ -591,17 +588,14 @@ func zeroed(_ a1: [HistorySample]) -> [Double] {
     if a1.isEmpty {
         return []
     }
-    if !(a1.isEmpty) {
-        let v: Double
-        if a1[0].utilization < 0.0 {
-            v = 0.0
-        } else {
-            v = a1[0].utilization
-        }
-        let vs = zeroed(Array(a1.dropFirst()))
-        return [v] + vs
+    let v: Double
+    if a1[0].utilization < 0.0 {
+        v = 0.0
+    } else {
+        v = a1[0].utilization
     }
-    fatalError("unreachable")
+    let vs = zeroed(Array(a1.dropFirst()))
+    return [v] + vs
 }
 
 func smooth(_ z: [Double], _ i: Int, _ n: Int) -> [Double] {
@@ -769,15 +763,12 @@ func crossedFrom(_ a1: [Int], _ u: Double, _ fired: [Int]) -> [Int] {
     if a1.isEmpty {
         return []
     }
-    if !(a1.isEmpty) {
-        let rest = crossedFrom(Array(a1.dropFirst()), u, fired)
-        if (u >= Double(a1[0])) && !(fired.contains(a1[0])) {
-            return [a1[0]] + rest
-        } else {
-            return rest
-        }
+    let rest = crossedFrom(Array(a1.dropFirst()), u, fired)
+    if (u >= Double(a1[0])) && !(fired.contains(a1[0])) {
+        return [a1[0]] + rest
+    } else {
+        return rest
     }
-    fatalError("unreachable")
 }
 
 func alertTitle(_ t: Int) -> String {
@@ -845,25 +836,22 @@ func newestWindows(_ a1: [GitHubRelease]) -> GitHubRelease? {
     if a1.isEmpty {
         return nil
     }
-    if !(a1.isEmpty) {
-        let best = newestWindows(Array(a1.dropFirst()))
-        let ok = usable(a1[0])
-        if ok == false {
-            return best
-        } else if best == nil {
+    let best = newestWindows(Array(a1.dropFirst()))
+    let ok = usable(a1[0])
+    if ok == false {
+        return best
+    } else if best == nil {
+        return a1[0]
+    } else {
+        let t = (a1[0].tagName ?? "")
+        let b = (best!.tagName ?? "")
+        let newer_ = isNewerVersion(t, b)
+        if newer_ == true {
             return a1[0]
         } else {
-            let t = (a1[0].tagName ?? "")
-            let b = (best!.tagName ?? "")
-            let newer_ = isNewerVersion(t, b)
-            if newer_ == true {
-                return a1[0]
-            } else {
-                return best!
-            }
+            return best!
         }
     }
-    fatalError("unreachable")
 }
 
 func usable(_ r: GitHubRelease) -> Bool {
@@ -884,16 +872,13 @@ func firstZip(_ a1: [GitHubAsset]) -> GitHubAsset? {
     if a1.isEmpty {
         return nil
     }
-    if !(a1.isEmpty) {
-        let n1 = (a1[0].name ?? "")
-        let n = n1.lowercased()
-        if n.hasPrefix("claude-limits-windows-") && n.hasSuffix(".zip") {
-            return a1[0]
-        } else {
-            return firstZip(Array(a1.dropFirst()))
-        }
+    let n1 = (a1[0].name ?? "")
+    let n = n1.lowercased()
+    if n.hasPrefix("claude-limits-windows-") && n.hasSuffix(".zip") {
+        return a1[0]
+    } else {
+        return firstZip(Array(a1.dropFirst()))
     }
-    fatalError("unreachable")
 }
 
 func isNewerVersion(_ latest: String, _ current: String) -> Bool {
@@ -912,16 +897,13 @@ func ints(_ a1: [String]) -> [Int] {
     if a1.isEmpty {
         return []
     }
-    if !(a1.isEmpty) {
-        let rest = ints(Array(a1.dropFirst()))
-        let n = Int(a1[0])
-        if n == nil {
-            return rest
-        } else {
-            return [n!] + rest
-        }
+    let rest = ints(Array(a1.dropFirst()))
+    let n = Int(a1[0])
+    if n == nil {
+        return rest
+    } else {
+        return [n!] + rest
     }
-    fatalError("unreachable")
 }
 
 func newer(_ l: [Int], _ c: [Int]) -> Bool {
@@ -943,10 +925,7 @@ func head0(_ a1: [Int]) -> (Int, [Int]) {
     if a1.isEmpty {
         return (0, [])
     }
-    if !(a1.isEmpty) {
-        return (a1[0], Array(a1.dropFirst()))
-    }
-    fatalError("unreachable")
+    return (a1[0], Array(a1.dropFirst()))
 }
 
 func tokenFrom(_ c: Credentials?, _ text: String) -> String? {
@@ -1005,11 +984,8 @@ func fileSteps(_ a1: [String]) -> [TokenStep] {
     if a1.isEmpty {
         return []
     }
-    if !(a1.isEmpty) {
-        let fs = fileSteps(Array(a1.dropFirst()))
-        return [TokenStep.file(a1[0])] + fs
-    }
-    fatalError("unreachable")
+    let fs = fileSteps(Array(a1.dropFirst()))
+    return [TokenStep.file(a1[0])] + fs
 }
 
 func tokenLabel(_ token_step: TokenStep, _ auto: Bool) -> String {
@@ -1025,10 +1001,7 @@ func tokenLabel(_ token_step: TokenStep, _ auto: Bool) -> String {
         }
         return "file \(p) (\(m))"
     }
-    if case .shell = token_step {
-        return "shell command (custom)"
-    }
-    fatalError("unreachable")
+    return "shell command (custom)"
 }
 
 func sourceHint(_ src: TokenSource, _ win: Bool, _ p: String) -> String {
@@ -1144,17 +1117,14 @@ func limitRows(_ a1: [UsageLimit]) -> [Row] {
     if a1.isEmpty {
         return []
     }
-    if !(a1.isEmpty) {
-        let rest = limitRows(Array(a1.dropFirst()))
-        if (a1[0].group == "weekly") && (a1[0].percent != nil) {
-            let n = scopeName(a1[0].scope)
-            let row = barRow(n, a1[0].percent!)
-            return [row] + rest
-        } else {
-            return rest
-        }
+    let rest = limitRows(Array(a1.dropFirst()))
+    if (a1[0].group == "weekly") && (a1[0].percent != nil) {
+        let n = scopeName(a1[0].scope)
+        let row = barRow(n, a1[0].percent!)
+        return [row] + rest
+    } else {
+        return rest
     }
-    fatalError("unreachable")
 }
 
 func scopeName(_ s: LimitScope?) -> String {

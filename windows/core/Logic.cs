@@ -510,19 +510,15 @@ public static partial class Logic
         {
             return new List<HistorySample> {  };
         }
-        if (!(a1.Count == 0))
+        var v = Valid(a1.Skip(1).ToList());
+        if (a1[0].Utilization >= 0.0)
         {
-            var v = Valid(a1.Skip(1).ToList());
-            if (a1[0].Utilization >= 0.0)
-            {
-                return Cons(a1[0], v);
-            }
-            else
-            {
-                return v;
-            }
+            return Cons(a1[0], v);
         }
-        throw new InvalidOperationException();
+        else
+        {
+            return v;
+        }
     }
 
     public static (double, double) Burn(IReadOnlyList<HistorySample> s, int i, double pp, double sec)
@@ -710,21 +706,17 @@ public static partial class Logic
         {
             return new List<double> {  };
         }
-        if (!(a1.Count == 0))
+        double v;
+        if (a1[0].Utilization < 0.0)
         {
-            double v;
-            if (a1[0].Utilization < 0.0)
-            {
-                v = 0.0;
-            }
-            else
-            {
-                v = a1[0].Utilization;
-            }
-            var vs = Zeroed(a1.Skip(1).ToList());
-            return Cons(v, vs);
+            v = 0.0;
         }
-        throw new InvalidOperationException();
+        else
+        {
+            v = a1[0].Utilization;
+        }
+        var vs = Zeroed(a1.Skip(1).ToList());
+        return Cons(v, vs);
     }
 
     public static IReadOnlyList<double> Smooth(IReadOnlyList<double> z, int i, int n)
@@ -966,19 +958,15 @@ public static partial class Logic
         {
             return new List<int> {  };
         }
-        if (!(a1.Count == 0))
+        var rest = CrossedFrom(a1.Skip(1).ToList(), u, fired);
+        if ((u >= (double)a1[0]) && !(fired.Contains(a1[0])))
         {
-            var rest = CrossedFrom(a1.Skip(1).ToList(), u, fired);
-            if ((u >= (double)a1[0]) && !(fired.Contains(a1[0])))
-            {
-                return Cons(a1[0], rest);
-            }
-            else
-            {
-                return rest;
-            }
+            return Cons(a1[0], rest);
         }
-        throw new InvalidOperationException();
+        else
+        {
+            return rest;
+        }
     }
 
     public static string AlertTitle(int t)
@@ -1074,34 +1062,30 @@ public static partial class Logic
         {
             return null;
         }
-        if (!(a1.Count == 0))
+        var best = NewestWindows(a1.Skip(1).ToList());
+        var ok = Usable(a1[0]);
+        if (ok == false)
         {
-            var best = NewestWindows(a1.Skip(1).ToList());
-            var ok = Usable(a1[0]);
-            if (ok == false)
-            {
-                return best;
-            }
-             else if (best == null)
+            return best;
+        }
+         else if (best == null)
+        {
+            return a1[0];
+        }
+        else
+        {
+            var t = (a1[0].TagName ?? "");
+            var b = (best.TagName ?? "");
+            var newer_ = IsNewerVersion(t, b);
+            if (newer_ == true)
             {
                 return a1[0];
             }
             else
             {
-                var t = (a1[0].TagName ?? "");
-                var b = (best.TagName ?? "");
-                var newer_ = IsNewerVersion(t, b);
-                if (newer_ == true)
-                {
-                    return a1[0];
-                }
-                else
-                {
-                    return best;
-                }
+                return best;
             }
         }
-        throw new InvalidOperationException();
     }
 
     public static bool Usable(GitHubRelease r)
@@ -1129,20 +1113,16 @@ public static partial class Logic
         {
             return null;
         }
-        if (!(a1.Count == 0))
+        var n1 = (a1[0].Name ?? "");
+        var n = n1.ToLowerInvariant();
+        if (n.StartsWith("claude-limits-windows-", StringComparison.Ordinal) && n.EndsWith(".zip", StringComparison.Ordinal))
         {
-            var n1 = (a1[0].Name ?? "");
-            var n = n1.ToLowerInvariant();
-            if (n.StartsWith("claude-limits-windows-", StringComparison.Ordinal) && n.EndsWith(".zip", StringComparison.Ordinal))
-            {
-                return a1[0];
-            }
-            else
-            {
-                return FirstZip(a1.Skip(1).ToList());
-            }
+            return a1[0];
         }
-        throw new InvalidOperationException();
+        else
+        {
+            return FirstZip(a1.Skip(1).ToList());
+        }
     }
 
     public static bool IsNewerVersion(string latest, string current)
@@ -1165,20 +1145,16 @@ public static partial class Logic
         {
             return new List<int> {  };
         }
-        if (!(a1.Count == 0))
+        var rest = Ints(a1.Skip(1).ToList());
+        var n = ToInt(a1[0]);
+        if (n == null)
         {
-            var rest = Ints(a1.Skip(1).ToList());
-            var n = ToInt(a1[0]);
-            if (n == null)
-            {
-                return rest;
-            }
-            else
-            {
-                return Cons(n.Value, rest);
-            }
+            return rest;
         }
-        throw new InvalidOperationException();
+        else
+        {
+            return Cons(n.Value, rest);
+        }
     }
 
     public static bool Newer(IReadOnlyList<int> l, IReadOnlyList<int> c)
@@ -1209,11 +1185,7 @@ public static partial class Logic
         {
             return (0, new List<int> {  });
         }
-        if (!(a1.Count == 0))
-        {
-            return (a1[0], a1.Skip(1).ToList());
-        }
-        throw new InvalidOperationException();
+        return (a1[0], a1.Skip(1).ToList());
     }
 
     public static string TokenFrom(Credentials c, string text)
@@ -1304,12 +1276,8 @@ public static partial class Logic
         {
             return new List<TokenStep> {  };
         }
-        if (!(a1.Count == 0))
-        {
-            var fs = FileSteps(a1.Skip(1).ToList());
-            return Cons(TokenStep.File(a1[0]), fs);
-        }
-        throw new InvalidOperationException();
+        var fs = FileSteps(a1.Skip(1).ToList());
+        return Cons(TokenStep.File(a1[0]), fs);
     }
 
     public static string TokenLabel(TokenStep token_step, bool auto)
@@ -1331,11 +1299,7 @@ public static partial class Logic
             }
             return $"file {(token_step.Path)} ({(m)})";
         }
-        if (token_step.Kind == TokenStepKind.Shell)
-        {
-            return "shell command (custom)";
-        }
-        throw new InvalidOperationException();
+        return "shell command (custom)";
     }
 
     public static string SourceHint(TokenSource src, bool win, string p)
@@ -1502,21 +1466,17 @@ public static partial class Logic
         {
             return new List<Row> {  };
         }
-        if (!(a1.Count == 0))
+        var rest = LimitRows(a1.Skip(1).ToList());
+        if ((a1[0].Group == "weekly") && (a1[0].Percent != null))
         {
-            var rest = LimitRows(a1.Skip(1).ToList());
-            if ((a1[0].Group == "weekly") && (a1[0].Percent != null))
-            {
-                var n = ScopeName(a1[0].Scope);
-                var row = BarRow(n, a1[0].Percent.Value);
-                return Cons(row, rest);
-            }
-            else
-            {
-                return rest;
-            }
+            var n = ScopeName(a1[0].Scope);
+            var row = BarRow(n, a1[0].Percent.Value);
+            return Cons(row, rest);
         }
-        throw new InvalidOperationException();
+        else
+        {
+            return rest;
+        }
     }
 
     public static string ScopeName(LimitScope s)
