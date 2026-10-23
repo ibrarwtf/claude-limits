@@ -27,7 +27,7 @@ regenerates them and fails if anything differs.
 
 | File | What it is |
 |---|---|
-| `core.pl` | The logic: error copy, constants, settings table, API/JSON models, countdowns, burn rate, reset line, sparkline, animation frames, rollover, polling/back-off/click policy, alerts, the dropdown's rows, the tray glyph, update checks, token parsing. |
+| `core.pl` | The logic: error copy, constants, settings table, API/JSON models, countdowns, burn rate, reset line, sparkline, animation frames and timing, rollover, polling/back-off/click policy, once-per-window alerts, the dropdown's rows, the tray glyph, Settings copy, update checks, token parsing and source order, command-line flags, Windows flyout placement. |
 | `lang.pl` | Makes `core.pl` runnable as plain Prolog: the declaration operators and Prolog twins of every builtin (`parse_iso`, `clock`, `pad2`, `get`, …). |
 | `plc.pl` | The compiler: reads `core.pl` as data, builds a typed IR, emits Swift and C#. |
 | `oracle.pl` | Runs `spec/cases.json` against `core.pl`, then writes both apps' test suites. |
