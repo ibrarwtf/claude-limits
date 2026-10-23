@@ -49,18 +49,12 @@ namespace ClaudeLimits
             if (File.Exists(OldPath)) File.Delete(OldPath);
             File.Move(exe, OldPath);
             try { File.Copy(newExe, exe); }
-            catch
-            {
-                File.Move(OldPath, exe);
-                throw;
-            }
+            catch { File.Move(OldPath, exe); throw; }
             Log.Write($"self-update: installed {release.TagName}");
         }
 
-        public static void Relaunch()
-        {
+        public static void Relaunch() =>
             Process.Start(new ProcessStartInfo(Platform.ExePath, AfterUpdateFlag) { UseShellExecute = false });
-        }
 
         public static void CleanupOldExe()
         {
