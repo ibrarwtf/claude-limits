@@ -420,24 +420,20 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // ── Title rendering ──────────────────────────────────────────────────────
 
     func updateTitle() {
-        if isRefreshing || animationTimer != nil { return }
-        if rateLimitCycleTimer != nil { return }
-
+        if isRefreshing || animationTimer != nil || rateLimitCycleTimer != nil { return }
         statusItem.isVisible = true
-
-        if let err = lastError, lastResponse == nil {
-            statusItem.button?.title = errorSymbol(err)
-            statusItem.button?.attributedTitle = NSAttributedString(string: "")
-            clampWidth()
-            return
-        }
+        if let err = lastError, lastResponse == nil { return setPlainTitle(errorSymbol(err)) }
         if let f = lastResponse?.fiveHour {
             let s = Settings.shared
             setTitle(titleParts(s.showPercentage, s.showWave, s.showResetTime, "\(percent(f.utilization))%",
                                 sparkline(UsageHistory.shared.samples, sparkWidth), countdown(f.resetsAt, Clock.now())))
             return
         }
-        statusItem.button?.title = "—"
+        setPlainTitle("—")
+    }
+
+    func setPlainTitle(_ text: String) {
+        statusItem.button?.title = text
         statusItem.button?.attributedTitle = NSAttributedString(string: "")
         clampWidth()
     }
@@ -447,6 +443,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func setTitle(_ parts: [Part]) {
         let normal: [NSAttributedString.Key: Any] = [.font: NSFont.menuBarFont(ofSize: NSFont.systemFontSize)]
         let spark: [NSAttributedString.Key: Any] = [.font: NSFont.monospacedSystemFont(ofSize: 8, weight: .regular), .baselineOffset: 1.0]
+        if parts.isEmpty { return setPlainTitle("·") }
         let title = NSMutableAttributedString()
         for (i, part) in parts.enumerated() {
             if i > 0 { title.append(NSAttributedString(string: " ", attributes: normal)) }
@@ -455,8 +452,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             case .pct(let v), .reset(let v): title.append(NSAttributedString(string: v, attributes: normal))
             }
         }
-        if parts.isEmpty { statusItem.button?.title = "·" }
-        statusItem.button?.attributedTitle = parts.isEmpty ? NSAttributedString(string: "") : title
+        statusItem.button?.attributedTitle = title
         clampWidth()
     }
 
