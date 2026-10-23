@@ -217,7 +217,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
 
         // Still inside a 429 back-off from the previous process: mirror it.
-        lastError = resumedError(Settings.shared.nextAllowedPoll, Date())
+        lastError = backoffError(Settings.shared.nextAllowedPoll, Date())
         if lastError != nil && lastResponse == nil { startRateLimitCycle() }
 
         if shouldPoll(Settings.shared.nextAllowedPoll, Settings.shared.lastSuccessfulPoll, Date()) {
@@ -352,7 +352,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         switch clickEffect(Settings.shared.nextAllowedPoll, lastManualClickAt, Date()) {
         case .blocked:
             guard fromClick else { return }
-            lastError = .rateLimited(Settings.shared.nextAllowedPoll!.timeIntervalSinceNow)
+            lastError = backoffError(Settings.shared.nextAllowedPoll, Date())
             playClickAnimation()
         case .cooling: playClickAnimation()
         case .fetch:
@@ -361,10 +361,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    private func playClickAnimation() {
-        startAnimation()
-        stopAnimation(after: 1.5)
-    }
+    private func playClickAnimation() { startAnimation(); stopAnimation(after: 1.5) }
 
     func showDropdown() {
         let menu = NSMenu()

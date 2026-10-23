@@ -888,7 +888,7 @@ public static partial class Logic
         }
     }
 
-    public static AppError ResumedError(DateTime? until, DateTime now)
+    public static AppError BackoffError(DateTime? until, DateTime now)
     {
         if ((until != null) && (until.Value > now))
         {

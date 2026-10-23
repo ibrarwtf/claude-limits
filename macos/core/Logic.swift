@@ -716,7 +716,7 @@ func animationLeft(_ start: Date?, _ now: Date) -> Double {
     }
 }
 
-func resumedError(_ until: Date?, _ now: Date) -> AppError? {
+func backoffError(_ until: Date?, _ now: Date) -> AppError? {
     if (until != nil) && (until! > now) {
         let s = until!.timeIntervalSince(now)
         return AppError.rateLimited(s)

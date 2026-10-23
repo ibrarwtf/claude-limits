@@ -83,7 +83,7 @@ namespace ClaudeLimits
             }
 
             // Still inside a 429 back-off from the previous process: mirror it.
-            LastError = ResumedError(Settings.Shared.NextAllowedPoll, Now);
+            LastError = BackoffError(Settings.Shared.NextAllowedPoll, Now);
             if (LastError != null && LastResponse == null) StartRateLimitCycle();
 
             if (ShouldPoll(Settings.Shared.NextAllowedPoll, Settings.Shared.LastSuccessfulPoll, Now)) TriggerRefresh(animated: true);
@@ -193,7 +193,7 @@ namespace ClaudeLimits
             {
                 case Click.Blocked:
                     if (!fromClick) return;
-                    LastError = AppError.RateLimited((Settings.Shared.NextAllowedPoll.Value - Now).TotalSeconds);
+                    LastError = BackoffError(Settings.Shared.NextAllowedPoll, Now);
                     PlayClickAnimation();
                     break;
                 case Click.Cooling: PlayClickAnimation(); break;
@@ -204,11 +204,7 @@ namespace ClaudeLimits
             }
         }
 
-        void PlayClickAnimation()
-        {
-            StartAnimation();
-            StopAnimationAfter(1.5);
-        }
+        void PlayClickAnimation() { StartAnimation(); StopAnimationAfter(1.5); }
 
         public void ToggleFlyout(Native.RECT anchor, bool fromPill)
         {
