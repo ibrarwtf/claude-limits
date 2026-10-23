@@ -122,6 +122,23 @@ public sealed class UsageResponse
 }
 
 [System.Runtime.Serialization.DataContract]
+public sealed class GitHubAsset
+{
+    [System.Runtime.Serialization.DataMember(Name = "name", EmitDefaultValue = false)] public string Name { get; set; }
+    [System.Runtime.Serialization.DataMember(Name = "browser_download_url", EmitDefaultValue = false)] public string BrowserDownloadUrl { get; set; }
+    [System.Runtime.Serialization.DataMember(Name = "digest", EmitDefaultValue = false)] public string Digest { get; set; }
+}
+
+[System.Runtime.Serialization.DataContract]
+public sealed class GitHubRelease
+{
+    [System.Runtime.Serialization.DataMember(Name = "tag_name", EmitDefaultValue = false)] public string TagName { get; set; }
+    [System.Runtime.Serialization.DataMember(Name = "draft", EmitDefaultValue = false)] public bool? Draft { get; set; }
+    [System.Runtime.Serialization.DataMember(Name = "prerelease", EmitDefaultValue = false)] public bool? Prerelease { get; set; }
+    [System.Runtime.Serialization.DataMember(Name = "assets", EmitDefaultValue = false)] public List<GitHubAsset> Assets { get; set; }
+}
+
+[System.Runtime.Serialization.DataContract]
 sealed class SettingsData
 {
     [System.Runtime.Serialization.DataMember(EmitDefaultValue = false)] public int tokenSourceMode;
@@ -993,6 +1010,83 @@ public static partial class Logic
     public static int Percent(double u)
     {
         return (int)Math.Round(u, MidpointRounding.AwayFromZero);
+    }
+
+    public static GitHubRelease NewestWindows(IReadOnlyList<GitHubRelease> a1)
+    {
+        if (a1.Count == 0)
+        {
+            return null;
+        }
+        if (!(a1.Count == 0))
+        {
+            var best = NewestWindows(a1.Skip(1).ToList());
+            var ok = Usable(a1[0]);
+            if (ok == false)
+            {
+                return best;
+            }
+             else if (best == null)
+            {
+                return a1[0];
+            }
+            else
+            {
+                var t = (a1[0].TagName ?? "");
+                var b = (best.TagName ?? "");
+                var newer_ = IsNewerVersion(t, b);
+                if (newer_ == true)
+                {
+                    return a1[0];
+                }
+                else
+                {
+                    return best;
+                }
+            }
+        }
+        throw new InvalidOperationException();
+    }
+
+    public static bool Usable(GitHubRelease r)
+    {
+        var a = WindowsAsset(r);
+        if ((r.Draft != true) && ((r.Prerelease != true) && ((r.TagName != null) && (a != null))))
+        {
+            return true;
+        }
+        else
+        {
+            return false;
+        }
+    }
+
+    public static GitHubAsset WindowsAsset(GitHubRelease r)
+    {
+        var as_ = (r.Assets ?? new List<GitHubAsset> {  });
+        return FirstZip(as_);
+    }
+
+    public static GitHubAsset FirstZip(IReadOnlyList<GitHubAsset> a1)
+    {
+        if (a1.Count == 0)
+        {
+            return null;
+        }
+        if (!(a1.Count == 0))
+        {
+            var n1 = (a1[0].Name ?? "");
+            var n = n1.ToLowerInvariant();
+            if (n.StartsWith("claude-limits-windows-", StringComparison.Ordinal) && n.EndsWith(".zip", StringComparison.Ordinal))
+            {
+                return a1[0];
+            }
+            else
+            {
+                return FirstZip(a1.Skip(1).ToList());
+            }
+        }
+        throw new InvalidOperationException();
     }
 
     public static bool IsNewerVersion(string latest, string current)

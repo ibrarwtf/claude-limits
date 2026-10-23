@@ -1,39 +1,16 @@
 using System;
 using System.Linq;
 using System.Net.Http;
-using System.Runtime.Serialization;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using static ClaudeLimits.Logic;
 
 namespace ClaudeLimits
 {
-    [DataContract]
-    public sealed class GitHubAsset
-    {
-        [DataMember(Name = "name", EmitDefaultValue = false)] public string Name { get; set; }
-        [DataMember(Name = "browser_download_url", EmitDefaultValue = false)] public string DownloadUrl { get; set; }
-        /// "sha256:<hex>" on assets uploaded since mid-2025; absent on older ones.
-        [DataMember(Name = "digest", EmitDefaultValue = false)] public string Digest { get; set; }
-    }
-
-    [DataContract]
-    public sealed class GitHubRelease
-    {
-        [DataMember(Name = "tag_name", EmitDefaultValue = false)] public string TagName { get; set; }
-        [DataMember(Name = "draft", EmitDefaultValue = false)] public bool Draft { get; set; }
-        [DataMember(Name = "prerelease", EmitDefaultValue = false)] public bool Prerelease { get; set; }
-        [DataMember(Name = "assets", EmitDefaultValue = false)] public GitHubAsset[] Assets { get; set; }
-
-        public GitHubAsset WindowsAsset => Assets?.FirstOrDefault(a =>
-            a.Name != null && a.Name.StartsWith("claude-limits-windows-", StringComparison.OrdinalIgnoreCase)
-                           && a.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase));
-    }
-
+    // GitHubRelease / GitHubAsset are generated from logic/core.pl (Logic.cs).
     public static class Updates
     {
-        /// The full list, not /releases/latest: v0.3.0 shipped Windows-only and
-        /// isn't marked latest, and scanning for the newest release that actually
-        /// carries a Windows zip stays correct whichever release is "latest".
+        /// The full list, not /releases/latest — see newest_windows in logic/core.pl.
         public static readonly Uri ReleasesURL = new Uri("https://api.github.com/repos/ibrarwtf/claude-limits/releases?per_page=30");
         public const string ReleasesPage = "https://github.com/ibrarwtf/claude-limits/releases";
 
@@ -48,15 +25,8 @@ namespace ClaudeLimits
                 var body = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
                 if (!resp.IsSuccessStatusCode)
                     throw new Exception($"GitHub returned HTTP {(int)resp.StatusCode}");
-                var all = Json.Parse<GitHubRelease[]>(body) ?? new GitHubRelease[0];
-                return all.Where(r => !r.Draft && !r.Prerelease && r.WindowsAsset != null && r.TagName != null)
-                          .OrderByDescending(r => r.TagName, Comparer)
-                          .FirstOrDefault();
+                return NewestWindows(Json.Parse<List<GitHubRelease>>(body) ?? new List<GitHubRelease>());
             }
         }
-
-        static readonly System.Collections.Generic.IComparer<string> Comparer =
-            System.Collections.Generic.Comparer<string>.Create((a, b) =>
-                IsNewerVersion(a, b) ? 1 : IsNewerVersion(b, a) ? -1 : 0);
     }
 }

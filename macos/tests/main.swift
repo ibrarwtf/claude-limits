@@ -19,6 +19,9 @@ func bars(_ json: String) -> String {
         return nil
     }.joined(separator: ", ")
 }
+func newestTag(_ json: String) -> String? {
+    newestWindows(try! JSONDecoder().decode([GitHubRelease].self, from: Data(json.utf8)))?.tagName
+}
 func replay(_ steps: [(Double, Double, String?)]) -> String {
     UsageHistory.shared.replaceSamples([])
     for (t, u, r) in steps {
@@ -53,6 +56,9 @@ check("status_error", statusError(403, nil, "").map(friendlyMessage), "Access fo
 check("status_error", statusError(429, 30.0, "").map(friendlyMessage), "Rate limited by Anthropic — retrying in 30 seconds.")
 check("status_error", statusError(429, nil, "").map(friendlyMessage), "Rate limited by Anthropic. Will retry shortly.")
 check("status_error", statusError(500, nil, "oops").map(friendlyMessage), "Anthropic returned HTTP 500. oops")
+check("newest_windows", newestTag("[{\"assets\":[{\"name\":\"claude-limits-windows-0.3.0.zip\"}],\"tag_name\":\"v0.3.0\"},{\"assets\":[{\"name\":\"claude-limits-windows-0.3.2.zip\"}],\"draft\":true,\"tag_name\":\"v0.3.2\"},{\"assets\":[{\"name\":\"claude-limits-macos-0.3.1.zip\"},{\"name\":\"claude-limits-windows-0.3.1.zip\"}],\"tag_name\":\"v0.3.1\"},{\"assets\":[{\"name\":\"claude-limits-windows-0.4.0.zip\"}],\"prerelease\":true,\"tag_name\":\"v0.4.0\"},{\"assets\":[{\"name\":\"claude-limits-macos-0.5.0.zip\"}],\"tag_name\":\"v0.5.0\"}]"), "v0.3.1")
+check("newest_windows", newestTag("[{\"assets\":[{\"name\":\"Claude-Limits-Windows-0.2.0.ZIP\"}],\"draft\":false,\"tag_name\":\"v0.2.0\"}]"), "v0.2.0")
+check("newest_windows", newestTag("[{\"assets\":[],\"tag_name\":\"v0.1.0\"}]"), nil)
 check("extract_token", extractTokenFromText("{\"claudeAiOauth\":{\"accessToken\":\"tok-a\",\"refreshToken\":\"r\"}}"), "tok-a")
 check("extract_token", extractTokenFromText("{\"accessToken\":\"tok-b\"}"), "tok-b")
 check("extract_token", extractTokenFromText("sk-ant-oat01-xyz\n"), "sk-ant-oat01-xyz")

@@ -6,6 +6,8 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Threading.Tasks;
 
+using static ClaudeLimits.Logic;
+
 namespace ClaudeLimits
 {
     /// In-place update from a GitHub release zip — the Windows counterpart of
@@ -21,13 +23,13 @@ namespace ClaudeLimits
         /// after restoring the original exe if the swap got that far.
         public static async Task InstallAsync(GitHubRelease release)
         {
-            var asset = release.WindowsAsset ?? throw new Exception("release has no Windows zip");
+            var asset = WindowsAsset(release) ?? throw new Exception("release has no Windows zip");
             var work = Path.Combine(Path.GetTempPath(), "claude-limits-update");
             if (Directory.Exists(work)) Directory.Delete(work, true);
             Directory.CreateDirectory(work);
             var zipPath = Path.Combine(work, asset.Name);
 
-            var bytes = await Api.Http.GetByteArrayAsync(asset.DownloadUrl).ConfigureAwait(false);
+            var bytes = await Api.Http.GetByteArrayAsync(asset.BrowserDownloadUrl).ConfigureAwait(false);
             if (asset.Digest != null && asset.Digest.StartsWith("sha256:", StringComparison.OrdinalIgnoreCase))
             {
                 string actual;

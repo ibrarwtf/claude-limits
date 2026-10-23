@@ -207,10 +207,10 @@ callee(F, _, NI, Outs) :- sig(F, In, Outs), !, length(In, NI).
 callee(F, Args, NI, [_]) :- length(Args, A), NI is A - 1, builtin(F, NI).
 
 builtin(F, N) :- memberchk(F/N, [parse_iso/1, clock/1, pad2/1, prefix/2, trim/1, split/2, to_int/1,
-    drop_prefix/2, last_n/2, length/1, char_at/2, repeat_str/2, string_concat/2, nth0/2, string_length/1, append/2, or_else/2]).
+    drop_prefix/2, last_n/2, length/1, char_at/2, repeat_str/2, string_concat/2, nth0/2, string_length/1, append/2, or_else/2, lowercase/1]).
 btype(parse_iso, _, opt(time)).  btype(split, _, list(str)).  btype(to_int, _, opt(int)).
 btype(last_n, [L, _], L).  btype(append, [L, L], L).  btype(or_else, [opt(T), T], T).        btype(length, _, int).        btype(string_length, _, int).        btype(nth0, [_, list(T)], T).
-btype(F, _, str) :- memberchk(F, [clock, pad2, prefix, trim, drop_prefix, char_at, repeat_str, string_concat]).
+btype(F, _, str) :- memberchk(F, [clock, pad2, prefix, trim, drop_prefix, char_at, repeat_str, string_concat, lowercase]).
 
 lookup(V, Env, E, T) :- ( memberchk(V-(E:T), Env) -> true ; throw(error(unbound_variable(V), _)) ).
 
@@ -279,6 +279,7 @@ cond(A \== B, Env, op('!=', EA, EB), Env, Env) :- !, val(A, Env, EA, _), val(B, 
 cond(member(X, L), Env, b(member, [EL, EX]), Env, Env) :- !, val(X, Env, EX, _), val(L, Env, EL, _).
 cond(contains(S, X), Env, b(contains, [ES, EX]), Env, Env) :- !, val(S, Env, ES, _), val(X, Env, EX, _).
 cond(starts_with(S, X), Env, b(starts_with, [ES, EX]), Env, Env) :- !, val(S, Env, ES, _), val(X, Env, EX, _).
+cond(ends_with(S, X), Env, b(ends_with, [ES, EX]), Env, Env) :- !, val(S, Env, ES, _), val(X, Env, EX, _).
 cond(C, Env, op(Op, EA, EB), Env, Env) :-
     C =.. [Op0, A, B], memberchk(Op0-Op, [(<)-(<), (>)-(>), (=<)-(<=), (>=)-(>=), (=:=)-(==), (=\=)-('!=')]), !,
     arith(A, Env, EA0, TA), arith(B, Env, EB0, TB),
@@ -483,6 +484,8 @@ bt(abs, "abs(%1)", "Math.Abs(%1)").
 bt(member, "%1.contains(%2)", "%1.Contains(%2)").
 bt(contains, "%1.contains(%2)", "%1.Contains(%2)").
 bt(starts_with, "%1.hasPrefix(%2)", "%1.StartsWith(%2, StringComparison.Ordinal)").
+bt(ends_with, "%1.hasSuffix(%2)", "%1.EndsWith(%2, StringComparison.Ordinal)").
+bt(lowercase, "%1.lowercased()", "%1.ToLowerInvariant()").
 
 quote(T, X, S) :- string_codes(X, Cs), foldl(esc(T, plain), Cs, Parts, []), atomic_list_concat([""|Parts], Body0), format(string(S), "\"~w\"", [Body0]).
 esc(_, _, 0'\\, ["\\\\"|R], R) :- !.
@@ -505,14 +508,14 @@ ipart(csharp, fixed(E, D), [P|R], R) :- ex(csharp, E, S), length(Zs, D), maplist
 
 jty(swift, float, 'Double'). jty(swift, bool, 'Bool'). jty(swift, str, 'String').
 jty(csharp, float, double). jty(csharp, bool, bool). jty(csharp, str, string).
-jty(_, N, P) :- json(N, _), pascal(N, P).
+jty(_, N, P) :- json(N, _), nat(N, P).
 jty(swift, opt(X), S) :- jty(swift, X, XS), format(atom(S), '~w?', [XS]).
 jty(csharp, opt(X), S) :- jty(csharp, X, XS), ( memberchk(X, [float, bool]) -> format(atom(S), '~w?', [XS]) ; S = XS ).
 jty(swift, list(X), S) :- jty(swift, X, XS), format(atom(S), '[~w]', [XS]).
 jty(csharp, list(X), S) :- jty(csharp, X, XS), format(atom(S), 'List<~w>', [XS]).
 
 json_decl(swift, N, Fs) :-
-    pascal(N, P), format("~nstruct ~w: Codable {~n", [P]),
+    nat(N, P), format("~nstruct ~w: Codable {~n", [P]),
     forall(member(F:T, Fs), ( camel(F, C), jty(swift, T, S), format("    let ~w: ~w~n", [C, S]) )),
     (   forall(member(F:_, Fs), camel(F, F)) -> true
     ;   maplist([F:_, S]>>(camel(F, C), ( C == F -> S = C ; format(atom(S), '~w = "~w"', [C, F]) )), Fs, Ss),
@@ -521,7 +524,7 @@ json_decl(swift, N, Fs) :-
 % A required number is stored nullable and read as 0 when missing, so one odd
 % field can't fail the whole decode.
 json_decl(csharp, N, Fs) :-
-    pascal(N, P), format("[System.Runtime.Serialization.DataContract]~npublic sealed class ~w~n{~n", [P]),
+    nat(N, P), format("[System.Runtime.Serialization.DataContract]~npublic sealed class ~w~n{~n", [P]),
     forall(member(F:T, Fs), ( pascal(F, C),
         (   T == float -> format("    [System.Runtime.Serialization.DataMember(Name = \"~w\", EmitDefaultValue = false)] public double? ~wRaw { get; set; }~n    public double ~w => ~wRaw ?? 0;~n", [F, C, C, C])
         ;   jty(csharp, T, S), format("    [System.Runtime.Serialization.DataMember(Name = \"~w\", EmitDefaultValue = false)] public ~w ~w { get; set; }~n", [F, S, C]) ) )),

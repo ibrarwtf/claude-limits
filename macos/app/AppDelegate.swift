@@ -331,7 +331,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 switch result {
                 case .success(let release):
                     let current = (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "0.0.0"
-                    self.latestVersionAvailable = isNewerVersion(release.tagName, current) ? release.tagName : nil
+                    self.latestVersionAvailable = isNewerVersion(release.tagName ?? "", current) ? release.tagName : nil
                     completion?(self.latestVersionAvailable, nil)
                 case .failure(let e):
                     completion?(nil, e)

@@ -44,5 +44,7 @@ char_at(S, I, C) :- sub_string(S, I, 1, _, C).
 repeat_str(S, N, R) :- length(L, N), maplist(=(S), L), atomic_list_concat(L, A), atom_string(A, R).
 contains(S, Sub) :- once(sub_string(S, _, _, _, Sub)).
 starts_with(S, P) :- once(string_concat(P, _, S)).
+ends_with(S, X) :- once(string_concat(_, X, S)).
+lowercase(S, L) :- string_lower(S, L).
 or_else(X, D, V) :- ( X == none -> V = D ; V = X ).
 get(Obj, Key, V) :- ( get_dict(Key, Obj, V0), V0 \== null -> V = V0 ; V = none ).

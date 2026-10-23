@@ -20,6 +20,7 @@ namespace ClaudeLimits.Spec
         static HistorySample S(double ago, double u) => new HistorySample { TimestampUnix = Format.ToUnix(now.AddSeconds(-ago)), Utilization = u };
         static string Bars(string json) =>
             string.Join(", ", WeeklyRows(Json.Parse<UsageResponse>(json)).Where(r => r.Kind == RowKind.Bar).Select(r => $"{r.Label}={Percent(r.Utilization)}"));
+        static string NewestTag(string json) => NewestWindows(Json.Parse<List<GitHubRelease>>(json))?.TagName;
         static string Replay((double t, double u, string r)[] steps)
         {
             UsageHistory.Shared.ReplaceSamples(new HistorySample[0]);
@@ -57,6 +58,9 @@ namespace ClaudeLimits.Spec
             Check("status_error", Msg(StatusError(429, 30.0, "")), "Rate limited by Anthropic — retrying in 30 seconds.");
             Check("status_error", Msg(StatusError(429, null, "")), "Rate limited by Anthropic. Will retry shortly.");
             Check("status_error", Msg(StatusError(500, null, "oops")), "Anthropic returned HTTP 500. oops");
+            Check("newest_windows", NewestTag("[{\"assets\":[{\"name\":\"claude-limits-windows-0.3.0.zip\"}],\"tag_name\":\"v0.3.0\"},{\"assets\":[{\"name\":\"claude-limits-windows-0.3.2.zip\"}],\"draft\":true,\"tag_name\":\"v0.3.2\"},{\"assets\":[{\"name\":\"claude-limits-macos-0.3.1.zip\"},{\"name\":\"claude-limits-windows-0.3.1.zip\"}],\"tag_name\":\"v0.3.1\"},{\"assets\":[{\"name\":\"claude-limits-windows-0.4.0.zip\"}],\"prerelease\":true,\"tag_name\":\"v0.4.0\"},{\"assets\":[{\"name\":\"claude-limits-macos-0.5.0.zip\"}],\"tag_name\":\"v0.5.0\"}]"), "v0.3.1");
+            Check("newest_windows", NewestTag("[{\"assets\":[{\"name\":\"Claude-Limits-Windows-0.2.0.ZIP\"}],\"draft\":false,\"tag_name\":\"v0.2.0\"}]"), "v0.2.0");
+            Check("newest_windows", NewestTag("[{\"assets\":[],\"tag_name\":\"v0.1.0\"}]"), null);
             Check("extract_token", Token.ExtractTokenFromText("{\"claudeAiOauth\":{\"accessToken\":\"tok-a\",\"refreshToken\":\"r\"}}"), "tok-a");
             Check("extract_token", Token.ExtractTokenFromText("{\"accessToken\":\"tok-b\"}"), "tok-b");
             Check("extract_token", Token.ExtractTokenFromText("sk-ant-oat01-xyz\n"), "sk-ant-oat01-xyz");

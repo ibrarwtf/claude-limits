@@ -37,6 +37,9 @@ case(D, _, status_error, msg(call(status_error, [St, R, B])), Got, W) :-
     member(C, D.statusError), St = C.status, B = C.body, W = C.expect,
     ( C.retryAfter == null -> R = none ; R is float(C.retryAfter) ),
     once(status_error(St, R, B, E)), ( E == none -> Got = none ; once(friendly_message(E, Got)) ).
+case(D, _, newest_windows, newest(J), Got, W) :-
+    member(C, D.newestWindows), Rs = C.releases, W = C.expect, with_output_to(string(J), jw(Rs)),
+    once(newest_windows(Rs, R)), ( R == none -> Got = none ; Got = R.tag_name ).
 case(D, _, extract_token, token(T), skip, W) :-
     member(C, D.extractToken), T = C.text, W = C.expect.
 case(D, Now, sparkline, call(sparkline, [samples(Ps), Wd]), Got, W) :-
@@ -99,6 +102,7 @@ x(swift, msg(E)) :- !, x(swift, E), write(".map(friendlyMessage)").
 x(csharp, msg(E)) :- !, write("Msg("), x(csharp, E), write(")").
 x(swift, token(S)) :- !, write("extractTokenFromText("), x(swift, S), write(")").
 x(csharp, token(S)) :- !, write("Token.ExtractTokenFromText("), x(csharp, S), write(")").
+x(T, newest(J)) :- !, ( T == swift -> write("newestTag(") ; write("NewestTag(") ), x(T, J), write(")").
 x(T, bars(J)) :- !, ( T == swift -> write("bars(") ; write("Bars(") ), x(T, J), write(")").
 x(swift, replay(Ss)) :- !, write("replay(["), xs3(swift, Ss), write("])").
 x(csharp, replay(Ss)) :- !, write("Replay(new[] { "), xs3(csharp, Ss), write(" })").
@@ -145,6 +149,9 @@ func bars(_ json: String) -> String {
         return nil
     }.joined(separator: \", \")
 }
+func newestTag(_ json: String) -> String? {
+    newestWindows(try! JSONDecoder().decode([GitHubRelease].self, from: Data(json.utf8)))?.tagName
+}
 func replay(_ steps: [(Double, Double, String?)]) -> String {
     UsageHistory.shared.replaceSamples([])
     for (t, u, r) in steps {
@@ -178,6 +185,7 @@ namespace ClaudeLimits.Spec
         static HistorySample S(double ago, double u) => new HistorySample { TimestampUnix = Format.ToUnix(now.AddSeconds(-ago)), Utilization = u };
         static string Bars(string json) =>
             string.Join(\", \", WeeklyRows(Json.Parse<UsageResponse>(json)).Where(r => r.Kind == RowKind.Bar).Select(r => $\"{r.Label}={Percent(r.Utilization)}\"));
+        static string NewestTag(string json) => NewestWindows(Json.Parse<List<GitHubRelease>>(json))?.TagName;
         static string Replay((double t, double u, string r)[] steps)
         {
             UsageHistory.Shared.ReplaceSamples(new HistorySample[0]);

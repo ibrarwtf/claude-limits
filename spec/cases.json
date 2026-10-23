@@ -78,6 +78,20 @@
     { "status": 500, "retryAfter": null, "body": "oops", "expect": "Anthropic returned HTTP 500. oops" }
   ],
 
+  "newestWindows": [
+    { "name": "skips drafts, prereleases and Mac-only; highest version wins", "releases": [
+        { "tag_name": "v0.3.0", "assets": [{ "name": "claude-limits-windows-0.3.0.zip" }] },
+        { "tag_name": "v0.3.2", "draft": true, "assets": [{ "name": "claude-limits-windows-0.3.2.zip" }] },
+        { "tag_name": "v0.3.1", "assets": [{ "name": "claude-limits-macos-0.3.1.zip" }, { "name": "claude-limits-windows-0.3.1.zip" }] },
+        { "tag_name": "v0.4.0", "prerelease": true, "assets": [{ "name": "claude-limits-windows-0.4.0.zip" }] },
+        { "tag_name": "v0.5.0", "assets": [{ "name": "claude-limits-macos-0.5.0.zip" }] } ],
+      "expect": "v0.3.1" },
+    { "name": "asset name is case-insensitive", "releases": [
+        { "tag_name": "v0.2.0", "draft": false, "assets": [{ "name": "Claude-Limits-Windows-0.2.0.ZIP" }] } ],
+      "expect": "v0.2.0" },
+    { "name": "nothing usable", "releases": [{ "tag_name": "v0.1.0", "assets": [] }], "expect": null }
+  ],
+
   "weeklyRows": [
     { "name": "legacy buckets", "response": { "seven_day": { "utilization": 34.4, "resets_at": null }, "seven_day_opus": { "utilization": 12.5 } },
       "expect": "Overall=34, Opus=13" },

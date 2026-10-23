@@ -2,10 +2,7 @@ import Foundation
 
 let latestReleaseURL = URL(string: "https://api.github.com/repos/ibrarwtf/claude-limits/releases/latest")!
 
-struct GitHubRelease: Codable {
-    let tagName: String
-    enum CodingKeys: String, CodingKey { case tagName = "tag_name" }
-}
+// GitHubRelease is generated from logic/core.pl (Logic.swift).
 
 func fetchLatestRelease(completion: @escaping (Result<GitHubRelease, Error>) -> Void) {
     var req = URLRequest(url: latestReleaseURL)

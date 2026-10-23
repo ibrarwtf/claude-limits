@@ -34,6 +34,12 @@
                           seven_day_omelette: opt(usage_bucket), extra_usage: opt(extra_usage),
                           limits: opt(list(usage_limit))].
 
+% GET /repos/…/releases. digest is "sha256:<hex>" on assets uploaded since mid-2025.
+:- json github_asset = [name: opt(str), browser_download_url: opt(str), digest: opt(str)].
+:- json github_release = [tag_name: opt(str), draft: opt(bool), prerelease: opt(bool), assets: opt(list(github_asset))].
+:- native github_asset = 'GitHubAsset'.
+:- native github_release = 'GitHubRelease'.
+
 % ── Persisted settings ───────────────────────────────────────────────────────
 % UserDefaults on macOS, settings.json on Windows; the key is the camelCase
 % name unless given. hide(Key) stores the inverse, so an unset key reads as
@@ -343,6 +349,29 @@ credits_text(Used, Limit, Cur, S) :- U is Used / 100.0, L is Limit / 100.0, form
 
 :- fn percent(float) -> int.
 percent(U, P) :- P is round(U).
+
+% ── Releases ─────────────────────────────────────────────────────────────────
+% The Windows app scans the release list (v0.3.0 shipped Windows-only and isn't
+% "latest") for the newest published release that carries a Windows zip.
+:- fn newest_windows(list(github_release)) -> opt(github_release).
+newest_windows([], none).
+newest_windows([R|Rs], Out) :-
+    newest_windows(Rs, Best), usable(R, Ok),
+    (   Ok == false -> Out = Best
+    ;   Best == none -> Out = R
+    ;   get(R, tag_name, T0), get(Best, tag_name, B0), or_else(T0, "", T), or_else(B0, "", B),
+        is_newer_version(T, B, Newer), ( Newer == true -> Out = R ; Out = Best ) ).
+:- fn usable(github_release) -> bool.
+usable(R, Ok) :-
+    get(R, draft, D), get(R, prerelease, P), get(R, tag_name, T), windows_asset(R, A),
+    ( D \== true, P \== true, T \== none, A \== none -> Ok = true ; Ok = false ).
+:- fn windows_asset(github_release) -> opt(github_asset).
+windows_asset(R, A) :- get(R, assets, As0), or_else(As0, [], As), first_zip(As, A).
+:- fn first_zip(list(github_asset)) -> opt(github_asset).
+first_zip([], none).
+first_zip([A|As], Out) :-
+    get(A, name, N0), or_else(N0, "", N1), lowercase(N1, N),
+    ( starts_with(N, "claude-limits-windows-"), ends_with(N, ".zip") -> Out = A ; first_zip(As, Out) ).
 
 % ── Small parsers ────────────────────────────────────────────────────────────
 :- fn is_newer_version(str, str) -> bool.   % "v0.3.1" vs "0.3.0"; missing parts count as 0

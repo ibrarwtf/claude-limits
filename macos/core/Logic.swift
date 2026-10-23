@@ -118,6 +118,21 @@ struct UsageResponse: Codable {
     enum CodingKeys: String, CodingKey { case fiveHour = "five_hour", sevenDay = "seven_day", sevenDayOauthApps = "seven_day_oauth_apps", sevenDayOpus = "seven_day_opus", sevenDaySonnet = "seven_day_sonnet", sevenDayCowork = "seven_day_cowork", sevenDayOmelette = "seven_day_omelette", extraUsage = "extra_usage", limits }
 }
 
+struct GitHubAsset: Codable {
+    let name: String?
+    let browserDownloadUrl: String?
+    let digest: String?
+    enum CodingKeys: String, CodingKey { case name, browserDownloadUrl = "browser_download_url", digest }
+}
+
+struct GitHubRelease: Codable {
+    let tagName: String?
+    let draft: Bool?
+    let prerelease: Bool?
+    let assets: [GitHubAsset]?
+    enum CodingKeys: String, CodingKey { case tagName = "tag_name", draft, prerelease, assets }
+}
+
 extension Settings {
     var tokenSource: TokenSource {
         get { TokenSource(rawValue: d.integer(forKey: "tokenSourceMode")) ?? .auto }
@@ -781,6 +796,61 @@ func creditsText(_ used: Double, _ limit: Double, _ cur: String) -> String {
 
 func percent(_ u: Double) -> Int {
     return Int(u.rounded())
+}
+
+func newestWindows(_ a1: [GitHubRelease]) -> GitHubRelease? {
+    if a1.isEmpty {
+        return nil
+    }
+    if !(a1.isEmpty) {
+        let best = newestWindows(Array(a1.dropFirst()))
+        let ok = usable(a1[0])
+        if ok == false {
+            return best
+        } else if best == nil {
+            return a1[0]
+        } else {
+            let t = (a1[0].tagName ?? "")
+            let b = (best!.tagName ?? "")
+            let newer_ = isNewerVersion(t, b)
+            if newer_ == true {
+                return a1[0]
+            } else {
+                return best!
+            }
+        }
+    }
+    fatalError("unreachable")
+}
+
+func usable(_ r: GitHubRelease) -> Bool {
+    let a = windowsAsset(r)
+    if (r.draft != true) && ((r.prerelease != true) && ((r.tagName != nil) && (a != nil))) {
+        return true
+    } else {
+        return false
+    }
+}
+
+func windowsAsset(_ r: GitHubRelease) -> GitHubAsset? {
+    let as_ = (r.assets ?? [])
+    return firstZip(as_)
+}
+
+func firstZip(_ a1: [GitHubAsset]) -> GitHubAsset? {
+    if a1.isEmpty {
+        return nil
+    }
+    if !(a1.isEmpty) {
+        let n1 = (a1[0].name ?? "")
+        let n = n1.lowercased()
+        if n.hasPrefix("claude-limits-windows-") && n.hasSuffix(".zip") {
+            return a1[0]
+        } else {
+            return firstZip(Array(a1.dropFirst()))
+        }
+    }
+    fatalError("unreachable")
 }
 
 func isNewerVersion(_ latest: String, _ current: String) -> Bool {
