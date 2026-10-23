@@ -628,6 +628,78 @@ public static partial class Logic
         return "▁▂▃▄▅▆▇█"[l].ToString();
     }
 
+    public static IReadOnlyList<double> WaveValues(IReadOnlyList<HistorySample> s)
+    {
+        var z = Zeroed(s);
+        var n = z.Count;
+        if (n < 2)
+        {
+            return new List<double> {  };
+        }
+        else
+        {
+            var m = Smooth(z, 0, n);
+            var mM = Append(m, m);
+            return Append(mM, m);
+        }
+    }
+
+    public static IReadOnlyList<double> Zeroed(IReadOnlyList<HistorySample> a1)
+    {
+        if (a1.Count == 0)
+        {
+            return new List<double> {  };
+        }
+        if (!(a1.Count == 0))
+        {
+            double v;
+            if (a1[0].Utilization < 0.0)
+            {
+                v = 0.0;
+            }
+            else
+            {
+                v = a1[0].Utilization;
+            }
+            var vs = Zeroed(a1.Skip(1).ToList());
+            return Cons(v, vs);
+        }
+        throw new InvalidOperationException();
+    }
+
+    public static IReadOnlyList<double> Smooth(IReadOnlyList<double> z, int i, int n)
+    {
+        if (i >= n)
+        {
+            return new List<double> {  };
+        }
+        else
+        {
+            var lo = Math.Max(0, i - 1);
+            var hi = Math.Min(n - 1, i + 1);
+            var sum = SumFrom(z, lo, hi, 0.0);
+            var a = sum / (double)((hi - lo) + 1);
+            var i1 = i + 1;
+            var rest = Smooth(z, i1, n);
+            return Cons(a, rest);
+        }
+    }
+
+    public static double SumFrom(IReadOnlyList<double> z, int i, int hi, double acc)
+    {
+        if (i > hi)
+        {
+            return acc;
+        }
+        else
+        {
+            var v = z[i];
+            var acc1 = acc + v;
+            var i1 = i + 1;
+            return SumFrom(z, i1, hi, acc1);
+        }
+    }
+
     public static string WaveFrame(int step)
     {
         var p = step % 18;

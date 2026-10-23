@@ -526,6 +526,60 @@ func bar(_ l: Int) -> String {
     return String(Array("▁▂▃▄▅▆▇█")[l])
 }
 
+func waveValues(_ s: [HistorySample]) -> [Double] {
+    let z = zeroed(s)
+    let n = z.count
+    if n < 2 {
+        return []
+    } else {
+        let m = smooth(z, 0, n)
+        let mM = m + m
+        return mM + m
+    }
+}
+
+func zeroed(_ a1: [HistorySample]) -> [Double] {
+    if a1.isEmpty {
+        return []
+    }
+    if !(a1.isEmpty) {
+        let v: Double
+        if a1[0].utilization < 0.0 {
+            v = 0.0
+        } else {
+            v = a1[0].utilization
+        }
+        let vs = zeroed(Array(a1.dropFirst()))
+        return [v] + vs
+    }
+    fatalError("unreachable")
+}
+
+func smooth(_ z: [Double], _ i: Int, _ n: Int) -> [Double] {
+    if i >= n {
+        return []
+    } else {
+        let lo = max(0, i - 1)
+        let hi = min(n - 1, i + 1)
+        let sum = sumFrom(z, lo, hi, 0.0)
+        let a = sum / Double((hi - lo) + 1)
+        let i1 = i + 1
+        let rest = smooth(z, i1, n)
+        return [a] + rest
+    }
+}
+
+func sumFrom(_ z: [Double], _ i: Int, _ hi: Int, _ acc: Double) -> Double {
+    if i > hi {
+        return acc
+    } else {
+        let v = z[i]
+        let acc1 = acc + v
+        let i1 = i + 1
+        return sumFrom(z, i1, hi, acc1)
+    }
+}
+
 func waveFrame(_ step: Int) -> String {
     let p = step % 18
     let i: Int

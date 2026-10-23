@@ -47,19 +47,11 @@ namespace ClaudeLimits
     /// samples instead of faking a curve.
     sealed class TopWaveView : FrameworkElement
     {
-        /// Three repetitions visually echoes the rolling-window concept.
-        const int tileCount = 3;
-        const int smoothWindow = 3;
 
         protected override void OnRender(DrawingContext dc)
         {
-            // Treat error sentinels (utilization < 0) as 0 — flat dip in the line.
-            var raw = UsageHistory.Shared.Samples.Select(x => x.Utilization < 0 ? 0.0 : x.Utilization).ToList();
-            if (raw.Count < 2) return;
-            var smoothed = MovingAverage(raw, smoothWindow);
-            // Tile the smoothed pattern so the rolling-window cadence reads even
-            // with one session of data.
-            var samples = Enumerable.Repeat(smoothed, tileCount).SelectMany(x => x).ToList();
+            var samples = WaveValues(UsageHistory.Shared.Samples);   // logic/core.pl
+            if (samples.Count == 0) return;
 
             double padTop = 4, padBottom = 1;
             double usable = ActualHeight - padTop - padBottom;
@@ -88,20 +80,6 @@ namespace ClaudeLimits
             dc.DrawGeometry(null, new Pen(new SolidColorBrush(line), 1.4) { LineJoin = PenLineJoin.Round }, stroke);
         }
 
-        /// Centred moving-average smoothing. Output length == input length.
-        static System.Collections.Generic.List<double> MovingAverage(System.Collections.Generic.List<double> v, int window)
-        {
-            if (v.Count <= 1 || window <= 1) return v;
-            int half = window / 2;
-            var outp = new System.Collections.Generic.List<double>(v.Count);
-            for (int i = 0; i < v.Count; i++)
-            {
-                int lo = Math.Max(0, i - half), hi = Math.Min(v.Count - 1, i + half);
-                double sum = 0; for (int j = lo; j <= hi; j++) sum += v[j];
-                outp.Add(sum / (hi - lo + 1));
-            }
-            return outp;
-        }
     }
 
     /// Settings content. Built standalone (not inside the Window class) so the

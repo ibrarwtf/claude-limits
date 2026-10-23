@@ -217,6 +217,24 @@ bars(R, I, S) :-
 :- fn bar(int) -> str.
 bar(L, C) :- char_at("▁▂▃▄▅▆▇█", L, C).
 
+% Settings header graph: history with errors as 0, smoothed by a centred
+% 3-point moving average and tiled 3× so the rolling-window cadence reads even
+% from one session. Fewer than 2 samples → nothing to draw.
+:- fn wave_values(list(sample)) -> list(float).
+wave_values(S, Out) :-
+    zeroed(S, Z), length(Z, N),
+    ( N < 2 -> Out = [] ; smooth(Z, 0, N, M), append(M, M, MM), append(MM, M, Out) ).
+:- fn zeroed(list(sample)) -> list(float).
+zeroed([], []).
+zeroed([X|Xs], [V|Vs]) :- X = sample(_, U), ( U < 0.0 -> V = 0.0 ; V = U ), zeroed(Xs, Vs).
+:- fn smooth(list(float), int, int) -> list(float).
+smooth(Z, I, N, Out) :-
+    (   I >= N -> Out = []
+    ;   Lo is max(0, I - 1), Hi is min(N - 1, I + 1), sum_from(Z, Lo, Hi, 0.0, Sum),
+        A is Sum / float(Hi - Lo + 1), I1 is I + 1, smooth(Z, I1, N, Rest), Out = [A|Rest] ).
+:- fn sum_from(list(float), int, int, float) -> float.   % left fold, same rounding as the apps had
+sum_from(Z, I, Hi, Acc, S) :- ( I > Hi -> S = Acc ; nth0(I, Z, V), Acc1 is Acc + V, I1 is I + 1, sum_from(Z, I1, Hi, Acc1, S) ).
+
 % Refresh / error animation: a single peak bouncing across ten cells.
 :- fn wave_frame(int) -> str.
 wave_frame(Step, S) :- P is Step rem 18, ( P < 10 -> I = P ; I is 18 - P ), wave_cells(I, 0, S).

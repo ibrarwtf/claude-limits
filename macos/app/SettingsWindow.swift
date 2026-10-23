@@ -21,26 +21,14 @@ enum SettingsWindow {
 /// fill below. Real data only; leaves the strip empty when there's < 2
 /// samples instead of faking a curve.
 final class TopWaveView: NSView {
-    /// Three repetitions visually echoes the rolling-window concept.
-    private let tileCount = 3
-    private let smoothWindow = 3
-
     override var isFlipped: Bool { false } // Cocoa-default Y-up
 
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
         let bounds = self.bounds
 
-        // Treat error sentinels (utilization < 0) as 0 — flat dip in the line.
-        let raw = UsageHistory.shared.samples.map {
-            $0.utilization < 0 ? 0.0 : $0.utilization
-        }
-        guard raw.count >= 2 else { return }
-        let smoothed = movingAverage(raw, window: smoothWindow)
-        // Tile the smoothed pattern so the rolling-window cadence reads even
-        // with one session of data.
-        var samples: [Double] = []
-        for _ in 0..<tileCount { samples.append(contentsOf: smoothed) }
+        let samples = waveValues(UsageHistory.shared.samples)   // logic/core.pl
+        guard !samples.isEmpty else { return }
 
         let padTop: CGFloat = 4, padBottom: CGFloat = 1
         let usable = bounds.height - padTop - padBottom
@@ -86,21 +74,6 @@ final class TopWaveView: NSView {
         for p in points.dropFirst() { linePath.line(to: p) }
         lineColor.setStroke()
         linePath.stroke()
-    }
-
-    /// Centred moving-average smoothing. Output length == input length.
-    private func movingAverage(_ values: [Double], window: Int) -> [Double] {
-        guard values.count > 1, window > 1 else { return values }
-        let half = window / 2
-        var out: [Double] = []
-        out.reserveCapacity(values.count)
-        for i in 0..<values.count {
-            let lo = max(0, i - half)
-            let hi = min(values.count - 1, i + half)
-            let slice = values[lo...hi]
-            out.append(slice.reduce(0, +) / Double(slice.count))
-        }
-        return out
     }
 }
 
