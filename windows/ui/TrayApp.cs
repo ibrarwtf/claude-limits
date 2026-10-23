@@ -415,7 +415,7 @@ namespace ClaudeLimits
         {
             var s = Settings.Shared;
             var (key, fired, due) = Alerts(f.Utilization, f.ResetsAt, s.LastNotifiedResetsAt, s.NotifiedThresholds.ToList());
-            s.LastNotifiedResetsAt = key;
+            if (key != s.LastNotifiedResetsAt) s.LastNotifiedResetsAt = key;
             s.NotifiedThresholds = new System.Collections.Generic.HashSet<int>(fired);
             // Balloon tips surface as Windows toasts on 10/11.
             foreach (var t in due) tray.ShowBalloonTip(8000, AlertTitle(t), AlertBody(t), Forms.ToolTipIcon.Warning);

@@ -596,7 +596,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func checkAndNotifyThresholds(_ f: UsageBucket) {
         let s = Settings.shared
         let (key, fired, due) = alerts(f.utilization, f.resetsAt, s.lastNotifiedResetsAt, Array(s.notifiedThresholds))
-        s.lastNotifiedResetsAt = key
+        if key != s.lastNotifiedResetsAt { s.lastNotifiedResetsAt = key }
         s.notifiedThresholds = Set(fired)
         for threshold in due {
             let c = UNMutableNotificationContent()
