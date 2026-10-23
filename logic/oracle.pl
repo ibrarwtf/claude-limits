@@ -24,17 +24,12 @@ main :-
 %% case(+Spec, +Now, -Label, -Expr, -Got, -Want): Expr is the call the app
 %% runners make; Got is what core.pl answers.
 
-case(D, Now, countdown, call(countdown, [Iso, at(0)]), Got, W) :-
-    member(C, D.timeRemaining), iso_in(C.resetsIn, Now, Iso), W = C.expect, once(countdown(Iso, Now, Got)).
 case(D, _, newest_windows, newest(J), Got, W) :-
     member(C, D.newestWindows), Rs = C.releases, W = C.expect, with_output_to(string(J), jw(Rs)),
     once(newest_windows(Rs, R)), ( R == none -> Got = none ; Got = R.tag_name ).
 case(D, _, extract_token, token(T), Got, W) :-
     member(C, D.extractToken), T = C.text, W = C.expect,
     ( catch(atom_json_dict(T, J, []), _, fail), is_dict(J) -> true ; J = none ), once(token_from(J, T, Got)).
-case(D, Now, reset_line, call(reset_line, [U, Iso, samples(Ps), at(0)]), Got, W) :-
-    member(C, D.resetLine), U is float(C.utilization), iso_in(C.resetsIn, Now, Iso), Ps = C.samples, W = C.expect,
-    samples(Ps, Now, S), once(reset_line(U, Iso, S, Now, Got)).
 case(D, _, weekly_rows, bars(J), Got, W) :-
     member(C, D.weeklyRows), R = C.response, W = C.expect, with_output_to(string(J), jw(R)),
     once(weekly_rows(R, Rows)),
@@ -45,7 +40,8 @@ case(D, Now, rollover, replay(Steps), Got, W) :-
     findall(s(T, U, R), ( member(St, C.steps), T is float(St.t), U is float(St.u), iso_in(St.r, Now, R) ), Steps),
     replay(Steps, Now, none, none, 0, Got).
 
-% `calls`: any fn, its JSON args typed by its signature (time = seconds from now).
+% `calls`: any fn, its JSON args typed by its signature (time = seconds from
+% now; {"in": secs} = that moment as an ISO string).
 case(D, Now, F, out(Out, call(F, Ls)), Got, W) :-
     member(C, D.calls), atom_string(F, C.fn), sig(F, Ins, Out), W = C.expect,
     maplist(arg_in(Now), Ins, C.args, Vs, Ls), length(Out, NO), length(Os, NO),
@@ -53,6 +49,7 @@ case(D, Now, F, out(Out, call(F, Ls)), Got, W) :-
 
 arg_in(Now, time, Off, T, at(Off)) :- !, T is Now + Off.
 arg_in(_, opt(_), null, none, none) :- !.
+arg_in(Now, _, V, Iso, Iso) :- is_dict(V), !, iso_in(V.in, Now, Iso).
 arg_in(Now, opt(T), V, P, L) :- !, arg_in(Now, T, V, P, L).
 arg_in(Now, list(sample), Ps, S, samples(Ps)) :- !, samples(Ps, Now, S).
 arg_in(Now, list(T), Vs, Ps, list(Ls)) :- !, maplist(arg_in(Now, T), Vs, Ps, Ls).

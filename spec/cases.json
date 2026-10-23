@@ -1,15 +1,6 @@
 {
-  "_doc": "Shared behaviour spec. macos/tests (Swift) and windows/tests (C#) both run every case; CI fails if either app disagrees. Times are offsets in seconds from `now`; `samples` are [secondsAgo, utilization] pairs, oldest first. Clock text is UTC, en-US.",
+  "_doc": "Shared behaviour spec. macos/tests (Swift) and windows/tests (C#) both run every case; CI fails if either app disagrees. Times are offsets in seconds from `now`; `samples` are [secondsAgo, utilization] pairs, oldest first. Clock text is UTC, en-US. `calls` run any logic/core.pl fn with JSON args typed by its signature; {\"in\": secs} is that moment as an ISO string.",
   "now": "2030-01-15T12:00:00Z",
-
-  "timeRemaining": [
-    { "resetsIn": 9030, "expect": "2:30" },
-    { "resetsIn": 3600, "expect": "1:00" },
-    { "resetsIn": 300,  "expect": "5m" },
-    { "resetsIn": 59,   "expect": "0m" },
-    { "resetsIn": -5,   "expect": null },
-    { "resetsIn": null, "expect": null }
-  ],
 
   "extractToken": [
     { "text": "{\"claudeAiOauth\":{\"accessToken\":\"tok-a\",\"refreshToken\":\"r\"}}", "expect": "tok-a" },
@@ -17,27 +8,6 @@
     { "text": "sk-ant-oat01-xyz\n", "expect": "sk-ant-oat01-xyz" },
     { "text": "not a token", "expect": null },
     { "text": "{\"claudeAiOauth\":{\"accessToken\":\"\"}}", "expect": null }
-  ],
-
-  "resetLine": [
-    { "name": "no window", "utilization": 0, "resetsIn": null, "samples": [],
-      "expect": "No active 5-hour window — starts on your next Claude request" },
-    { "name": "just reset", "utilization": 10, "resetsIn": -10, "samples": [],
-      "expect": "Window just reset — refreshing soon" },
-    { "name": "capped", "utilization": 100, "resetsIn": 5400, "samples": [],
-      "expect": "Capped — resets in 1h 30m (@ 1:30 PM)" },
-    { "name": "too few samples", "utilization": 20, "resetsIn": 7200, "samples": [[180, 19], [0, 20]],
-      "expect": "Resets @ 2:00 PM · click to refresh" },
-    { "name": "idle", "utilization": 20, "resetsIn": 7200, "samples": [[720, 20], [540, 20], [360, 20], [180, 20], [0, 20]],
-      "expect": "Resets @ 2:00 PM · idle" },
-    { "name": "too fresh to call idle", "utilization": 20, "resetsIn": 7200, "samples": [[300, 20], [150, 20], [0, 20]],
-      "expect": "Resets @ 2:00 PM · measuring…" },
-    { "name": "on pace", "utilization": 40, "resetsIn": 10800, "samples": [[720, 36], [540, 37], [360, 38], [180, 39], [0, 40]],
-      "expect": "Resets @ 3:00 PM · 20%/h · safe ≤ 20%/h" },
-    { "name": "over pace", "utilization": 53, "resetsIn": 9000, "samples": [[540, 47], [360, 49], [180, 51], [0, 53]],
-      "expect": "Resets @ 2:30 PM · 40%/h over safe 19%/h · 100% in 1h 10m" },
-    { "name": "sleep gap restarts the window", "utilization": 30, "resetsIn": 7200, "samples": [[2000, 10], [360, 28], [180, 29], [0, 30]],
-      "expect": "Resets @ 2:00 PM · 20%/h · safe ≤ 35%/h" }
   ],
 
   "newestWindows": [
@@ -73,6 +43,21 @@
   ],
 
   "calls": [
+    {"fn": "countdown", "args": [{"in": 9030}, 0], "expect": "2:30"},
+    {"fn": "countdown", "args": [{"in": 3600}, 0], "expect": "1:00"},
+    {"fn": "countdown", "args": [{"in": 300}, 0], "expect": "5m"},
+    {"fn": "countdown", "args": [{"in": 59}, 0], "expect": "0m"},
+    {"fn": "countdown", "args": [{"in": -5}, 0], "expect": null},
+    {"fn": "countdown", "args": [null, 0], "expect": null},
+    {"fn": "reset_line", "args": [0, null, [], 0], "expect": "No active 5-hour window — starts on your next Claude request"},
+    {"fn": "reset_line", "args": [10, {"in": -10}, [], 0], "expect": "Window just reset — refreshing soon"},
+    {"fn": "reset_line", "args": [100, {"in": 5400}, [], 0], "expect": "Capped — resets in 1h 30m (@ 1:30 PM)"},
+    {"fn": "reset_line", "args": [20, {"in": 7200}, [[180, 19], [0, 20]], 0], "expect": "Resets @ 2:00 PM · click to refresh"},
+    {"fn": "reset_line", "args": [20, {"in": 7200}, [[720, 20], [540, 20], [360, 20], [180, 20], [0, 20]], 0], "expect": "Resets @ 2:00 PM · idle"},
+    {"fn": "reset_line", "args": [20, {"in": 7200}, [[300, 20], [150, 20], [0, 20]], 0], "expect": "Resets @ 2:00 PM · measuring…"},
+    {"fn": "reset_line", "args": [40, {"in": 10800}, [[720, 36], [540, 37], [360, 38], [180, 39], [0, 40]], 0], "expect": "Resets @ 3:00 PM · 20%/h · safe ≤ 20%/h"},
+    {"fn": "reset_line", "args": [53, {"in": 9000}, [[540, 47], [360, 49], [180, 51], [0, 53]], 0], "expect": "Resets @ 2:30 PM · 40%/h over safe 19%/h · 100% in 1h 10m"},
+    {"fn": "reset_line", "args": [30, {"in": 7200}, [[2000, 10], [360, 28], [180, 29], [0, 30]], 0], "expect": "Resets @ 2:00 PM · 20%/h · safe ≤ 35%/h"},
     {"fn": "sparkline", "args": [[], 10], "expect": "▁▁▁▁▁▁▁▁▁▁"},
     {"fn": "sparkline", "args": [[[540, 10], [360, 11], [180, 13], [0, 13]], 10], "expect": "▁▁▁▁▁▁▁▃▆▁"},
     {"fn": "sparkline", "args": [[[3780, 10], [0, 16]], 10], "expect": "▁▁▁▁▁▁▁▁▁▂"},
