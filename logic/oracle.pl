@@ -6,18 +6,28 @@
 %      cases as literal checks against each app's generated Logic code.
 :- use_module(library(http/json)).  % library(json) in SWI 10+; this path works on both
 :- ensure_loaded(core).
+% Clause coverage of core.pl (SWI-Prolog 9.1.22+; older ones just skip it).
+:- if(exists_source(library(prolog_coverage))).
+:- use_module(library(prolog_coverage)).
+covered(G, Cov) :- coverage(G, [show(false)]),
+    findall(H, ( sig(F, Is, Os), length(Is, A0), length(Os, A1), A is A0 + A1, functor(Hd, F, A), nth_clause(Hd, _, R),
+                 ( '$cov_data'(clause(R), E, _), E > 0 -> H = 1 ; H = 0 ) ), Hs),
+    length(Hs, N), sum_list(Hs, C), format(string(Cov), "; runs ~d/~d core.pl fn clauses", [C, N]).
+:- else.
+covered(G, "") :- call(G).
+:- endif.
 :- initialization(main, main).
 
 main :-
     set_stream(user_output, encoding(utf8)),
     open('spec/cases.json', read, In, [encoding(utf8)]), json_read_dict(In, D), close(In),
     parse_iso(D.now, Now),
-    findall(c(L, E, Got, Want), case(D, Now, L, E, Got, Want), Cs),
+    covered(findall(c(L, E, Got, Want), case(D, Now, L, E, Got, Want), Cs), Cov),
     include([c(_, _, G, W)]>>same(G, W), Cs, Ok),
     forall(( member(c(L, E, G, W), Cs), \+ same(G, W) ),
            format("FAIL ~w ~q~n  got:  ~q~n  want: ~q~n", [L, E, G, W])),
     length(Cs, N), length(Ok, P), F is N - P,
-    format("prolog spec: ~d passed, ~d failed~n", [P, F]),
+    format("prolog spec: ~d passed, ~d failed~w~n", [P, F, Cov]),
     emit(swift, 'macos/tests/main.swift', Now, Cs), emit(csharp, 'windows/tests/Spec.cs', Now, Cs),
     ( F =:= 0 -> halt(0) ; halt(1) ).
 
