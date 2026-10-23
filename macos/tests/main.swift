@@ -61,7 +61,10 @@ for c in cases("resetLine") {
 for c in cases("weeklyRows") {
     let data = try! JSONSerialization.data(withJSONObject: c["response"]!)
     let r = try! JSONDecoder().decode(UsageResponse.self, from: data)
-    let got = weeklyRows(r).map { "\($0.0)=\(Int(round($0.1.utilization)))" }.joined(separator: ", ")
+    let got = weeklyRows(r).compactMap { row -> String? in
+        if case .bar(let l, let u, _) = row { return "\(l)=\(percent(u))" }
+        return nil
+    }.joined(separator: ", ")
     check("weeklyRows: \(c["name"]!)", got, str(c["expect"]))
 }
 for c in cases("rollover") {

@@ -58,6 +58,7 @@ fname(csharp, N, F) :- pascal(N, F).
 
 %% ── Types ───────────────────────────────────────────────────────────────────
 
+ty(_, T, _) :- var(T), !, throw(error(untyped_expression, _)).
 ty(swift, int, 'Int').      ty(csharp, int, int).
 ty(swift, float, 'Double'). ty(csharp, float, double).
 ty(swift, str, 'String').   ty(csharp, str, string).
@@ -67,8 +68,9 @@ ty(T, opt(X), S) :- ty(T, X, XS), ( T == csharp, \+ value_type(X) -> S = XS ; fo
 ty(swift, list(X), S) :- ty(swift, X, XS), format(atom(S), '[~w]', [XS]).
 ty(csharp, list(X), S) :- ty(csharp, X, XS), format(atom(S), 'IReadOnlyList<~w>', [XS]).
 ty(T, tuple(Ts), S) :- maplist(ty(T), Ts, Ss), atomic_list_concat(Ss, ', ', J), format(atom(S), '(~w)', [J]).
-ty(_, N, S) :- atom(N), native(N, Nat), ( atom(Nat) -> S = Nat ; functor(Nat, S, _) ).
-value_type(X) :- memberchk(X, [int, float, bool, time]).
+ty(_, N, S) :- atom(N), native(N, Nat), !, ( atom(Nat) -> S = Nat ; functor(Nat, S, _) ).
+ty(_, N, S) :- atom(N), ( enum(N, _) ; choice(N, _) ; json(N, _) ), !, pascal(N, S).
+value_type(X) :- memberchk(X, [int, float, bool, time]) ; atom(X), choice(X, _).
 
 ret_type([T], T) :- !.
 ret_type(Ts, tuple(Ts)).
@@ -151,11 +153,14 @@ body([G|Rest], Env, Mode, Stmts, EnvOut) :- goal(G, Env, Mode, S0, Env1), body(R
 ite(C, A, B, Env, Mode, [cond(CE)], SA, SB, EnvA) :-
     cond(C, Env, CE, ET, EF), goals(A, GA), goals(B, GB),
     body(GA, ET, Mode, SA, EnvA), body(GB, EF, Mode, SB, EnvB),
-    ( Mode = asg(Ts) -> forall(member(V, Ts), ( memberchk(V-(_:T), EnvA), memberchk(V-(_:T), EnvB) -> true ; true )) ; true ).
+    ( Mode = asg(Ts) -> unify_types(Ts, EnvA, EnvB) ; true ).
+
+unify_types([], _, _).
+unify_types([V|Vs], EA, EB) :- ( memberchk(V-(_:T), EA), memberchk(V-(_:T2), EB) -> T = T2 ; true ), unify_types(Vs, EA, EB).
 
 term_variables_v(T, Vs) :- findall(V, ( sub_term(X, T), nonvar(X), X = '$v'(V), V \== '_' ), Vs0), sort(Vs0, Vs).
 
-out_val(Env, '$v'(V), T, E) :- !, lookup(V, Env, E0, T0), coerce(E0, T0, T, E).
+out_val(Env, '$v'(V), T, E) :- !, lookup(V, Env, E0, T0), ( T0 = T -> true ; true ), coerce(E0, T0, T, E).
 out_val(_, [], list(ET), list([], ET)) :- !.
 out_val(Env, X, T, E) :- val(X, Env, E0, T0), coerce(E0, T0, T, E).
 
@@ -172,10 +177,13 @@ bind(V, E, T, Env, Mode, S, [V-(X:T)|Env]) :-
 simple(var(_)). simple(i(_)). simple(f(_)). simple(s(_)). simple(b(_)). simple(nil). simple(c(_)).
 simple(field(X, _, _)) :- simple(X). simple(efield(_, _, _, _, _)). simple(unwrap(X, _)) :- simple(X).
 simple(idx(var(_), I)) :- simple(I).
+simple(jfield(X, _)) :- simple(X).
 
 goal(V0 is A, Env, M, S, Env1) :- !, V0 = '$v'(V), arith(A, Env, E, T), bind(V, E, T, Env, M, S, Env1).
 goal('$v'(V) = R, Env, M, S, Env1) :- \+ memberchk(V-_, Env), !, val(R, Env, E, T), bind(V, E, T, Env, M, S, Env1).
 goal('$v'(V) = P, Env, _, [], Env1) :- !, lookup(V, Env, X, T), pat(P, X, T, Env-[], Env1-[]).
+goal(get(X, F, '$v'(V)), Env, M, S, Env1) :- !,
+    val(X, Env, E, J), json(J, Fs), memberchk(F:FT, Fs), bind(V, jfield(E, F), FT, Env, M, S, Env1).
 goal(format(string('$v'(V)), Fmt, Args), Env, M, S, Env1) :- !,
     fmt(Fmt, Args, Env, Parts), bind(V, interp(Parts), str, Env, M, S, Env1).
 goal(G, Env, M, S, Env1) :-
@@ -199,9 +207,9 @@ callee(F, _, NI, Outs) :- sig(F, In, Outs), !, length(In, NI).
 callee(F, Args, NI, [_]) :- length(Args, A), NI is A - 1, builtin(F, NI).
 
 builtin(F, N) :- memberchk(F/N, [parse_iso/1, clock/1, pad2/1, prefix/2, trim/1, split/2, to_int/1,
-    drop_prefix/2, last_n/2, length/1, char_at/2, repeat_str/2, string_concat/2, nth0/2, string_length/1]).
+    drop_prefix/2, last_n/2, length/1, char_at/2, repeat_str/2, string_concat/2, nth0/2, string_length/1, append/2, or_else/2]).
 btype(parse_iso, _, opt(time)).  btype(split, _, list(str)).  btype(to_int, _, opt(int)).
-btype(last_n, [L, _], L).        btype(length, _, int).        btype(string_length, _, int).        btype(nth0, [_, list(T)], T).
+btype(last_n, [L, _], L).  btype(append, [L, L], L).  btype(or_else, [opt(T), T], T).        btype(length, _, int).        btype(string_length, _, int).        btype(nth0, [_, list(T)], T).
 btype(F, _, str) :- memberchk(F, [clock, pad2, prefix, trim, drop_prefix, char_at, repeat_str, string_concat]).
 
 lookup(V, Env, E, T) :- ( memberchk(V-(E:T), Env) -> true ; throw(error(unbound_variable(V), _)) ).
@@ -212,11 +220,20 @@ val('$v'(V), Env, E, T) :- !, lookup(V, Env, E, T).
 val(none, _, nil, opt(_)) :- !.
 val([], _, list([], T), list(T)) :- !.
 val([H|Tl], Env, E, list(T)) :- !,
-    (   is_list([H|Tl]) -> maplist([X, Y]>>val(X, Env, Y, T), [H|Tl], Es), E = list(Es, T)
+    (   is_list([H|Tl]) -> vals([H|Tl], Env, Es, T), E = list(Es, T)
     ;   val(H, Env, HE, T), val(Tl, Env, TE, list(T)), E = cons(HE, TE, T) ).
 val(X, _, E, T) :- lit(X, E, T), !.
 val(A, Env, E, T) :- atom(A), const(A, _), !, arith(A, Env, E, T).
+val(A, _, ector(EN, A, []), EN) :- atom(A), enum(EN, Cs), memberchk(A, Cs), !.
+val(A, _, chval(CN, A), CN) :- atom(A), choice(CN, Cs), memberchk(A, Cs), !.
+val(C, Env, ector(EN, Name, Es), EN) :-
+    compound(C), C =.. [Name|Args], enum(EN, Cs), member(D, Cs), D =.. [Name|Fs], same_length(Fs, Args), !,
+    maplist([A, _:FT, E]>>(val(A, Env, E0, T0), coerce(E0, T0, FT, E)), Args, Fs, Es).
 val(X, _, _, _) :- throw(error(unsupported_value(X), _)).
+
+% Elements share one type (a lambda would copy T per element).
+vals([], _, [], _).
+vals([X|Xs], Env, [E|Es], T) :- val(X, Env, E, T), vals(Xs, Env, Es, T).
 
 
 %% Arithmetic
@@ -255,6 +272,8 @@ cond(\+ A, Env, not(E), EF, ET) :- !, cond(A, Env, E, ET, EF).
 cond('$v'(V) == none, Env, op('==', X, nil), Env, EF) :- !, narrow(V, Env, X, EF).
 cond('$v'(V) \== none, Env, op('!=', X, nil), ET, Env) :- !, narrow(V, Env, X, ET).
 cond('$v'(V) = P, Env, kind(X, Case), Env, Env) :- lookup(V, Env, X0, T0), strip_opt(X0, T0, X, T), enum(T, _), !, functor(P, Case, _).
+cond(A == [], Env, empty(EA), Env, Env) :- !, val(A, Env, EA, _).
+cond(A \== [], Env, not(empty(EA)), Env, Env) :- !, val(A, Env, EA, _).
 cond(A == B, Env, op('==', EA, EB), Env, Env) :- !, val(A, Env, EA, _), val(B, Env, EB, _).
 cond(A \== B, Env, op('!=', EA, EB), Env, Env) :- !, val(A, Env, EA, _), val(B, Env, EB, _).
 cond(member(X, L), Env, b(member, [EL, EX]), Env, Env) :- !, val(X, Env, EX, _), val(L, Env, EL, _).
@@ -289,7 +308,7 @@ file_text(T, Text) :-
     findall(N, sig(N, _, _), Ns0), list_to_set(Ns0, Ns),
     maplist([N, F]>>catch(fn_ir(N, F), E, (print_message(error, E), format(user_error, "in fn ~w~n", [N]), halt(1))), Ns, Fns),
     with_output_to(string(Text), ( header(T), forall(enum(EN, Cs), enum_decl(T, EN, Cs)), forall(choice(CN, Cs), choice_decl(T, CN, Cs)), forall(json(JN, JFs), json_decl(T, JN, JFs)), settings_decl(T), class_open(T),
-        forall(const(CN, CV), const_decl(T, CN, CV)), forall(member(F, Fns), ( nl, fn_decl(T, F) )), runtime(T), class_close(T) )).
+        forall(const(CN, CV), const_decl(T, CN, CV)), forall(member(F, Fns), ( nl, catch(fn_decl(T, F), E, ( arg(1, F, FN), format(user_error, "emitting ~w: ~q~n", [FN, E]), halt(1) )) )), runtime(T), class_close(T) )).
 
 header(swift) :- format("// Generated by logic/plc.pl from logic/core.pl — do not edit.~nimport Foundation~n").
 header(csharp) :- format("// Generated by logic/plc.pl from logic/core.pl — do not edit.~nusing System;~nusing System.Collections.Generic;~nusing System.Globalization;~nusing System.Linq;~n~nnamespace ClaudeLimits~n{~n").
@@ -301,26 +320,29 @@ class_close(csharp) :- format("}~n}~n").
 const_decl(swift, N, V) :- camel(N, C), format("let ~w = ~w~n", [C, V]).
 const_decl(csharp, N, V) :- pascal(N, C), ( integer(V) -> T = int ; T = double ), format("    public const ~w ~w = ~w;~n", [T, C, V]).
 
+nat(EN, N) :- ( native(EN, N0), atom(N0) -> N = N0 ; pascal(EN, N) ).
+
 enum_decl(swift, EN, Cases) :-
-    native(EN, Nat), format("~nenum ~w: LocalizedError {~n", [Nat]),
+    nat(EN, Nat), ( EN == error -> format("~nenum ~w: LocalizedError {~n", [Nat]) ; format("~nenum ~w {~n", [Nat]) ),
     forall(member(C, Cases), ( C =.. [N|Fs], camel(N, CN), ( Fs == [] -> format("    case ~w~n", [CN])
         ; maplist([_:FT, S]>>ty(swift, FT, S), Fs, Ss), atomic_list_concat(Ss, ', ', J), format("    case ~w(~w)~n", [CN, J]) ) )),
     maplist([C, CN]>>(functor(C, N, _), camel(N, CN)), Cases, CNs), atomic_list_concat(CNs, ', ', All),
     format("    enum Kind { case ~w }~n    var kind: Kind {~n        switch self {~n", [All]),
     forall(member(CN, CNs), format("        case .~w: return .~w~n", [CN, CN])),
-    format("        }~n    }~n    var errorDescription: String? { friendlyMessage(self) }~n}~n").
+    format("        }~n    }~n"), ( EN == error -> format("    var errorDescription: String? { friendlyMessage(self) }~n") ; true ), format("}~n").
 enum_decl(csharp, EN, Cases) :-
-    native(EN, Nat), maplist([C, CN]>>(functor(C, N, _), pascal(N, CN)), Cases, CNs), atomic_list_concat(CNs, ', ', All),
-    format("public enum ~wKind { ~w }~n~npublic sealed class ~w : Exception~n{~n    public ~wKind Kind { get; private set; }~n", [Nat, All, Nat, Nat]),
+    nat(EN, Nat), maplist([C, CN]>>(functor(C, N, _), pascal(N, CN)), Cases, CNs), atomic_list_concat(CNs, ', ', All),
+    ( EN == error -> Base = ' : Exception', Ctor = ' : base(null)' ; Base = '', Ctor = '' ),
+    format("public enum ~wKind { ~w }~n~npublic sealed class ~w~w~n{~n    public ~wKind Kind { get; private set; }~n", [Nat, All, Nat, Base, Nat]),
     findall(F-FT, ( member(C, Cases), C =.. [_|Fs], member(F:FT, Fs) ), FTs0), sort(FTs0, FTs),
     forall(member(F-FT, FTs), ( pascal(F, P), ty(csharp, FT, S), format("    public ~w ~w { get; private set; }~n", [S, P]) )),
-    format("    ~w(~wKind kind) : base(null) { Kind = kind; }~n", [Nat, Nat]),
+    format("    ~w(~wKind kind)~w { Kind = kind; }~n", [Nat, Nat, Ctor]),
     forall(member(C, Cases), ( C =.. [N|Fs], pascal(N, CN),
         maplist([F:FT, S]>>(ty(csharp, FT, T1), camel(F, FC), format(atom(S), '~w ~w', [T1, FC])), Fs, Ps), atomic_list_concat(Ps, ', ', PJ),
         maplist([F:_, S]>>(pascal(F, FP), camel(F, FC), format(atom(S), '~w = ~w', [FP, FC])), Fs, As), atomic_list_concat(As, ', ', AJ),
         ( Fs == [] -> Init = '' ; format(atom(Init), ' { ~w }', [AJ]) ),
         format("    public static ~w ~w(~w) => new ~w(~wKind.~w)~w;~n", [Nat, CN, PJ, Nat, Nat, CN, Init]) )),
-    format("    public override string Message => Logic.FriendlyMessage(this);~n}~n~n").
+    ( EN == error -> format("    public override string Message => Logic.FriendlyMessage(this);~n") ; true ), format("}~n~n").
 
 fn_decl(T, fn(N, Ps, Ret, Body)) :-
     fname(T, N, F), ty(T, Ret, RS),
@@ -372,7 +394,7 @@ guard(swift, case(X, _, Case, Binds)) :-
         atomic_list_concat(Ss, ', ', J), format("case .~w(~w) = ", [C, J])
     ;   format("case .~w = ", [C]) ),
     ex(swift, X).
-guard(csharp, case(X, T, Case, _)) :- native(T, N), pascal(Case, C), ex(csharp, X), format(".Kind == ~wKind.~w", [N, C]).
+guard(csharp, case(X, T, Case, _)) :- nat(T, N), pascal(Case, C), ex(csharp, X), format(".Kind == ~wKind.~w", [N, C]).
 case_binds(_, _, _).
 
 %% Expressions
@@ -404,7 +426,7 @@ ex(T, field(X, R, F), S) :- sub(T, X, SX), native(R, N), N =.. [_|Langs], member
 ex(swift, efield(_, _, _, _, L), S) :- atom_string(L, S).
 ex(csharp, efield(X, _, _, F, _), S) :- sub(csharp, X, SX), pascal(F, P), format(string(S), "~w.~w", [SX, P]).
 ex(swift, kind(X, Case), S) :- sub(swift, X, SX), camel(Case, C), format(string(S), "~w.kind == .~w", [SX, C]).
-ex(csharp, kind(X, Case), S) :- sub(csharp, X, SX), enum(EN, _), native(EN, N), pascal(Case, C), format(string(S), "~w.Kind == ~wKind.~w", [SX, N, C]).
+ex(csharp, kind(X, Case), S) :- sub(csharp, X, SX), enum(EN, Cs), member(D, Cs), functor(D, Case, _), !, nat(EN, N), pascal(Case, C), format(string(S), "~w.Kind == ~wKind.~w", [SX, N, C]).
 ex(T, idx(X, I), S) :- sub(T, X, SX), ex(T, I, SI), format(string(S), "~w[~w]", [SX, SI]).
 ex(swift, empty(X), S) :- sub(swift, X, SX), format(string(S), "~w.isEmpty", [SX]).
 ex(csharp, empty(X), S) :- sub(csharp, X, SX), format(string(S), "~w.Count == 0", [SX]).
@@ -419,6 +441,11 @@ ex(csharp, list([], T), S) :- !, ty(csharp, T, TS), format(string(S), "new List<
 ex(T, tuple(Es), S) :- maplist(ex(T), Es, Ss), atomic_list_concat(Ss, ', ', J), format(string(S), "(~w)", [J]).
 ex(T, call(F, Es), S) :- fname(T, F, FN), maplist(ex(T), Es, Ss), atomic_list_concat(Ss, ', ', J), format(string(S), "~w(~w)", [FN, J]).
 ex(T, b(F, Es), S) :- maplist(ex(T), Es, Ss), bi(T, F, Ss, S), !.
+ex(swift, jfield(X, F), S) :- sub(swift, X, SX), camel(F, C), format(string(S), "~w.~w", [SX, C]).
+ex(csharp, jfield(X, F), S) :- sub(csharp, X, SX), pascal(F, C), format(string(S), "~w.~w", [SX, C]).
+ex(T, chval(CN, A), S) :- pascal(CN, P), ( T == swift -> camel(A, C) ; pascal(A, C) ), format(string(S), "~w.~w", [P, C]).
+ex(swift, ector(EN, A, Es), S) :- nat(EN, N), camel(A, C), ( Es == [] -> format(string(S), "~w.~w", [N, C]) ; maplist(ex(swift), Es, Ss), atomic_list_concat(Ss, ', ', J), format(string(S), "~w.~w(~w)", [N, C, J]) ).
+ex(csharp, ector(EN, A, Es), S) :- nat(EN, N), pascal(A, C), maplist(ex(csharp), Es, Ss), atomic_list_concat(Ss, ', ', J), format(string(S), "~w.~w(~w)", [N, C, J]).
 ex(T, interp(Ps), S) :- interp(T, Ps, S).
 
 % Parenthesise compound operands.
@@ -449,6 +476,9 @@ bi(csharp, char_at, [A, I], S) :- format(string(S), "~w[~w].ToString()", [A, I])
 bi(swift, repeat_str, [A, N], S) :- format(string(S), "String(repeating: ~w, count: ~w)", [A, N]).
 bi(csharp, repeat_str, [A, N], S) :- format(string(S), "string.Concat(Enumerable.Repeat(~w, ~w))", [A, N]).
 bi(_, string_concat, [A, B], S) :- format(string(S), "~w + ~w", [A, B]).
+bi(swift, append, [A, B], S) :- format(string(S), "~w + ~w", [A, B]).
+bi(csharp, append, [A, B], S) :- format(string(S), "Append(~w, ~w)", [A, B]).
+bi(_, or_else, [A, B], S) :- format(string(S), "(~w ?? ~w)", [A, B]).
 bi(swift, string_length, [A], S) :- format(string(S), "~w.count", [A]).
 bi(csharp, string_length, [A], S) :- format(string(S), "~w.Length", [A]).
 bi(_, nth0, [I, L], S) :- format(string(S), "~w[~w]", [L, I]).
@@ -488,7 +518,7 @@ jty(_, N, P) :- json(N, _), pascal(N, P).
 jty(swift, opt(X), S) :- jty(swift, X, XS), format(atom(S), '~w?', [XS]).
 jty(csharp, opt(X), S) :- jty(csharp, X, XS), ( memberchk(X, [float, bool]) -> format(atom(S), '~w?', [XS]) ; S = XS ).
 jty(swift, list(X), S) :- jty(swift, X, XS), format(atom(S), '[~w]', [XS]).
-jty(csharp, list(X), S) :- jty(csharp, X, XS), format(atom(S), '~w[]', [XS]).
+jty(csharp, list(X), S) :- jty(csharp, X, XS), format(atom(S), 'List<~w>', [XS]).
 
 json_decl(swift, N, Fs) :-
     pascal(N, P), format("~nstruct ~w: Codable {~n", [P]),
@@ -562,4 +592,4 @@ cs_setting(C, _, K, P, G, S) :- choice(C, _), pascal(C, P), format(atom(G), '(~w
 
 %% Runtime helpers the C# output needs (Swift's stdlib covers the rest).
 runtime(swift).
-runtime(csharp) :- format("~n    public static string Prefix(string s, int n) => s == null ? \"\" : s.Length <= n ? s : s.Substring(0, n);~n    static int? ToInt(string s) => int.TryParse(s, NumberStyles.None, CultureInfo.InvariantCulture, out var n) ? n : (int?)null;~n    static List<T> Cons<T>(T h, IEnumerable<T> t) { var l = new List<T> { h }; l.AddRange(t); return l; }~n").
+runtime(csharp) :- format("~n    public static string Prefix(string s, int n) => s == null ? \"\" : s.Length <= n ? s : s.Substring(0, n);~n    static int? ToInt(string s) => int.TryParse(s, NumberStyles.None, CultureInfo.InvariantCulture, out var n) ? n : (int?)null;~n    static List<T> Cons<T>(T h, IEnumerable<T> t) { var l = new List<T> { h }; l.AddRange(t); return l; }~n    static List<T> Append<T>(IEnumerable<T> a, IEnumerable<T> b) { var l = new List<T>(a); l.AddRange(b); return l; }~n").

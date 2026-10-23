@@ -322,6 +322,67 @@ raw_token(Text, Out) :-
     trim(Text, T),
     ( T \== "", \+ contains(T, " "), \+ contains(T, "\n"), starts_with(T, "sk-") -> Out = T ; Out = none ).
 
+% ── The dropdown ─────────────────────────────────────────────────────────────
+% Both apps draw exactly these rows, in order. status/reset rows show live
+% text the apps tick every second (status_line / reset_line).
+:- choice menu_action = [open_settings, refresh, open_usage, quit].
+:- enum row = [status, reset, separator, header(text: str), bar(label: str, utilization: float, value: str),
+               pair(label: str, value: str), action(label: str, does: menu_action)].
+
+:- fn menu_rows(opt(error), opt(usage_response)) -> list(row).
+menu_rows(E, R, Rows) :-
+    (   E \== none, E = token_not_found -> Top = [status, action("→ Open Settings", open_settings), separator]
+    ;   Top = [status, separator] ),
+    (   R == none -> Body = []
+    ;   get(R, five_hour, F), ( F == none -> Reset = [] ; Reset = [reset] ),
+        weekly_rows(R, W), ( W == [] -> Weekly = [] ; append([separator, header("Weekly limits")], W, Weekly) ),
+        get(R, extra_usage, X), credits_rows(X, Credits),
+        append(Reset, Weekly, B1), append(B1, Credits, Body) ),
+    append(Top, Body, T1),
+    append(T1, [separator, action("Refresh now", refresh), action("Open claude.ai/settings/usage", open_usage),
+                action("Settings…", open_settings), separator, action("Quit claude-limits", quit)], Rows).
+
+:- fn credits_rows(opt(extra_usage)) -> list(row).
+credits_rows(X, Rows) :-
+    (   X == none -> Rows = []
+    ;   get(X, is_enabled, On),
+        (   On == true ->
+            get(X, used_credits, U0), get(X, monthly_limit, L0), get(X, currency, C0),
+            or_else(U0, 0.0, U), or_else(L0, 0.0, L), or_else(C0, "USD", C), credits_text(U, L, C, T),
+            Rows = [separator, pair("Pay-as-you-go credits", T)]
+        ;   Rows = [] ) ).
+
+% Weekly bars: the legacy seven_day* buckets, or the newer `limits` list when
+% they're all null.
+:- fn weekly_rows(usage_response) -> list(row).
+weekly_rows(R, Rows) :-
+    get(R, seven_day, A), get(R, seven_day_opus, B), get(R, seven_day_sonnet, C),
+    get(R, seven_day_oauth_apps, D), get(R, seven_day_cowork, E), get(R, seven_day_omelette, F),
+    bucket_rows(["Overall", "Opus", "Sonnet", "OAuth apps", "Cowork", "Claude Design"], [A, B, C, D, E, F], Legacy),
+    (   Legacy \== [] -> Rows = Legacy
+    ;   get(R, limits, Ls), or_else(Ls, [], L), limit_rows(L, Rows) ).
+
+:- fn bucket_rows(list(str), list(opt(usage_bucket))) -> list(row).
+bucket_rows([], [], []).
+bucket_rows([L|Ls], [B|Bs], Rows) :-
+    bucket_rows(Ls, Bs, Rest),
+    ( B == none -> Rows = Rest ; get(B, utilization, U), bar_row(L, U, Row), Rows = [Row|Rest] ).
+
+:- fn limit_rows(list(usage_limit)) -> list(row).
+limit_rows([], []).
+limit_rows([L|Ls], Rows) :-
+    limit_rows(Ls, Rest), get(L, group, G), get(L, percent, P),
+    (   G == "weekly", P \== none -> get(L, scope, S), scope_name(S, N), bar_row(N, P, Row), Rows = [Row|Rest]
+    ;   Rows = Rest ).
+
+:- fn scope_name(opt(limit_scope)) -> str.
+scope_name(S, N) :-
+    (   S == none -> N = "Overall"
+    ;   get(S, model, M), ( M == none -> N = "Overall" ; get(M, display_name, D), or_else(D, "Overall", N) ) ).
+
+:- fn bar_row(str, float) -> row.
+bar_row(Label, U, bar(Label, U, V)) :- percent(U, P), format(string(V), "~d%", [P]).
+
 % ── Windows tray ─────────────────────────────────────────────────────────────
 :- fn icon_level(float) -> int.   % 0 normal, 1 amber, 2 red
 icon_level(U, L) :- ( U >= 95.0 -> L = 2 ; U >= 80.0 -> L = 1 ; L = 0 ).

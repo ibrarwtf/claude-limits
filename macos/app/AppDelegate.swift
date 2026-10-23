@@ -814,54 +814,30 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return item
     }
 
+    /// Rows come from menu_rows in logic/core.pl; this only draws them.
     func buildMenu(into menu: NSMenu) {
-        let topItem = plainItem(formatTopStatusLine(), dim: true)
-        menu.addItem(topItem)
-        lastUpdatedMenuItem = topItem
-
-        if let err = lastError {
-            if case .tokenNotFound = err {
-                menu.addItem(actionItem("→ Open Settings", action: #selector(openSettings)))
+        for row in menuRows(lastError, lastResponse) {
+            switch row {
+            case .status:
+                let item = plainItem(formatTopStatusLine(), dim: true)
+                menu.addItem(item)
+                lastUpdatedMenuItem = item
+            case .reset:
+                guard let f = lastResponse?.fiveHour else { continue }
+                let item = plainItem(formatResetLine(f), dim: true)
+                menu.addItem(item)
+                resetMenuItem = item
+            case .separator: menu.addItem(.separator())
+            case .header(let text): menu.addItem(sectionHeader(text))
+            case .bar(let label, let u, let value): menu.addItem(tabularItem(label: label, utilization: u, value: value))
+            case .pair(let label, let value): menu.addItem(payAsYouGoItem(label: label, value: value))
+            case .action(let label, .refresh): menu.addItem(actionItem(label, action: #selector(refreshAction), target: self))
+            case .action(let label, .openUsage): menu.addItem(actionItem(label, action: #selector(openUsageWeb), target: self))
+            case .action(let label, .openSettings): menu.addItem(actionItem(label, action: #selector(openSettings), target: self))
+            // target=NSApp — terminate(_:) is on NSApp, not AppDelegate.
+            case .action(let label, .quit): menu.addItem(actionItem(label, action: #selector(NSApp.terminate(_:)), target: NSApp))
             }
         }
-
-        // Update-available hint lives in Settings (SettingsWindow renders the
-        // status line there) — keep the dropdown clean.
-        menu.addItem(.separator())
-
-        if let r = lastResponse, let f = r.fiveHour {
-            let resetItem = plainItem(formatResetLine(f), dim: true)
-            menu.addItem(resetItem)
-            resetMenuItem = resetItem
-        }
-
-        if let r = lastResponse {
-            let active = weeklyRows(r)
-            if !active.isEmpty {
-                menu.addItem(.separator())
-                menu.addItem(sectionHeader("Weekly limits"))
-                for (label, bucket) in active {
-                    let pct = "\(percent(bucket.utilization))%"
-                    menu.addItem(tabularItem(label: label, utilization: bucket.utilization, value: pct))
-                }
-            }
-        }
-
-        if let r = lastResponse, let extra = r.extraUsage, extra.isEnabled == true {
-            menu.addItem(.separator())
-            // Single-line: "Pay-as-you-go credits" on the left, "X.XX / Y.YY USD"
-            // flush-right via tab stop. Same layout idiom as the tabular rows.
-            let value = creditsText(extra.usedCredits ?? 0, extra.monthlyLimit ?? 0, extra.currency ?? "USD")
-            menu.addItem(payAsYouGoItem(label: "Pay-as-you-go credits", value: value))
-        }
-
-        menu.addItem(.separator())
-        menu.addItem(actionItem("Refresh now", action: #selector(refreshAction), target: self))
-        menu.addItem(actionItem("Open claude.ai/settings/usage", action: #selector(openUsageWeb), target: self))
-        menu.addItem(actionItem("Settings…", action: #selector(openSettings), target: self))
-        menu.addItem(.separator())
-        // target=NSApp — terminate(_:) is on NSApp, not AppDelegate.
-        menu.addItem(actionItem("Quit claude-limits", action: #selector(NSApp.terminate(_:)), target: NSApp))
     }
 
     @objc func refreshAction() {

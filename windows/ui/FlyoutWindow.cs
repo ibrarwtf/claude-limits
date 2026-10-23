@@ -52,45 +52,26 @@ namespace ClaudeLimits
             hero.HorizontalAlignment = HorizontalAlignment.Left;
             s.Children.Add(new Border { Padding = new Thickness(leftPad, 6, rightPad, 6), Child = hero });
 
-            s.Children.Add(TextRow(app.FormatTopStatusLine(), "FgDim", out statusText));
-
-            if (app.LastError?.Kind == AppErrorKind.TokenNotFound)
-                s.Children.Add(ActionRow("→ Open Settings", app.OpenSettings));
-
-            s.Children.Add(Separator());
-
-            var r = app.LastResponse;
-            if (r?.FiveHour != null)
-                s.Children.Add(TextRow(app.FormatResetLine(r.FiveHour), "FgDim", out resetText));
-
-            if (r != null)
-            {
-                var weekly = WeeklyRows(r);
-                if (weekly.Count > 0)
-                {
-                    s.Children.Add(Separator());
-                    s.Children.Add(TextRow("Weekly limits", "FgDim", out _));
-                    foreach (var (label, bucket) in weekly)
-                        s.Children.Add(TabularRow(label, bucket.Utilization, $"{(int)Math.Round(bucket.Utilization, MidpointRounding.AwayFromZero)}%"));
-                }
-            }
-
-            if (r?.ExtraUsage != null && r.ExtraUsage.IsEnabled == true)
-            {
-                s.Children.Add(Separator());
-                var used = (r.ExtraUsage.UsedCredits ?? 0) / 100.0;
-                var limit = (r.ExtraUsage.MonthlyLimit ?? 0) / 100.0;
-                var cur = r.ExtraUsage.Currency ?? "USD";
-                s.Children.Add(PairRow("Pay-as-you-go credits", $"{used:0.00} / {limit:0.00} {cur}"));
-            }
-
-            s.Children.Add(Separator());
-            s.Children.Add(ActionRow("Refresh now", app.RefreshAction));
-            s.Children.Add(ActionRow("Open claude.ai/settings/usage", app.OpenUsageWeb));
-            s.Children.Add(ActionRow("Settings…", app.OpenSettings));
-            s.Children.Add(Separator());
-            s.Children.Add(ActionRow("Quit claude-limits", app.Quit));
+            foreach (var row in MenuRows(app.LastError, app.LastResponse)) s.Children.Add(RowView(row));
             return s;
+        }
+
+        /// Rows come from menu_rows in logic/core.pl; this only draws them.
+        FrameworkElement RowView(Row row)
+        {
+            switch (row.Kind)
+            {
+                case RowKind.Status: return TextRow(app.FormatTopStatusLine(), "FgDim", out statusText);
+                case RowKind.Reset: return TextRow(app.FormatResetLine(app.LastResponse.FiveHour), "FgDim", out resetText);
+                case RowKind.Separator: return Separator();
+                case RowKind.Header: return TextRow(row.Text, "FgDim", out _);
+                case RowKind.Bar: return TabularRow(row.Label, row.Utilization, row.Value);
+                case RowKind.Pair: return PairRow(row.Label, row.Value);
+                default:
+                    var a = row.Does;
+                    return ActionRow(row.Label, a == MenuAction.Refresh ? app.RefreshAction : a == MenuAction.OpenUsage ? app.OpenUsageWeb
+                                              : a == MenuAction.Quit ? (Action)app.Quit : app.OpenSettings);
+            }
         }
 
         static TextBlock Label(string text, string fgKey)

@@ -28,7 +28,31 @@ enum AppError: LocalizedError {
     var errorDescription: String? { friendlyMessage(self) }
 }
 
+enum Row {
+    case status
+    case reset
+    case separator
+    case header(String)
+    case bar(String, Double, String)
+    case pair(String, String)
+    case action(String, MenuAction)
+    enum Kind { case status, reset, separator, header, bar, pair, action }
+    var kind: Kind {
+        switch self {
+        case .status: return .status
+        case .reset: return .reset
+        case .separator: return .separator
+        case .header: return .header
+        case .bar: return .bar
+        case .pair: return .pair
+        case .action: return .action
+        }
+    }
+}
+
 enum TokenSource: Int { case auto, file, shell }
+
+enum MenuAction: Int { case openSettings, refresh, openUsage, quit }
 
 struct UsageBucket: Codable {
     let utilization: Double
@@ -708,6 +732,111 @@ func rawToken(_ text: String) -> String? {
     } else {
         return nil
     }
+}
+
+func menuRows(_ e: AppError?, _ r: UsageResponse?) -> [Row] {
+    let top: [Row]
+    if (e != nil) && e!.kind == .tokenNotFound {
+        top = [Row.status, Row.action("→ Open Settings", MenuAction.openSettings), Row.separator]
+    } else {
+        top = [Row.status, Row.separator]
+    }
+    let body: [Row]
+    if r == nil {
+        body = []
+    } else {
+        let reset: [Row]
+        if r!.fiveHour == nil {
+            reset = []
+        } else {
+            reset = [Row.reset]
+        }
+        let w = weeklyRows(r!)
+        let weekly: [Row]
+        if w.isEmpty {
+            weekly = []
+        } else {
+            weekly = [Row.separator, Row.header("Weekly limits")] + w
+        }
+        let credits = creditsRows(r!.extraUsage)
+        let b1 = reset + weekly
+        body = b1 + credits
+    }
+    let t1 = top + body
+    return t1 + [Row.separator, Row.action("Refresh now", MenuAction.refresh), Row.action("Open claude.ai/settings/usage", MenuAction.openUsage), Row.action("Settings…", MenuAction.openSettings), Row.separator, Row.action("Quit claude-limits", MenuAction.quit)]
+}
+
+func creditsRows(_ x: ExtraUsage?) -> [Row] {
+    if x == nil {
+        return []
+    } else if x!.isEnabled == true {
+        let u = (x!.usedCredits ?? 0.0)
+        let l = (x!.monthlyLimit ?? 0.0)
+        let c = (x!.currency ?? "USD")
+        let t = creditsText(u, l, c)
+        return [Row.separator, Row.pair("Pay-as-you-go credits", t)]
+    } else {
+        return []
+    }
+}
+
+func weeklyRows(_ r: UsageResponse) -> [Row] {
+    let legacy = bucketRows(["Overall", "Opus", "Sonnet", "OAuth apps", "Cowork", "Claude Design"], [r.sevenDay, r.sevenDayOpus, r.sevenDaySonnet, r.sevenDayOauthApps, r.sevenDayCowork, r.sevenDayOmelette])
+    if !(legacy.isEmpty) {
+        return legacy
+    } else {
+        let l = (r.limits ?? [])
+        return limitRows(l)
+    }
+}
+
+func bucketRows(_ a1: [String], _ a2: [UsageBucket?]) -> [Row] {
+    if a1.isEmpty, a2.isEmpty {
+        return []
+    }
+    if !(a1.isEmpty), !(a2.isEmpty) {
+        let rest = bucketRows(Array(a1.dropFirst()), Array(a2.dropFirst()))
+        if a2[0] == nil {
+            return rest
+        } else {
+            let row = barRow(a1[0], a2[0]!.utilization)
+            return [row] + rest
+        }
+    }
+    fatalError("unreachable")
+}
+
+func limitRows(_ a1: [UsageLimit]) -> [Row] {
+    if a1.isEmpty {
+        return []
+    }
+    if !(a1.isEmpty) {
+        let rest = limitRows(Array(a1.dropFirst()))
+        if (a1[0].group == "weekly") && (a1[0].percent != nil) {
+            let n = scopeName(a1[0].scope)
+            let row = barRow(n, a1[0].percent!)
+            return [row] + rest
+        } else {
+            return rest
+        }
+    }
+    fatalError("unreachable")
+}
+
+func scopeName(_ s: LimitScope?) -> String {
+    if s == nil {
+        return "Overall"
+    } else if s!.model == nil {
+        return "Overall"
+    } else {
+        return (s!.model!.displayName ?? "Overall")
+    }
+}
+
+func barRow(_ label: String, _ u: Double) -> Row {
+    let p = percent(u)
+    let v = "\(p)%"
+    return Row.bar(label, u, v)
 }
 
 func iconLevel(_ u: Double) -> Int {

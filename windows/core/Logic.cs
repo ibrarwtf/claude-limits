@@ -27,7 +27,29 @@ public sealed class AppError : Exception
     public override string Message => Logic.FriendlyMessage(this);
 }
 
+public enum RowKind { Status, Reset, Separator, Header, Bar, Pair, Action }
+
+public sealed class Row
+{
+    public RowKind Kind { get; private set; }
+    public MenuAction Does { get; private set; }
+    public string Label { get; private set; }
+    public string Text { get; private set; }
+    public double Utilization { get; private set; }
+    public string Value { get; private set; }
+    Row(RowKind kind) { Kind = kind; }
+    public static Row Status() => new Row(RowKind.Status);
+    public static Row Reset() => new Row(RowKind.Reset);
+    public static Row Separator() => new Row(RowKind.Separator);
+    public static Row Header(string text) => new Row(RowKind.Header) { Text = text };
+    public static Row Bar(string label, double utilization, string value) => new Row(RowKind.Bar) { Label = label, Utilization = utilization, Value = value };
+    public static Row Pair(string label, string value) => new Row(RowKind.Pair) { Label = label, Value = value };
+    public static Row Action(string label, MenuAction does) => new Row(RowKind.Action) { Label = label, Does = does };
+}
+
 public enum TokenSource { Auto, File, Shell }
+
+public enum MenuAction { OpenSettings, Refresh, OpenUsage, Quit }
 
 [System.Runtime.Serialization.DataContract]
 public sealed class UsageBucket
@@ -80,7 +102,7 @@ public sealed class UsageResponse
     [System.Runtime.Serialization.DataMember(Name = "seven_day_cowork", EmitDefaultValue = false)] public UsageBucket SevenDayCowork { get; set; }
     [System.Runtime.Serialization.DataMember(Name = "seven_day_omelette", EmitDefaultValue = false)] public UsageBucket SevenDayOmelette { get; set; }
     [System.Runtime.Serialization.DataMember(Name = "extra_usage", EmitDefaultValue = false)] public ExtraUsage ExtraUsage { get; set; }
-    [System.Runtime.Serialization.DataMember(Name = "limits", EmitDefaultValue = false)] public UsageLimit[] Limits { get; set; }
+    [System.Runtime.Serialization.DataMember(Name = "limits", EmitDefaultValue = false)] public List<UsageLimit> Limits { get; set; }
 }
 
 [System.Runtime.Serialization.DataContract]
@@ -913,6 +935,153 @@ public static partial class Logic
         }
     }
 
+    public static IReadOnlyList<Row> MenuRows(AppError e, UsageResponse r)
+    {
+        IReadOnlyList<Row> top;
+        if ((e != null) && e.Kind == AppErrorKind.TokenNotFound)
+        {
+            top = new List<Row> { Row.Status(), Row.Action("→ Open Settings", MenuAction.OpenSettings), Row.Separator() };
+        }
+        else
+        {
+            top = new List<Row> { Row.Status(), Row.Separator() };
+        }
+        IReadOnlyList<Row> body;
+        if (r == null)
+        {
+            body = new List<Row> {  };
+        }
+        else
+        {
+            IReadOnlyList<Row> reset;
+            if (r.FiveHour == null)
+            {
+                reset = new List<Row> {  };
+            }
+            else
+            {
+                reset = new List<Row> { Row.Reset() };
+            }
+            var w = WeeklyRows(r);
+            IReadOnlyList<Row> weekly;
+            if (w.Count == 0)
+            {
+                weekly = new List<Row> {  };
+            }
+            else
+            {
+                weekly = Append(new List<Row> { Row.Separator(), Row.Header("Weekly limits") }, w);
+            }
+            var credits = CreditsRows(r.ExtraUsage);
+            var b1 = Append(reset, weekly);
+            body = Append(b1, credits);
+        }
+        var t1 = Append(top, body);
+        return Append(t1, new List<Row> { Row.Separator(), Row.Action("Refresh now", MenuAction.Refresh), Row.Action("Open claude.ai/settings/usage", MenuAction.OpenUsage), Row.Action("Settings…", MenuAction.OpenSettings), Row.Separator(), Row.Action("Quit claude-limits", MenuAction.Quit) });
+    }
+
+    public static IReadOnlyList<Row> CreditsRows(ExtraUsage x)
+    {
+        if (x == null)
+        {
+            return new List<Row> {  };
+        }
+         else if (x.IsEnabled == true)
+        {
+            var u = (x.UsedCredits ?? 0.0);
+            var l = (x.MonthlyLimit ?? 0.0);
+            var c = (x.Currency ?? "USD");
+            var t = CreditsText(u, l, c);
+            return new List<Row> { Row.Separator(), Row.Pair("Pay-as-you-go credits", t) };
+        }
+        else
+        {
+            return new List<Row> {  };
+        }
+    }
+
+    public static IReadOnlyList<Row> WeeklyRows(UsageResponse r)
+    {
+        var legacy = BucketRows(new List<string> { "Overall", "Opus", "Sonnet", "OAuth apps", "Cowork", "Claude Design" }, new List<UsageBucket> { r.SevenDay, r.SevenDayOpus, r.SevenDaySonnet, r.SevenDayOauthApps, r.SevenDayCowork, r.SevenDayOmelette });
+        if (!(legacy.Count == 0))
+        {
+            return legacy;
+        }
+        else
+        {
+            var l = (r.Limits ?? new List<UsageLimit> {  });
+            return LimitRows(l);
+        }
+    }
+
+    public static IReadOnlyList<Row> BucketRows(IReadOnlyList<string> a1, IReadOnlyList<UsageBucket> a2)
+    {
+        if (a1.Count == 0 && a2.Count == 0)
+        {
+            return new List<Row> {  };
+        }
+        if (!(a1.Count == 0) && !(a2.Count == 0))
+        {
+            var rest = BucketRows(a1.Skip(1).ToList(), a2.Skip(1).ToList());
+            if (a2[0] == null)
+            {
+                return rest;
+            }
+            else
+            {
+                var row = BarRow(a1[0], a2[0].Utilization);
+                return Cons(row, rest);
+            }
+        }
+        throw new InvalidOperationException();
+    }
+
+    public static IReadOnlyList<Row> LimitRows(IReadOnlyList<UsageLimit> a1)
+    {
+        if (a1.Count == 0)
+        {
+            return new List<Row> {  };
+        }
+        if (!(a1.Count == 0))
+        {
+            var rest = LimitRows(a1.Skip(1).ToList());
+            if ((a1[0].Group == "weekly") && (a1[0].Percent != null))
+            {
+                var n = ScopeName(a1[0].Scope);
+                var row = BarRow(n, a1[0].Percent.Value);
+                return Cons(row, rest);
+            }
+            else
+            {
+                return rest;
+            }
+        }
+        throw new InvalidOperationException();
+    }
+
+    public static string ScopeName(LimitScope s)
+    {
+        if (s == null)
+        {
+            return "Overall";
+        }
+         else if (s.Model == null)
+        {
+            return "Overall";
+        }
+        else
+        {
+            return (s.Model.DisplayName ?? "Overall");
+        }
+    }
+
+    public static Row BarRow(string label, double u)
+    {
+        var p = Percent(u);
+        var v = $"{(p)}%";
+        return Row.Bar(label, u, v);
+    }
+
     public static int IconLevel(double u)
     {
         if (u >= 95.0)
@@ -980,5 +1149,6 @@ public static partial class Logic
     public static string Prefix(string s, int n) => s == null ? "" : s.Length <= n ? s : s.Substring(0, n);
     static int? ToInt(string s) => int.TryParse(s, NumberStyles.None, CultureInfo.InvariantCulture, out var n) ? n : (int?)null;
     static List<T> Cons<T>(T h, IEnumerable<T> t) { var l = new List<T> { h }; l.AddRange(t); return l; }
+    static List<T> Append<T>(IEnumerable<T> a, IEnumerable<T> b) { var l = new List<T>(a); l.AddRange(b); return l; }
 }
 }
