@@ -129,11 +129,11 @@ x(swift, replay(Ss)) :- !, write("replay(["), xs3(swift, Ss), write("])").
 x(csharp, replay(Ss)) :- !, write("Replay(new[] { "), xs3(csharp, Ss), write(" })").
 x(T, out([bool], E)) :- !, x(T, bool(E)).
 x(T, out([opt(error)], E)) :- !, x(T, msg(E)).
+x(swift, out([float], E)) :- !, write("String(format: \"%.3f\", "), x(swift, E), write(")").
+x(swift, out([list(float)], E)) :- !, x(swift, E), write(".map { String(format: \"%.3f\", $0) }.joined(separator: \", \")").
 x(swift, out([O], E)) :- O \= str, O \= opt(str), !, write("String(describing: "), x(swift, E), write(")").
 x(swift, out([_, _], E)) :- !, write("String(describing: "), x(swift, E), write(")").
-x(swift, out([float], E)) :- !, write("String(format: \"%.3f\", "), x(swift, E), write(")").
 x(csharp, out([float], E)) :- !, x(csharp, E), write(".ToString(\"F3\", System.Globalization.CultureInfo.InvariantCulture)").
-x(swift, out([list(float)], E)) :- !, x(swift, E), write(".map { String(format: \"%.3f\", $0) }.joined(separator: \", \")").
 x(csharp, out([list(float)], E)) :- !, write("string.Join(\", \", "), x(csharp, E), write(".Select(v => v.ToString(\"F3\", System.Globalization.CultureInfo.InvariantCulture)))").
 x(csharp, out([list(int)], E)) :- !, write("$\"[{string.Join(\", \", "), x(csharp, E), write(")}]\"").
 x(csharp, out([C], E)) :- choice(C, _), !, write("Case("), x(csharp, E), write(")").
