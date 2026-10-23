@@ -763,6 +763,30 @@ func backoffSecs(_ count: Int, _ retry: Double?) -> Double {
     }
 }
 
+func alerts(_ u: Double, _ r: String?, _ key0: String?, _ fired0: [Int]) -> (String?, [Int], [Int]) {
+    let new_ = newWindow(r, key0)
+    let f0: [Int]
+    let key: String?
+    if new_ {
+        key = r
+        f0 = []
+    } else {
+        key = key0
+        f0 = fired0
+    }
+    let due = crossed(u, f0)
+    let fired = f0 + due
+    return (key, fired, due)
+}
+
+func newWindow(_ r: String?, _ key: String?) -> Bool {
+    if (r != nil) && (r! != key) {
+        return true
+    } else {
+        return false
+    }
+}
+
 func crossed(_ u: Double, _ fired: [Int]) -> [Int] {
     return crossedFrom([80, 95], u, fired)
 }

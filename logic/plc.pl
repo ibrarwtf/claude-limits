@@ -52,7 +52,7 @@ cap(A, B) :- atom_chars(A, [C|Cs]), upcase_atom(C, U), atom_chars(U, [UC]), atom
 uncap(A, B) :- atom_chars(A, [C|Cs]), downcase_atom(C, L), atom_chars(L, [LC]), atom_chars(B, [LC|Cs]).
 
 % Prolog variable → local name; never shadows a fn or a keyword.
-local(V, L) :- uncap(V, L0), ( ( sig(F, _, _), camel(F, L0) ; memberchk(L0, [in, is, as, var, let, default, case, out, ref]) ) -> atom_concat(L0, '_', L) ; L = L0 ).
+local(V, L) :- uncap(V, L0), ( ( sig(F, _, _), camel(F, L0) ; memberchk(L0, [in, is, as, var, let, default, case, out, ref, new, if, else, for, do, while, return, true, false, null, nil, class, struct, string, int, double, bool, object, base, this, self, lock, event, params, fixed, static, func, init, where, guard, try, catch, throw, switch, break, continue, repeat, operator, checked]) ) -> atom_concat(L0, '_', L) ; L = L0 ).
 fname(swift, N, F) :- camel(N, F).
 fname(csharp, N, F) :- pascal(N, F).
 

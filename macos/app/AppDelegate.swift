@@ -592,26 +592,21 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         resetLine(f.utilization, f.resetsAt, UsageHistory.shared.samples, Clock.now())
     }
 
-    /// One-shot 80% / 95% alerts per window. The fired set resets only on a real
-    /// resets_at change — the API sometimes drops it mid-window.
+    /// 80% / 95% alerts, once per window (alerts in logic/core.pl).
     func checkAndNotifyThresholds(_ f: UsageBucket) {
         let s = Settings.shared
-        if let r = f.resetsAt, r != s.lastNotifiedResetsAt {
-            s.lastNotifiedResetsAt = r
-            s.notifiedThresholds = []
-        }
-        var fired = s.notifiedThresholds
-        for threshold in crossed(f.utilization, Array(fired)) {
+        let (key, fired, due) = alerts(f.utilization, f.resetsAt, s.lastNotifiedResetsAt, Array(s.notifiedThresholds))
+        s.lastNotifiedResetsAt = key
+        s.notifiedThresholds = Set(fired)
+        for threshold in due {
             let c = UNMutableNotificationContent()
             c.title = alertTitle(threshold)
             c.body = alertBody(threshold)
             c.sound = .default
             UNUserNotificationCenter.current().add(UNNotificationRequest(
-                identifier: "claude-limits.threshold.\(threshold).\(s.lastNotifiedResetsAt ?? "")",
+                identifier: "claude-limits.threshold.\(threshold).\(key ?? "")",
                 content: c, trigger: nil))
-            fired.insert(threshold)
         }
-        s.notifiedThresholds = fired
     }
 
     func formatTopStatusLine() -> String {

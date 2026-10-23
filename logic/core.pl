@@ -327,6 +327,16 @@ backoff_secs(Count, Retry, S) :-
     ( Retry == none -> S = E ; S is max(Retry, E) ).
 
 % ── Alerts ───────────────────────────────────────────────────────────────────
+% Each threshold alerts once per window. The fired set resets only on a real
+% resets_at change — the API sometimes drops it mid-window. Gives the window
+% key and fired set to store, and the thresholds to announce now.
+:- fn alerts(float, opt(str), opt(str), list(int)) -> (opt(str), list(int), list(int)).   % utilization, resets_at, stored key, stored fired
+alerts(U, R, Key0, Fired0, Key, Fired, Due) :-
+    new_window(R, Key0, New), ( New == true -> Key = R, F0 = [] ; Key = Key0, F0 = Fired0 ),
+    crossed(U, F0, Due), append(F0, Due, Fired).
+:- fn new_window(opt(str), opt(str)) -> bool.
+new_window(R, Key, B) :- ( R \== none, R \== Key -> B = true ; B = false ).
+
 :- fn crossed(float, list(int)) -> list(int).   % thresholds to notify now
 crossed(U, Fired, Out) :- crossed_from([80, 95], U, Fired, Out).
 :- fn crossed_from(list(int), float, list(int)) -> list(int).

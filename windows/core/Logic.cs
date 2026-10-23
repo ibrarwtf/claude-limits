@@ -959,6 +959,38 @@ public static partial class Logic
         }
     }
 
+    public static (string, IReadOnlyList<int>, IReadOnlyList<int>) Alerts(double u, string r, string key0, IReadOnlyList<int> fired0)
+    {
+        var new_ = NewWindow(r, key0);
+        IReadOnlyList<int> f0;
+        string key;
+        if (new_)
+        {
+            key = r;
+            f0 = new List<int> {  };
+        }
+        else
+        {
+            key = key0;
+            f0 = fired0;
+        }
+        var due = Crossed(u, f0);
+        var fired = Append(f0, due);
+        return (key, fired, due);
+    }
+
+    public static bool NewWindow(string r, string key)
+    {
+        if ((r != null) && (r != key))
+        {
+            return true;
+        }
+        else
+        {
+            return false;
+        }
+    }
+
     public static IReadOnlyList<int> Crossed(double u, IReadOnlyList<int> fired)
     {
         return CrossedFrom(new List<int> { 80, 95 }, u, fired);

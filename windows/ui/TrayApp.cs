@@ -410,24 +410,15 @@ namespace ClaudeLimits
 
         public string FormatResetLine(UsageBucket f) => ResetLine(f.Utilization, f.ResetsAt, UsageHistory.Shared.Samples, Now);
 
-        /// One-shot 80% / 95% alerts per window. The fired set resets only on a real
-        /// resets_at change — the API sometimes drops it mid-window.
+        /// 80% / 95% alerts, once per window (alerts in logic/core.pl).
         void CheckAndNotifyThresholds(UsageBucket f)
         {
             var s = Settings.Shared;
-            if (f.ResetsAt != null && f.ResetsAt != s.LastNotifiedResetsAt)
-            {
-                s.LastNotifiedResetsAt = f.ResetsAt;
-                s.NotifiedThresholds = new System.Collections.Generic.HashSet<int>();
-            }
-            var fired = s.NotifiedThresholds;
-            foreach (var t in Crossed(f.Utilization, fired.ToList()))
-            {
-                // Balloon tips surface as Windows toasts on 10/11.
-                tray.ShowBalloonTip(8000, AlertTitle(t), AlertBody(t), Forms.ToolTipIcon.Warning);
-                fired.Add(t);
-            }
-            s.NotifiedThresholds = fired;
+            var (key, fired, due) = Alerts(f.Utilization, f.ResetsAt, s.LastNotifiedResetsAt, s.NotifiedThresholds.ToList());
+            s.LastNotifiedResetsAt = key;
+            s.NotifiedThresholds = new System.Collections.Generic.HashSet<int>(fired);
+            // Balloon tips surface as Windows toasts on 10/11.
+            foreach (var t in due) tray.ShowBalloonTip(8000, AlertTitle(t), AlertBody(t), Forms.ToolTipIcon.Warning);
         }
 
         public string FormatTopStatusLine() => StatusLine(LastError, LastUpdated, Settings.Shared.NextAllowedPoll, nextPollAt, Now);
