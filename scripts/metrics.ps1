@@ -1,5 +1,6 @@
 ﻿# Code-size report: hand-written lines per language (non-blank; generated
-# Logic.swift / Logic.cs excluded), the Prolog share, and the Windows exe size.
+# files — first line says "do not edit" — excluded), the Prolog share, and
+# the Windows exe size.
 #   powershell -File scripts\metrics.ps1
 $Root = Split-Path -Parent $PSScriptRoot
 function Lines($glob) {

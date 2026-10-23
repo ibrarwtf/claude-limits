@@ -30,8 +30,8 @@ jobs:
       - name: Generated code is up to date
         run: |
           swipl logic/plc.pl
-          git diff --exit-code -- macos/core/Logic.swift windows/core/Logic.cs || {
-            echo "::error::Logic.swift / Logic.cs are stale — run: swipl logic/plc.pl"; exit 1; }
+          git diff --exit-code -- macos/core/Logic.swift windows/core/Logic.cs macos/tests/main.swift windows/tests/Spec.cs || {
+            echo "::error::generated files are stale — run: swipl logic/plc.pl && swipl logic/oracle.pl"; exit 1; }
 
   windows:
     runs-on: windows-latest
