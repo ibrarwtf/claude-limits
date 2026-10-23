@@ -30,7 +30,7 @@ function Run([string]$exe) {
     & $exe @args
     if ($LASTEXITCODE -ne 0) { throw "$exe $($args -join ' ') failed (exit $LASTEXITCODE)" }
 }
-function Git { Run git -C $Root @args }
+function Invoke-RepoGit { Run git -C $Root @args }
 
 function Assert-PersonalIdentity([string]$dir) {
     $email = git -C $dir config user.email
@@ -43,7 +43,7 @@ function Assert-PersonalIdentity([string]$dir) {
 Assert-PersonalIdentity $Root
 if ((git -C $Root rev-parse --abbrev-ref HEAD) -ne 'main') { throw 'release from main' }
 if (git -C $Root status --porcelain) { throw 'working tree not clean' }
-Git fetch -q origin main
+Invoke-RepoGit fetch -q origin main
 if ((git -C $Root rev-parse HEAD) -ne (git -C $Root rev-parse origin/main)) { throw 'main is not in sync with origin/main' }
 if (-not (Select-String -Path (Join-Path $Root 'CHANGELOG.md') -Pattern "^## $([regex]::Escape($Tag))$" -Quiet)) {
     throw "CHANGELOG.md has no '## $Tag' section — write the release notes first"
@@ -51,11 +51,11 @@ if (-not (Select-String -Path (Join-Path $Root 'CHANGELOG.md') -Pattern "^## $([
 
 # ── 2. Bump, tag, push ───────────────────────────────────────────────────────
 [IO.File]::WriteAllText((Join-Path $Root 'VERSION'), "$Version`n")
-Git add VERSION
-Git commit -q -m $Tag
-Git tag -f $Tag
-Git push -q origin main
-Git push -q --force origin $Tag
+Invoke-RepoGit add VERSION
+Invoke-RepoGit commit -q -m $Tag
+Invoke-RepoGit tag -f $Tag
+Invoke-RepoGit push -q origin main
+Invoke-RepoGit push -q --force origin $Tag
 Write-Host "→ Pushed $Tag; waiting for the Release workflow…"
 
 # ── 3. Wait for CI to build the draft ────────────────────────────────────────
@@ -77,9 +77,9 @@ Write-Host "→ Mac zip sha256: $sha"
 $c = [IO.File]::ReadAllText($Cask)
 $c = $c -replace '(?m)^  version ".*"', "  version `"$Version`"" -replace '(?m)^  sha256 ".*"', "  sha256 `"$sha`""
 [IO.File]::WriteAllText($Cask, $c)
-Git add $Cask
-Git commit -q -m "claude-limits $Version cask"
-Git push -q origin main
+Invoke-RepoGit add $Cask
+Invoke-RepoGit commit -q -m "claude-limits $Version cask"
+Invoke-RepoGit push -q origin main
 
 if (-not (Test-Path (Join-Path $TapDir '.git'))) { Run gh repo clone ibrarwtf/homebrew-lab $TapDir }
 Assert-PersonalIdentity $TapDir
