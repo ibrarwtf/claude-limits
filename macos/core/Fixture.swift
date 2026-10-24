@@ -8,18 +8,7 @@ enum Clock {
     static func now() -> Date { pinned ?? Date() }
 }
 
-struct FixtureHistoryPoint: Codable {
-    /// Seconds before the fixture's `now`.
-    let ago: Double
-    let u: Double
-}
-
-/// spec/fixtures/*.json — a canned API response plus usage history.
-struct Fixture: Codable {
-    let now: String
-    let response: UsageResponse
-    let history: [FixtureHistoryPoint]
-}
+// Fixture / FixturePoint are generated from logic/core.pl (Logic.swift).
 
 /// `--fixture <file>` loads a Fixture instead of polling Anthropic and keeps
 /// settings/history off disk; `--snapshot-all <dir>` then renders every view
@@ -34,18 +23,14 @@ enum FixtureMode {
 
     /// Must run before anything touches Settings.shared or UsageHistory.shared.
     static func configure(arguments: [String]) throws {
-        func value(after flag: String) -> String? {
-            guard let i = arguments.firstIndex(of: flag), i + 1 < arguments.count else { return nil }
-            return arguments[i + 1]
-        }
-        guard let path = value(after: "--fixture") else { return }
+        guard let path = flagValue(arguments, "--fixture") else { return }
         let data = try Data(contentsOf: URL(fileURLWithPath: (path as NSString).expandingTildeInPath))
         let fx = try JSONDecoder().decode(Fixture.self, from: data)
         guard let now = parseISO(fx.now) else { throw ConfigError(description: "fixture `now` isn't ISO 8601: \(fx.now)") }
         Clock.pinned = now
         UsageHistory.persist = false
         fixture = fx
-        snapshotDest = value(after: "--snapshot-all").map { ($0 as NSString).expandingTildeInPath }
+        snapshotDest = flagValue(arguments, "--snapshot-all").map { ($0 as NSString).expandingTildeInPath }
         UsageHistory.shared.replaceSamples(fx.history.map {
             HistorySample(timestamp: now.addingTimeInterval(-$0.ago), utilization: $0.u)
         })

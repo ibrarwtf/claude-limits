@@ -32,20 +32,11 @@ func fetchUsage(taskHandle: ((URLSessionDataTask) -> Void)? = nil,
             }
             let body = String(data: data ?? Data(), encoding: .utf8) ?? ""
             if let http = resp as? HTTPURLResponse {
-                switch http.statusCode {
-                case 200: break
-                case 401: completion(.failure(.authFailed)); return
-                case 403: completion(.failure(.forbidden)); return
-                case 429:
-                    var retry: TimeInterval? = nil
-                    if let s = (http.allHeaderFields["Retry-After"] as? String) ?? (http.allHeaderFields["retry-after"] as? String),
-                       let n = Double(s.trimmingCharacters(in: .whitespaces)) {
-                        retry = n
-                    }
-                    completion(.failure(.rateLimited(retryAfter: retry))); return
-                default:
-                    completion(.failure(.httpError(http.statusCode, String(body.prefix(200))))); return
+                var retry: TimeInterval? = nil
+                if let s = (http.allHeaderFields["Retry-After"] as? String) ?? (http.allHeaderFields["retry-after"] as? String) {
+                    retry = Double(s.trimmingCharacters(in: .whitespaces))
                 }
+                if let e = statusError(http.statusCode, retry, body) { completion(.failure(e)); return }
             }
             guard let data = data else {
                 completion(.failure(.parseFailed("empty response"))); return

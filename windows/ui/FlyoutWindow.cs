@@ -1,5 +1,4 @@
 using System;
-using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -9,6 +8,8 @@ using System.Windows.Media;
 using System.Windows.Media.Effects;
 using System.Windows.Shapes;
 using System.Windows.Threading;
+
+using static ClaudeLimits.Logic;
 
 namespace ClaudeLimits
 {
@@ -50,45 +51,26 @@ namespace ClaudeLimits
             hero.HorizontalAlignment = HorizontalAlignment.Left;
             s.Children.Add(new Border { Padding = new Thickness(leftPad, 6, rightPad, 6), Child = hero });
 
-            s.Children.Add(TextRow(app.FormatTopStatusLine(), "FgDim", out statusText));
-
-            if (app.LastError?.Kind == AppErrorKind.TokenNotFound)
-                s.Children.Add(ActionRow("→ Open Settings", app.OpenSettings));
-
-            s.Children.Add(Separator());
-
-            var r = app.LastResponse;
-            if (r?.FiveHour != null)
-                s.Children.Add(TextRow(app.FormatResetLine(r.FiveHour), "FgDim", out resetText));
-
-            if (r != null)
-            {
-                var weekly = r.WeeklyRows();
-                if (weekly.Count > 0)
-                {
-                    s.Children.Add(Separator());
-                    s.Children.Add(TextRow("Weekly limits", "FgDim", out _));
-                    foreach (var (label, bucket) in weekly)
-                        s.Children.Add(TabularRow(label, bucket.Utilization, $"{(int)Math.Round(bucket.Utilization, MidpointRounding.AwayFromZero)}%"));
-                }
-            }
-
-            if (r?.ExtraUsage != null && r.ExtraUsage.IsEnabled == true)
-            {
-                s.Children.Add(Separator());
-                var used = (r.ExtraUsage.UsedCredits ?? 0) / 100.0;
-                var limit = (r.ExtraUsage.MonthlyLimit ?? 0) / 100.0;
-                var cur = r.ExtraUsage.Currency ?? "USD";
-                s.Children.Add(PairRow("Pay-as-you-go credits", $"{used:0.00} / {limit:0.00} {cur}"));
-            }
-
-            s.Children.Add(Separator());
-            s.Children.Add(ActionRow("Refresh now", app.RefreshAction));
-            s.Children.Add(ActionRow("Open claude.ai/settings/usage", app.OpenUsageWeb));
-            s.Children.Add(ActionRow("Settings…", app.OpenSettings));
-            s.Children.Add(Separator());
-            s.Children.Add(ActionRow("Quit claude-limits", app.Quit));
+            foreach (var row in MenuRows(app.LastError, app.LastResponse)) s.Children.Add(RowView(row));
             return s;
+        }
+
+        /// Rows come from menu_rows in logic/core.pl; this only draws them.
+        FrameworkElement RowView(Row row)
+        {
+            switch (row.Kind)
+            {
+                case RowKind.Status: return TextRow(app.FormatTopStatusLine(), "FgDim", out statusText);
+                case RowKind.Reset: return TextRow(app.FormatResetLine(app.LastResponse.FiveHour), "FgDim", out resetText);
+                case RowKind.Separator: return Separator();
+                case RowKind.Header: return TextRow(row.Text, "FgDim", out _);
+                case RowKind.Bar: return TabularRow(row.Label, row.Utilization, row.Value);
+                case RowKind.Pair: return PairRow(row.Label, row.Value);
+                default:
+                    var a = row.Does;
+                    return ActionRow(row.Label, a == MenuAction.Refresh ? app.RefreshAction : a == MenuAction.OpenUsage ? app.OpenUsageWeb
+                                              : a == MenuAction.Quit ? (Action)app.Quit : app.OpenSettings);
+            }
         }
 
         static TextBlock Label(string text, string fgKey)
@@ -121,22 +103,18 @@ namespace ClaudeLimits
             return g;
         }
 
-        /// Label, segmented bar that fills the column, value flush-right — the
-        /// TabularRowView layout: 24 discrete blocks, any nonzero usage lights at
-        /// least one so a small-but-real value never shows as empty.
+        /// Label, 24-block bar (filled_blocks in logic/core.pl), value flush-right —
+        /// the macOS TabularRowView layout.
         public static FrameworkElement TabularRow(string label, double utilization, string value)
         {
             var g = new Grid { Height = 24, Margin = new Thickness(leftPad, 0, rightPad, 0) };
-            g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(98) });
-            g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            foreach (var w in new[] { new GridLength(98), new GridLength(1, GridUnitType.Star), GridLength.Auto })
+                g.ColumnDefinitions.Add(new ColumnDefinition { Width = w });
 
             g.Children.Add(Label(label, "FgDim"));
 
             const int blockCount = 24;
-            var fillFrac = Math.Max(0, Math.Min(1, utilization / 100.0));
-            int filled = (int)Math.Round(blockCount * fillFrac, MidpointRounding.AwayFromZero);
-            if (utilization > 0 && filled == 0) filled = 1;
+            int filled = FilledBlocks(utilization, blockCount);
             var bar = new UniformGrid { Rows = 1, Columns = blockCount, Height = 10, VerticalAlignment = VerticalAlignment.Center };
             for (int i = 0; i < blockCount; i++)
             {
@@ -251,24 +229,8 @@ namespace ClaudeLimits
             int m = (int)(shadowMargin * scale);
             var center = new Native.POINT { X = (anchor.Left + anchor.Right) / 2, Y = (anchor.Top + anchor.Bottom) / 2 };
             var work = Native.WorkAreaAt(center);
-            int gap = (int)(6 * scale);
-
-            int x, y;
-            if (fromPill)
-            {
-                x = anchor.Right - w + m;
-                y = anchor.Top - h + m - gap;
-                if (y + m < work.Top) y = anchor.Bottom - m + gap;
-            }
-            else
-            {
-                x = center.X - w / 2;
-                if (center.Y >= work.Bottom) y = work.Bottom - h + m - gap;       // taskbar at bottom
-                else if (center.Y <= work.Top) y = work.Top - m + gap;            // taskbar at top
-                else y = center.Y - h + m;
-            }
-            x = Math.Max(work.Left - m + gap, Math.Min(x, work.Right - w + m - gap));
-            y = Math.Max(work.Top - m, Math.Min(y, work.Bottom - h + m));
+            var (x, y) = FlyoutOrigin(fromPill, anchor.Left, anchor.Top, anchor.Right, anchor.Bottom,
+                                      work.Left, work.Top, work.Right, work.Bottom, w, h, m, (int)(6 * scale));
             Native.SetWindowPos(hwnd, Native.HWND_TOPMOST, x, y, 0, 0, Native.SWP_NOSIZE);
             Opacity = 1;
             tick.Start();

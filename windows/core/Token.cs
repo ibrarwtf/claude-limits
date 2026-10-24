@@ -2,25 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Runtime.Serialization;
 using System.Text;
 using System.Threading.Tasks;
+using static ClaudeLimits.Logic;
 
 namespace ClaudeLimits
 {
-    [DataContract]
-    sealed class CredentialsOAuth
-    {
-        [DataMember(Name = "accessToken", EmitDefaultValue = false)] public string AccessToken { get; set; }
-    }
-
-    [DataContract]
-    sealed class CredentialsFile
-    {
-        [DataMember(Name = "claudeAiOauth", EmitDefaultValue = false)] public CredentialsOAuth ClaudeAiOauth { get; set; }
-        [DataMember(Name = "accessToken", EmitDefaultValue = false)] public string AccessToken { get; set; }
-    }
-
     public static class Token
     {
         /// Claude Code on Windows stores credentials in a plain file (no
@@ -53,19 +40,9 @@ namespace ClaudeLimits
 
         public static string ExtractTokenFromText(string text)
         {
-            if (string.IsNullOrWhiteSpace(text)) return null;
-            try
-            {
-                var obj = Json.Parse<CredentialsFile>(text.Trim());
-                var tok = obj?.ClaudeAiOauth?.AccessToken;
-                if (!string.IsNullOrEmpty(tok)) return tok;
-                if (!string.IsNullOrEmpty(obj?.AccessToken)) return obj.AccessToken;
-            }
-            catch { }
-            var trimmed = text.Trim();
-            if (trimmed.Length > 0 && !trimmed.Contains(" ") && !trimmed.Contains("\n") && trimmed.StartsWith("sk-"))
-                return trimmed;
-            return null;
+            Credentials c = null;
+            try { c = Json.Parse<Credentials>((text ?? "").Trim()); } catch { }
+            return TokenFrom(c, text ?? "");
         }
 
         public static string LoadTokenFromFile(string rawPath)
@@ -120,14 +97,13 @@ namespace ClaudeLimits
                 p.WaitForExit(); // flush async readers
                 var output = outTask.Result;
                 if (p.ExitCode != 0)
-                    throw AppError.CommandFailed($"exit {p.ExitCode}: {AppError.Prefix(errTask.Result.Trim(), 200)}");
+                    throw AppError.CommandFailed($"exit {p.ExitCode}: {Prefix(errTask.Result.Trim(), 200)}");
                 return output;
             }
         }
 
         public static string LoadTokenFromShell(string cmd)
         {
-            if (string.IsNullOrWhiteSpace(cmd)) throw AppError.TokenNotFound();
             var output = RunShell(cmd);
             var tok = ExtractTokenFromText(output);
             if (tok != null) return tok;
@@ -148,37 +124,19 @@ namespace ClaudeLimits
 
         public static string LoadAccessToken()
         {
-            switch (Settings.Shared.TokenSource)
+            var s = Settings.Shared;
+            bool auto = s.TokenSource == TokenSource.Auto;
+            foreach (var step in TokenSteps(s.TokenSource, s.CustomFilePath ?? "", s.CustomShellCommand ?? "", KnownCredentialPaths, false))
             {
-                case TokenSource.File:
+                try
                 {
-                    var path = Settings.Shared.CustomFilePath;
-                    if (string.IsNullOrWhiteSpace(path)) throw AppError.TokenNotFound();
-                    var tok = LoadTokenFromFile(path);
-                    LogTokenSourceOnce($"file {path} (custom)");
+                    var tok = step.Kind == TokenStepKind.Shell ? LoadTokenFromShell(step.Cmd) : LoadTokenFromFile(step.Path);
+                    LogTokenSourceOnce(TokenLabel(step, auto));
                     return tok;
                 }
-                case TokenSource.Shell:
-                {
-                    var tok = LoadTokenFromShell(Settings.Shared.CustomShellCommand);
-                    LogTokenSourceOnce("shell command (custom)");
-                    return tok;
-                }
-                default:
-                    foreach (var path in KnownCredentialPaths)
-                    {
-                        try
-                        {
-                            var tok = LoadTokenFromFile(path);
-                            LogTokenSourceOnce($"file {path} (auto)");
-                            return tok;
-                        }
-                        catch (AppError) { }
-                        catch (IOException) { }
-                        catch (UnauthorizedAccessException) { }
-                    }
-                    throw AppError.TokenNotFound();
+                catch (Exception e) when (auto && (e is AppError || e is IOException || e is UnauthorizedAccessException)) { }
             }
+            throw AppError.TokenNotFound();
         }
     }
 }

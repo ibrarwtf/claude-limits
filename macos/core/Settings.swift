@@ -1,12 +1,11 @@
 import Foundation
 
-enum TokenSource: Int { case auto = 0, file = 1, shell = 2 }
-
+/// UserDefaults wrapper; the stored keys are declared in logic/core.pl.
 final class Settings {
     static let shared = Settings()
     /// Fixture mode gets an empty throwaway domain, so snapshots show default
     /// toggles and never write into the user's real settings.
-    private let d: UserDefaults = {
+    let d: UserDefaults = {
         guard FixtureMode.isActive else { return .standard }
         let name = "claude-limits.fixture"
         let s = UserDefaults(suiteName: name)!
@@ -14,77 +13,8 @@ final class Settings {
         return s
     }()
 
-    var tokenSource: TokenSource {
-        get { TokenSource(rawValue: d.integer(forKey: "tokenSourceMode")) ?? .auto }
-        set { d.set(newValue.rawValue, forKey: "tokenSourceMode") }
-    }
-    var customFilePath: String {
-        get { d.string(forKey: "customFilePath") ?? "" }
-        set { d.set(newValue, forKey: "customFilePath") }
-    }
-    var customShellCommand: String {
-        get { d.string(forKey: "customShellCommand") ?? "" }
-        set { d.set(newValue, forKey: "customShellCommand") }
-    }
-    /// Persisted across app restarts — prevents rapid relaunches from bursting the rate limit.
-    var lastSuccessfulPoll: Date? {
-        get { d.object(forKey: "lastSuccessfulPoll") as? Date }
-        set { d.set(newValue, forKey: "lastSuccessfulPoll") }
-    }
-    /// Persisted "do not poll until" — honours Anthropic's Retry-After across launches.
-    var nextAllowedPoll: Date? {
-        get { d.object(forKey: "nextAllowedPoll") as? Date }
-        set { d.set(newValue, forKey: "nextAllowedPoll") }
-    }
-    /// JSON-encoded last successful UsageResponse so the menu bar shows
-    /// real data immediately on launch instead of "—".
-    var lastResponseJSON: Data? {
-        get { d.data(forKey: "lastResponseJSON") }
-        set { d.set(newValue, forKey: "lastResponseJSON") }
-    }
-    /// Count of consecutive rate-limit responses. Persisted across launches so
-    /// install.sh churn doesn't reset the exponential back-off counter.
-    var consecutiveRateLimits: Int {
-        get { d.integer(forKey: "consecutiveRateLimits") }
-        set { d.set(newValue, forKey: "consecutiveRateLimits") }
-    }
-
-    /// Thresholds (e.g. 80, 95) already notified in the current 5h window.
-    /// Reset when `lastNotifiedResetsAt` no longer matches the live `resets_at`.
-    var notifiedThresholds: Set<Int> {
-        get {
-            let arr = d.array(forKey: "notifiedThresholds") as? [Int] ?? []
-            return Set(arr)
-        }
-        set { d.set(Array(newValue), forKey: "notifiedThresholds") }
-    }
-    /// `resets_at` string the threshold set was recorded against. When this
-    /// changes the live window has rolled over and the set should clear.
-    var lastNotifiedResetsAt: String? {
-        get { d.string(forKey: "lastNotifiedResetsAt") }
-        set { d.set(newValue, forKey: "lastNotifiedResetsAt") }
-    }
-
-    // Sub-toggles — stored as inverse "hide" flags so the unset/zero default
-    // reads as "show everything" (matches new-install expectations).
-    var showPercentage: Bool {
-        get { !d.bool(forKey: "hidePercentage") }
-        set { d.set(!newValue, forKey: "hidePercentage") }
-    }
-    var showWave: Bool {
-        get { !d.bool(forKey: "hideWave") }
-        set { d.set(!newValue, forKey: "hideWave") }
-    }
-    var showResetTime: Bool {
-        get { !d.bool(forKey: "hideResetTime") }
-        set { d.set(!newValue, forKey: "hideResetTime") }
-    }
-
-    /// Gates the auto-open-Settings logic so it fires once for new installs only.
-    var didFirstLaunch: Bool {
-        get { d.bool(forKey: "didFirstLaunch") }
-        set { d.set(newValue, forKey: "didFirstLaunch") }
-    }
+    // Stored settings are generated from logic/core.pl (extension Settings
+    // in Logic.swift); only launch-at-login lives here.
 
     /// Reflects whether the LaunchAgent plist exists in ~/Library/LaunchAgents/.
     /// The setter toggles its presence; the running app stays alive either way

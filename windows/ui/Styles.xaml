@@ -154,11 +154,4 @@
             </Setter.Value>
         </Setter>
     </Style>
-
-    <Style TargetType="ToolTip">
-        <Setter Property="Foreground" Value="{DynamicResource Fg}"/>
-        <Setter Property="Background" Value="{DynamicResource Surface}"/>
-        <Setter Property="BorderBrush" Value="{DynamicResource Divider}"/>
-        <Setter Property="Padding" Value="8,4"/>
-    </Style>
 </ResourceDictionary>

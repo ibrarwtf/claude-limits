@@ -29,6 +29,11 @@ namespace ClaudeLimits
 
         static string Ensure(string dir) { Directory.CreateDirectory(dir); return dir; }
 
+        public static void OpenUrl(string url)
+        {
+            try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true }); } catch { }
+        }
+
         const string runKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
 
         /// HKCU Run entry is the per-user, no-admin equivalent of the LaunchAgent.

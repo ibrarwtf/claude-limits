@@ -29,7 +29,21 @@ namespace ClaudeLimits
         public static Color Hex(int rgb, byte a = 255) =>
             Color.FromArgb(a, (byte)((rgb >> 16) & 0xFF), (byte)((rgb >> 8) & 0xFF), (byte)(rgb & 0xFF));
 
-        static SolidColorBrush B(int rgb, byte a = 255) { var b = new SolidColorBrush(Hex(rgb, a)); b.Freeze(); return b; }
+        static SolidColorBrush B(uint argb) { var b = new SolidColorBrush(Hex((int)(argb & 0xFFFFFF), (byte)(argb >> 24))); b.Freeze(); return b; }
+
+        /// Brush key, dark ARGB, light ARGB. The pill sits on/near the taskbar, so
+        /// it takes taskbar colours.
+        static readonly (string key, uint dark, uint light)[] palette =
+        {
+            ("Bg", 0xFF202020, 0xFFF3F3F3), ("Surface", 0xFF2C2C2C, 0xFFF9F9F9), ("Fg", 0xFFFFFFFF, 0xFF1B1B1B),
+            ("FgDim", 0x9EFFFFFF, 0x9E000000), ("FgFaint", 0x66FFFFFF, 0x6B000000), ("Divider", 0x1AFFFFFF, 0x14000000),
+            ("ControlBg", 0x0FFFFFFF, 0xB3FFFFFF), ("ControlBorder", 0x1FFFFFFF, 0x24000000), ("HoverOverlay", 0x10FFFFFF, 0x0A000000),
+            ("InputBg", 0xFF1C1C1C, 0xFFFFFFFF), ("SwitchOffBg", 0x30000000, 0x06000000), ("SwitchOffBorder", 0x9EFFFFFF, 0x9E000000),
+            ("SwitchOffThumb", 0xC8FFFFFF, 0x9E000000), ("Link", 0xFF99EBFF, 0xFF005FB8), ("BarEmpty", 0x24FFFFFF, 0x1A000000),
+            ("Coral", 0xFFFFAA88, 0xFFD97755), ("CoralFill", 0x4DFFAA88, 0x59FF9966), ("Orange", 0xFFF7A23B, 0xFFF7A23B),
+            ("Green", 0xFF3FB950, 0xFF3FB950), ("Red", 0xFFE5484D, 0xFFE5484D),
+            ("PillBg", 0xF21C1C1C, 0xF2EEEEEE), ("PillFg", 0xFFFFFFFF, 0xFF1B1B1B), ("PillBorder", 0x1FFFFFFF, 0x1A000000),
+        };
 
         public static Color AccentColor(bool dark)
         {
@@ -49,56 +63,8 @@ namespace ClaudeLimits
             // Pick the accent foreground for contrast against the accent itself.
             var ac = AccentColor(dark);
             bool accentIsLight = (0.299 * ac.R + 0.587 * ac.G + 0.114 * ac.B) > 150;
-            d["AccentFg"] = accentIsLight ? B(0x000000) : B(0xFFFFFF);
-            if (dark)
-            {
-                d["Bg"] = B(0x202020);
-                d["Surface"] = B(0x2C2C2C);
-                d["Fg"] = B(0xFFFFFF);
-                d["FgDim"] = B(0xFFFFFF, 0x9E);
-                d["FgFaint"] = B(0xFFFFFF, 0x66);
-                d["Divider"] = B(0xFFFFFF, 0x1A);
-                d["ControlBg"] = B(0xFFFFFF, 0x0F);
-                d["ControlBorder"] = B(0xFFFFFF, 0x1F);
-                d["HoverOverlay"] = B(0xFFFFFF, 0x10);
-                d["InputBg"] = B(0x1C1C1C);
-                d["SwitchOffBg"] = B(0x000000, 0x30);
-                d["SwitchOffBorder"] = B(0xFFFFFF, 0x9E);
-                d["SwitchOffThumb"] = B(0xFFFFFF, 0xC8);
-                d["Link"] = B(0x99EBFF);
-                d["BarEmpty"] = B(0xFFFFFF, 0x24);
-                d["Coral"] = B(0xFFAA88);
-                d["CoralFill"] = B(0xFFAA88, 0x4D);
-                d["Shadow"] = Colors.Black;
-            }
-            else
-            {
-                d["Bg"] = B(0xF3F3F3);
-                d["Surface"] = B(0xF9F9F9);
-                d["Fg"] = B(0x1B1B1B);
-                d["FgDim"] = B(0x000000, 0x9E);
-                d["FgFaint"] = B(0x000000, 0x6B);
-                d["Divider"] = B(0x000000, 0x14);
-                d["ControlBg"] = B(0xFFFFFF, 0xB3);
-                d["ControlBorder"] = B(0x000000, 0x24);
-                d["HoverOverlay"] = B(0x000000, 0x0A);
-                d["InputBg"] = B(0xFFFFFF);
-                d["SwitchOffBg"] = B(0x000000, 0x06);
-                d["SwitchOffBorder"] = B(0x000000, 0x9E);
-                d["SwitchOffThumb"] = B(0x000000, 0x9E);
-                d["Link"] = B(0x005FB8);
-                d["BarEmpty"] = B(0x000000, 0x1A);
-                d["Coral"] = B(0xD97755);
-                d["CoralFill"] = B(0xFF9966, 0x59);
-                d["Shadow"] = Color.FromArgb(0xFF, 0x40, 0x40, 0x40);
-            }
-            d["Orange"] = B(0xF7A23B);
-            d["Green"] = B(0x3FB950);
-            d["Red"] = B(0xE5484D);
-            // The pill sits on/near the taskbar, so it takes taskbar colours.
-            d["PillBg"] = dark ? B(0x1C1C1C, 0xF2) : B(0xEEEEEE, 0xF2);
-            d["PillFg"] = dark ? B(0xFFFFFF) : B(0x1B1B1B);
-            d["PillBorder"] = dark ? B(0xFFFFFF, 0x1F) : B(0x000000, 0x1A);
+            d["AccentFg"] = accentIsLight ? B(0xFF000000) : B(0xFFFFFFFF);
+            foreach (var (key, dk, lt) in palette) d[key] = B(dark ? dk : lt);
             return d;
         }
 

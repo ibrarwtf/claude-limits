@@ -2,46 +2,41 @@
 
 Notes for Claude Code (and humans poking under the hood). User-facing install/usage is in [README.md](README.md); local-dev setup is in [DEVELOPMENT.md](DEVELOPMENT.md); contribution rules are in [CONTRIBUTING.md](CONTRIBUTING.md).
 
-Shows your Claude usage in the macOS menu bar and the Windows taskbar. **Two native apps, one spec**: a Swift/AppKit app in `macos/` and a C#/WPF app (.NET Framework 4.8, ships with Windows) in `windows/`. No code is shared — the Swift runtime isn't on Windows — but behaviour is: both run the same test cases in `spec/` and render the same fixture in CI. Usage polling calls `https://api.anthropic.com/api/oauth/usage`; update checks call GitHub Releases.
+Shows your Claude usage in the macOS menu bar and the Windows taskbar. **One logic, two native shells**: everything the apps *decide* is written once in Prolog (`logic/core.pl`) and compiled to Swift and C#; everything they *do* — drawing, networking, files, timers — is native Swift/AppKit in `macos/` and C#/WPF (.NET Framework 4.8, ships with Windows) in `windows/`. Usage polling calls `https://api.anthropic.com/api/oauth/usage`; update checks call GitHub Releases. The logic layer is explained in [logic/README.md](logic/README.md).
 
 ## Layout
 
 ```
+logic/         core.pl (the logic) · plc.pl (compiler) · oracle.pl (spec) · lang.pl
+spec/          cases.json (behaviour tests) + fixtures/snapshot.json
+
 macos/                          windows/
   core/   Foundation only       core/   no WPF/WinForms
+          Logic.swift ◄─ generated ─► Logic.cs
   app/    AppKit                ui/     WPF + WinForms NotifyIcon
-  tests/  spec runner (Swift)   tests/  spec runner (C#)
+  tests/  main.swift ◄─ generated ─► Spec.cs
   scripts/ build install        scripts/ build install
            uninstall snapshot            uninstall snapshot
   homebrew/  cask               claude-limits.csproj, app.manifest
   launchd/   LaunchAgent
 
-spec/          cases.json (behaviour tests) + fixtures/snapshot.json
 snapshots/     macos/ + windows/ PNGs, index.html viewer — written by CI
-scripts/       release.ps1 — ships both apps
+scripts/       release.ps1 (ships both apps), metrics.ps1 (line counts)
 assets/        AppIcon.icns / AppIcon.ico
 VERSION, CHANGELOG.md, .github/workflows/{ci,release}.yml
 ```
 
-Files pair up by name — `macos/core/Format.swift` ↔ `windows/core/Format.cs`, `macos/app/AppDelegate.swift` ↔ `windows/ui/TrayApp.cs` — and method names match, so a change on one side is easy to find on the other.
+`core.pl` holds: the error enum and its copy, every tuning constant, the persisted-settings table, the API / release / credentials / fixture JSON models, countdowns, the burn-rate and reset line, the sparkline, refresh/error animation frames, window rollover, the polling / back-off / click / credentials-dot policies (including a back-off still running at launch and the refresh animation's minimum), once-per-window threshold alerts, the menu-bar title parts, **the dropdown's rows**, the Settings token-source hint, the Windows tray glyph, tooltip and flyout placement, update selection, token parsing and the order token sources are tried, and command-line flag lookup. The apps call the generated functions (`camelCase` in Swift, `PascalCase` in C# via `using static ClaudeLimits.Logic;`) and keep only platform code: `API`/`Api`, `Token` (Keychain / files / shell), `History` and `Settings` storage, `Fixture` loading, `SelfUpdate`, and the UI.
 
-```
-core (both)   API      usage call            Models   response shapes + weeklyRows
-              Token    credential sources    Settings persisted prefs
-              History  samples + sparkline   Format   countdowns, reset/burn line
-              Updates  GitHub release check  Errors   AppError + copy
-              Fixture  pinned Clock + --fixture mode
-windows/core only Json (DataContract helpers), Platform (data dir, Run key, URL
-              scheme, theme registry), SelfUpdate (zip → swap exe), Log
-```
+`macos/scripts/build.sh` greps `macos/core/` for AppKit and `windows/scripts/build.ps1` greps `windows/core/` for `System.Windows`; either aborts the build. That boundary is what lets the generated test suites compile core on its own. Don't add protocols/abstractions to enforce it; the grep is the gate.
 
-`macos/scripts/build.sh` greps `macos/core/` for AppKit and `windows/scripts/build.ps1` greps `windows/core/` for `System.Windows`; either aborts the build. That boundary is what lets the spec runners compile core on its own. Don't add protocols/abstractions to enforce it; the grep is the gate.
+## Changing behaviour
 
-## Keeping the two apps in step
-
-- **Behaviour lives in core and is pinned by `spec/cases.json`.** Countdown/relative-time formatting, version compare, token extraction, the sparkline, the reset/burn-rate line, weekly rows (including the `limits` fallback) and window-rollover detection. Change the behaviour → change the case → make both runners pass. CI fails if either side disagrees.
-- **UI-side logic** (polling cadence, back-off, click cooldowns, threshold alerts, animations) lives in `AppDelegate.swift` / `TrayApp.cs`. Mirror changes by hand; keep method names aligned.
-- **You don't need a Mac to change the Mac app.** Push a branch: CI compiles it, runs the spec, renders `snapshots/macos/` from the fixture and commits the PNGs back to the PR. Review the images in the diff. Same for Windows from a Mac.
+- **Logic changes go in `logic/core.pl`**, then `swipl logic/plc.pl && swipl logic/oracle.pl` regenerates `Logic.swift`, `Logic.cs` and both test suites and checks `spec/cases.json` in Prolog. Commit the regenerated files; CI fails if they're stale. Install SWI-Prolog with `winget install SWI-Prolog.SWI-Prolog` / `brew install swi-prolog`.
+- **Spec cases live in `spec/cases.json`**: Prolog evaluates every one, then emits literal checks for both apps. Add a case when you change a rule — usually a `calls` entry (`fn`, JSON `args` typed by the signature, `expect`). `oracle.pl` also prints how many `core.pl` clauses the spec runs.
+- **The compiler supports a deterministic subset** (first matching clause wins, bodies are bindings ending in an if-then-else tree, optionals narrow when tested). If `plc.pl` rejects something it names the goal — rewrite it in the subset rather than special-casing the compiler.
+- **Native code that remains in both apps** (`AppDelegate.swift` ↔ `TrayApp.cs`, the Settings windows, the API clients) still pairs up by name; mirror changes by hand.
+- **You don't need a Mac to change the Mac app.** Push a branch: CI compiles it, runs the generated spec, renders `snapshots/macos/` from the fixture and commits PNGs back to the PR only if the UI changed.
 
 Deliberate platform differences: no Keychain on Windows (Claude Code writes a plain file there); PowerShell instead of zsh for the shell token source; Windows adds the taskbar pill, the number-in-tray-icon and in-place self-update (Mac updates via brew).
 
@@ -64,6 +59,7 @@ Without `--snapshot-all` the Windows app shows its tray icon + pill with the fix
 | `windows/scripts/uninstall.ps1` | Quits, removes exe + Run key + URL scheme. Keeps `%APPDATA%\claude-limits\` unless `-Purge`. |
 | `windows/scripts/snapshot.ps1` | Runs the built exe with `--fixture … --snapshot-all` → `build\snapshots\windows` (`snapshots\windows` under CI). |
 | `scripts/release.ps1` | Maintainer-only, any OS with git + gh + PowerShell. See *CI and releasing*. |
+| `scripts/metrics.ps1` | Hand-written lines per language (generated files excluded), Prolog share, Windows exe size. |
 
 Run `.ps1` scripts with `powershell -ExecutionPolicy Bypass -File <path>`. They must stay **UTF-8 with BOM**: Windows PowerShell 5.1 reads BOM-less files as ANSI, and the UTF-8 bytes of `—` contain a byte it treats as a closing quote. `.gitattributes` pins `.sh`/`.swift` to LF and `.ps1` to CRLF.
 
@@ -80,7 +76,7 @@ other OS: push a branch → CI builds, tests, commits snapshots → review the P
 
 ## CI and releasing
 
-- `.github/workflows/ci.yml` — on every PR and push to `main`: Windows + macOS jobs build, run the spec, render snapshots. On same-repo PRs a final job commits changed PNGs back to the branch (GITHUB_TOKEN pushes don't retrigger CI). The macOS runner has a non-Retina display, so Mac PNGs come out @1x.
+- `.github/workflows/ci.yml` — on every PR and push to `main`: a `logic` job runs the spec in SWI-Prolog and fails if any generated file is stale; Windows + macOS jobs build, run their generated spec suites and render snapshots. On same-repo PRs a final job commits changed PNGs back to the branch (GITHUB_TOKEN pushes don't retrigger CI). The macOS runner has a non-Retina display, so Mac PNGs come out @1x.
 - `.github/workflows/release.yml` — on a `v*` tag: builds both zips (`claude-limits-macos-X.Y.Z.zip` for the cask, `claude-limits-windows-X.Y.Z.zip`) into a **draft** release, notes from the CHANGELOG section.
 - `scripts/release.ps1 X.Y.Z` — checks clean/synced `main` + a `## vX.Y.Z` CHANGELOG section, bumps `VERSION`, tags, pushes, waits for the draft, writes the Mac zip's sha256 into `macos/homebrew/claude-limits.rb` and the tap clone (`..\homebrew-lab`, or `TAP_DIR`), then publishes the draft as latest. Draft-first means neither app is offered a release before brew can install it.
 - The Mac app reads `/releases/latest` and updates via `brew upgrade`; the Windows app scans the release list for the newest release with a Windows zip and swaps its exe in place (sha256-checked against GitHub's asset digest).
@@ -110,7 +106,7 @@ other OS: push a branch → CI builds, tests, commits snapshots → review the P
 ## Code style
 
 - Comments explain WHY, not WHAT. Add them only when the reasoning is non-obvious — a platform gotcha, a threading constraint, an API quirk.
-- No new dependencies: AppKit + Foundation on macOS; in-box .NET Framework 4.8 assemblies on Windows (no NuGet packages).
+- No new dependencies: AppKit + Foundation on macOS; in-box .NET Framework 4.8 assemblies on Windows (no NuGet packages). SWI-Prolog is a dev/CI tool only — the apps never need it.
 - Direct platform APIs over wrappers/protocols. The codebase is small enough that boilerplate beats indirection.
 - Keep the `core/` boundaries clean. Anything UI-shaped goes in `macos/app/` or `windows/ui/`.
 - Match existing naming and structure — and the other platform's naming — rather than introducing a new style.

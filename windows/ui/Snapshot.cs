@@ -1,11 +1,11 @@
 using System;
 using System.IO;
-using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using Forms = System.Windows.Forms;
+
+using static ClaudeLimits.Logic;
 
 namespace ClaudeLimits
 {
@@ -20,7 +20,7 @@ namespace ClaudeLimits
         const double scale = 2.0; // @2x, like the Mac PNGs
 
         public static void Handle(TrayApp app, Uri url) =>
-            Render(app, url.AbsolutePath.Trim('/'), QueryParam(url, "dest") ?? Path.Combine(Platform.DataDir, "snapshots"));
+            Render(app, url.AbsolutePath.Trim('/'), System.Web.HttpUtility.ParseQueryString(url.Query)["dest"] ?? Path.Combine(Platform.DataDir, "snapshots"));
 
         /// Every kind, light + dark — used by `--fixture … --snapshot-all <dir>`.
         public static void RenderAll(TrayApp app, string dest)
@@ -49,16 +49,6 @@ namespace ClaudeLimits
             catch (Exception e) { Log.Write($"snapshot {kind} failed: {e}"); }
         }
 
-        static string QueryParam(Uri url, string name)
-        {
-            foreach (var part in url.Query.TrimStart('?').Split('&'))
-            {
-                var kv = part.Split(new[] { '=' }, 2);
-                if (kv.Length == 2 && kv[0] == name) return Uri.UnescapeDataString(kv[1].Replace('+', ' '));
-            }
-            return null;
-        }
-
         /// A strip of taskbar with the pill and the tray icon on it.
         static FrameworkElement Menubar(TrayApp app, bool dark)
         {
@@ -68,10 +58,10 @@ namespace ClaudeLimits
             var row = new StackPanel { Orientation = Orientation.Horizontal };
             row.Children.Add(PillView.Capsule(app.CurrentTitle));
             var t = app.CurrentTitle;
-            string text = t.TrayNumber?.ToString() ?? (t.IsError ? "!" : t.Plain == "—" ? "–" : null);
+            string text = TrayText(t.TrayNumber, t.IsError, t.Plain);
             if (text != null)
             {
-                var level = t.TrayNumber.HasValue ? TrayIcon.LevelFor(t.Utilization) : t.IsError ? IconLevel.Error : IconLevel.Normal;
+                var level = (IconLevel)TrayLevel(t.TrayNumber, t.Utilization, t.IsError);
                 using (var bmp = TrayIcon.RenderBitmap(text, level, dark, (int)(16 * scale)))
                 {
                     var ms = new MemoryStream();

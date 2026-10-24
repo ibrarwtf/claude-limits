@@ -1,24 +1,13 @@
 import AppKit
-import Foundation
 
-// All snapshot capture lives here — URL-scheme handler + view-to-PNG renderers.
-// Triggered by the claude-limits://snapshot URL or --snapshot-all (fixture
-// mode, see Fixture.swift); no Screen Recording grant needed because we
-// render our own NSViews into bitmaps via cacheDisplay (and a synthetic redraw
-// for NSStatusItem.button + NSMenu, neither of which respects cacheDisplay).
+// Snapshot capture: URL handler + view-to-PNG. Renders our own NSViews
+// (cacheDisplay, or a synthetic redraw for the status button and NSMenu,
+// which ignore it), so no Screen Recording grant.
 
 extension AppDelegate {
 
-    /// URL-scheme handler. Captures the live app's
-    /// own UI silently — no Terminal, no popups, no Screen Recording grant.
-    /// URLs:
-    ///   claude-limits://snapshot/menubar?dest=/abs/path/to/snapshots
-    ///   claude-limits://snapshot/dropdown?dest=/abs/path/to/snapshots
-    ///   claude-limits://snapshot/settings?dest=/abs/path/to/snapshots
-    ///
-    /// Retry-with-delay: cold launches via URL scheme can fire this BEFORE
-    /// applicationDidFinishLaunching has set up statusItem. Wait up to 2s for
-    /// readiness; warm launches dispatch immediately.
+    /// claude-limits://snapshot/<menubar|dropdown|settings>?dest=<abs dir>.
+    /// A cold launch via URL can arrive before statusItem exists: wait up to 2s.
     func application(_ application: NSApplication, open urls: [URL]) {
         handleSnapshotURLs(urls, attempt: 0)
     }
@@ -49,9 +38,7 @@ extension AppDelegate {
         ("~/Library/Application Support/claude-limits/snapshots" as NSString).expandingTildeInPath
     }
 
-    /// Capture our own UI to a PNG. NSStatusItem.button is special: it's a
-    /// system-managed view that ignores cacheDisplay, so renderMenubarPNG
-    /// re-draws its attributedTitle onto a flat bar manually.
+    /// The status button ignores cacheDisplay, so renderMenubarPNG redraws its title.
     fileprivate func captureToFile(kind: String, dest: String) {
         for mode in ["light", "dark"] {
             let dark = (mode == "dark")
@@ -66,13 +53,9 @@ extension AppDelegate {
                 vc.loadView()
                 let v = vc.view
                 v.appearance = appearance
-                // Layer-backed bg fill — without a window the view has no
-                // intrinsic background colour, so dark-mode label text would
-                // be invisible (white-on-white).
+                // Windowless views have no background; without this dark text vanishes.
                 v.wantsLayer = true
-                v.layer?.backgroundColor = (dark
-                    ? NSColor(white: 0.18, alpha: 1.0).cgColor
-                    : NSColor(white: 0.95, alpha: 1.0).cgColor)
+                v.layer?.backgroundColor = NSColor(white: dark ? 0.18 : 0.95, alpha: 1.0).cgColor
                 v.layoutSubtreeIfNeeded()
                 png = renderViewPNG(v, with: appearance)
             case "dropdown":
@@ -89,9 +72,7 @@ extension AppDelegate {
         }
     }
 
-    /// cacheDisplay with the given appearance set as current drawing appearance,
-    /// so dynamic NSColors (labelColor, secondaryLabelColor, etc.) resolve
-    /// correctly for the requested mode.
+    /// cacheDisplay under the given appearance so dynamic NSColors resolve.
     fileprivate func renderViewPNG(_ v: NSView, with appearance: NSAppearance) -> Data? {
         guard let rep = v.bitmapImageRepForCachingDisplay(in: v.bounds) else { return nil }
         appearance.performAsCurrentDrawingAppearance {
@@ -100,40 +81,25 @@ extension AppDelegate {
         return rep.representation(using: .png, properties: [:])
     }
 
-    /// Render the dropdown's menu items into an NSMenu-style image. Synthetic
-    /// (not a real NSMenu screenshot — those are system-managed and need
-    /// Screen Recording), but content-faithful since we iterate the same
-    /// NSMenuItem array buildMenu() builds.
+    /// Synthetic menu image (a real NSMenu needs Screen Recording), drawn from
+    /// the same NSMenuItems buildMenu() builds.
     fileprivate func renderDropdownPNG(items: [NSMenuItem], dark: Bool, appearance: NSAppearance) -> Data? {
         let lineHeight = MenuRowView.rowHeight
         let separatorH: CGFloat = 11
         let padTop: CGFloat = 6, padBottom: CGFloat = 6
         let padLeft = MenuRowView.leftPad, padRight = MenuRowView.rightPad
-        // Match the real menu row width so tab-stop columns land in the same
-        // pixel positions, keeping synthetic and live menu visually identical.
+        // Real row width so tab stops land on the same pixels.
         let width = AppDelegate.menuRowWidth
 
-        var contentH: CGFloat = padTop + padBottom
-        for item in items {
-            if item.isSeparatorItem {
-                contentH += separatorH
-            } else if let v = item.view {
-                contentH += v.bounds.height
-            } else {
-                contentH += lineHeight
-            }
-        }
+        let contentH = items.reduce(padTop + padBottom) { $0 + ($1.isSeparatorItem ? separatorH : $1.view?.bounds.height ?? lineHeight) }
 
         let canvas = NSSize(width: width, height: contentH)
         let img = NSImage(size: canvas)
         img.lockFocus()
 
         appearance.performAsCurrentDrawingAppearance {
-            if dark {
-                NSColor(calibratedRed: 0.20, green: 0.20, blue: 0.20, alpha: 0.98).setFill()
-            } else {
-                NSColor(calibratedRed: 0.97, green: 0.97, blue: 0.97, alpha: 0.99).setFill()
-            }
+            (dark ? NSColor(calibratedRed: 0.20, green: 0.20, blue: 0.20, alpha: 0.98)
+                  : NSColor(calibratedRed: 0.97, green: 0.97, blue: 0.97, alpha: 0.99)).setFill()
             NSBezierPath(roundedRect: NSRect(origin: .zero, size: canvas),
                          xRadius: 8, yRadius: 8).fill()
 
@@ -150,9 +116,7 @@ extension AppDelegate {
                     path.stroke()
                     y -= separatorH
                 } else if let tab = item.view as? TabularRowView {
-                    // Draw the tabular row directly — same draw code the live
-                    // menu uses, no cacheDisplay (offscreen contexts ignore the
-                    // appearance override we set above for some items).
+                    // Direct draw — offscreen cacheDisplay ignores the appearance override.
                     let h = tab.bounds.height
                     TabularRowView.paint(
                         label: tab.label, utilization: tab.utilization, value: tab.value,
@@ -161,8 +125,6 @@ extension AppDelegate {
                         origin: NSPoint(x: 0, y: y - h))
                     y -= h
                 } else {
-                    // Plain text item — draw the attributed title (font is forced
-                    // to NSFont.menuFont so live + synthetic match exactly).
                     let base = item.attributedTitle ?? NSAttributedString(string: item.title)
                     let mut = NSMutableAttributedString(attributedString: base)
                     mut.addAttribute(.font, value: NSFont.menuFont(ofSize: 0),
@@ -189,8 +151,7 @@ extension AppDelegate {
             : NSMutableAttributedString(string: button.title, attributes: [
                 .font: NSFont.menuBarFont(ofSize: NSFont.systemFontSize)
             ])
-        // Force a contrasting foreground colour — system colour from the live
-        // status item won't match our flat-bar background.
+        // Contrasting colour: the live status-item colour won't suit the flat bar.
         title.addAttribute(.foregroundColor,
                            value: dark ? NSColor.white : NSColor.black,
                            range: NSRange(location: 0, length: title.length))

@@ -2,6 +2,11 @@
 
 `release.sh --publish` reads the section matching the version being shipped and feeds it to `gh release create --notes-file`. So write each section as user-facing release notes — what changed, why someone running `brew upgrade` would care.
 
+## Unreleased
+
+- Internals: everything both apps decide — formatting, polling and back-off policy, alerts, the dropdown's rows, update and token rules — is now written once in Prolog (`logic/core.pl`) and compiled to Swift and C#. No visible change; the shared spec grew from 53 to 175 cases.
+- The Windows exe is ~10 KB smaller (135 KB).
+
 ## v0.3.1
 
 - **Weekly limits are back on macOS.** Anthropic's usage API stopped filling the per-model weekly fields and now reports weekly usage in a new `limits` list; the Mac dropdown showed no weekly rows. Both apps now read the new list (the Windows app already did).

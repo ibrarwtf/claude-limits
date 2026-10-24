@@ -82,21 +82,29 @@ Start-Process claude-limits://flyout                                  # open the
 powershell -File windows\scripts\uninstall.ps1 [-Purge]                   # remove (-Purge also wipes settings + history)
 ```
 
-## Spec tests
+## Logic and spec (Prolog)
 
-`spec/cases.json` pins the behaviour both apps share (countdowns, sparkline, burn-rate line, weekly rows, rollover, token parsing, version compare). Each app has a tiny runner that compiles its `core/` on its own:
+The behaviour both apps share is written once in `logic/core.pl` and compiled to `macos/core/Logic.swift` and `windows/core/Logic.cs` — see [logic/README.md](logic/README.md). You need SWI-Prolog only when you change it:
+
+```bash
+winget install SWI-Prolog.SWI-Prolog        # or: brew install swi-prolog / apt install swi-prolog-nox
+swipl logic/plc.pl                          # regenerate Logic.swift + Logic.cs
+swipl logic/oracle.pl                       # check spec/cases.json in Prolog, regenerate both test suites
+```
+
+The generated suites then run against each app's compiled core:
 
 ```bash
 # macOS
-swiftc -o build/spec-macos macos/core/*.swift macos/tests/main.swift && build/spec-macos spec/cases.json
+swiftc -o build/spec-macos macos/core/*.swift macos/tests/main.swift && build/spec-macos
 ```
 
 ```powershell
 # Windows
-dotnet build windows\tests\spec.csproj -c Release -o build\spec-windows; build\spec-windows\claude-limits-spec.exe spec\cases.json
+dotnet build windows\tests\spec.csproj -c Release -o build\spec-windows; build\spec-windows\claude-limits-spec.exe
 ```
 
-Changing shared behaviour? Update the case first, then make both runners pass — CI runs both on every PR.
+Commit the regenerated files — CI fails if they don't match what `plc.pl` / `oracle.pl` produce.
 
 ## Snapshots
 
