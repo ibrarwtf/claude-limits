@@ -85,6 +85,7 @@
 :- const capped_at = 99.5.
 :- const idle_below = 0.5.          % %/h
 :- const big_drop = 5.0.            % a fall this large means the window rolled over
+:- const reset_jitter = 300.0.      % resets_at drift (s) still counted as the same window
 :- const marquee_frames = 60.
 :- const marquee_speed = 1.17.      % chars per frame at 12 fps
 :- const error_cycles = 3.
@@ -287,12 +288,12 @@ error_tick(E, Until, Now, F, Width, Out) :-
 % (when we were down and missed it) utilization fell a lot.
 :- fn rollover(opt(float), float, opt(str), opt(str), time) -> bool.
 rollover(LastU, U, LastR, R, Now, Out) :-
-    parse_iso(R, D),
+    parse_iso(R, D), reset_moved(LastR, R, Moved),
     (   LastU == none -> Out = false
     ;   LastU < 0.0 -> Out = false
     ;   D == none -> Out = false
     ;   D =< Now -> Out = false
-    ;   LastR \== none, LastR \== R -> Out = true
+    ;   LastR \== none, Moved == true -> Out = true
     ;   LastU > U + big_drop -> Out = true
     ;   Out = false ).
 
@@ -335,7 +336,18 @@ alerts(U, R, Key0, Fired0, Key, Fired, Due) :-
     new_window(R, Key0, New), ( New == true -> Key = R, F0 = [] ; Key = Key0, F0 = Fired0 ),
     crossed(U, F0, Due), append(F0, Due, Fired).
 :- fn new_window(opt(str), opt(str)) -> bool.
-new_window(R, Key, B) :- ( R \== none, R \== Key -> B = true ; B = false ).
+new_window(R, Key, B) :- reset_moved(Key, R, B).
+
+% resets_at is recomputed from the server's clock on every response, so the
+% same window comes back a second or so apart ("…22:09:59.63" then
+% "…22:10:00.38"). Only a jump past reset_jitter is a different window.
+:- fn reset_moved(opt(str), opt(str)) -> bool.   % stored, current
+reset_moved(Old, New, B) :-
+    parse_iso(Old, O), parse_iso(New, N),
+    (   N == none -> B = false
+    ;   O == none -> B = true
+    ;   abs(secs(O, N)) > reset_jitter -> B = true
+    ;   B = false ).
 
 :- fn crossed(float, list(int)) -> list(int).   % thresholds to notify now
 crossed(U, Fired, Out) :- crossed_from([80, 95], U, Fired, Out).

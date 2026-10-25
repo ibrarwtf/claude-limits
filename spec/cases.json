@@ -38,6 +38,7 @@
   "rollover": [
     { "name": "same window keeps history", "steps": [{ "t": -360, "u": 40, "r": 3600 }, { "t": -180, "u": 42, "r": 3600 }, { "t": 0, "u": 43, "r": 3600 }], "expectCount": 3 },
     { "name": "resets_at advanced", "steps": [{ "t": -360, "u": 40, "r": 3600 }, { "t": -180, "u": 41, "r": 3600 }, { "t": 0, "u": 41, "r": 21600 }], "expectCount": 1 },
+    { "name": "resets_at jitter keeps history", "steps": [{ "t": -360, "u": 40, "r": 3600 }, { "t": -180, "u": 41, "r": 3601 }, { "t": 0, "u": 42, "r": 3599 }], "expectCount": 3 },
     { "name": "big drop", "steps": [{ "t": -180, "u": 60, "r": 3600 }, { "t": 0, "u": 2, "r": 3600 }], "expectCount": 1 },
     { "name": "small drop is jitter", "steps": [{ "t": -180, "u": 10, "r": 3600 }, { "t": 0, "u": 6, "r": 3600 }], "expectCount": 2 }
   ],
@@ -92,10 +93,11 @@
     {"fn": "wait_status", "args": [null, 0], "expect": null},
     {"fn": "backoff_error", "args": [120, 0], "expect": "Rate limited by Anthropic — retrying in 120 seconds."},
     {"fn": "backoff_error", "args": [null, 0], "expect": null},
-    {"fn": "new_window", "args": ["A", "B"], "expect": true},
-    {"fn": "new_window", "args": ["B", "B"], "expect": false},
-    {"fn": "new_window", "args": [null, "B"], "expect": false},
-    {"fn": "filled_blocks", "args": [0.5, 24], "expect": 1},
+    {"fn": "new_window", "args": [{"in": 21600}, {"in": 3600}], "expect": true},
+    {"fn": "new_window", "args": [{"in": 3600}, {"in": 3600}], "expect": false},
+    {"fn": "new_window", "args": [{"in": 3600}, null], "expect": true},
+    {"fn": "new_window", "args": [null, {"in": 3600}], "expect": false},
+    {"fn": "new_window", "args": ["2026-10-25T22:10:00.386504+00:00", "2026-10-25T22:09:59.633634+00:00"], "expect": false},    {"fn": "filled_blocks", "args": [0.5, 24], "expect": 1},
     {"fn": "filled_blocks", "args": [50, 24], "expect": 12},
     {"fn": "filled_blocks", "args": [0, 24], "expect": 0},
     {"fn": "filled_blocks", "args": [150, 24], "expect": 24},
