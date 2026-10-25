@@ -247,6 +247,7 @@ let gapFactor = 2.5
 let cappedAt = 99.5
 let idleBelow = 0.5
 let bigDrop = 5.0
+let resetJitter = 300.0
 let marqueeFrames = 60
 let marqueeSpeed = 1.17
 let errorCycles = 3
@@ -691,6 +692,7 @@ func errorTick(_ e: AppError?, _ until: Date?, _ now: Date, _ f: Int, _ width: I
 
 func rollover(_ lastU: Double?, _ u: Double, _ lastR: String?, _ r: String?, _ now: Date) -> Bool {
     let d = parseISO(r)
+    let moved = resetMoved(lastR, r)
     if lastU == nil {
         return false
     } else if lastU! < 0.0 {
@@ -699,7 +701,7 @@ func rollover(_ lastU: Double?, _ u: Double, _ lastR: String?, _ r: String?, _ n
         return false
     } else if d! <= now {
         return false
-    } else if (lastR != nil) && (lastR! != r) {
+    } else if (lastR != nil) && moved {
         return true
     } else if lastU! > (u + bigDrop) {
         return true
@@ -780,7 +782,17 @@ func alerts(_ u: Double, _ r: String?, _ key0: String?, _ fired0: [Int]) -> (Str
 }
 
 func newWindow(_ r: String?, _ key: String?) -> Bool {
-    if (r != nil) && (r! != key) {
+    return resetMoved(key, r)
+}
+
+func resetMoved(_ old: String?, _ new_: String?) -> Bool {
+    let o = parseISO(old)
+    let n = parseISO(new_)
+    if n == nil {
+        return false
+    } else if o == nil {
+        return true
+    } else if abs(n!.timeIntervalSince(o!)) > resetJitter {
         return true
     } else {
         return false

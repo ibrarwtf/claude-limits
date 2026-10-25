@@ -2,8 +2,9 @@
 
 `release.sh --publish` reads the section matching the version being shipped and feeds it to `gh release create --notes-file`. So write each section as user-facing release notes — what changed, why someone running `brew upgrade` would care.
 
-## Unreleased
+## v0.3.2
 
+- **The 80% / 95% alert fires once again, not every few minutes.** Anthropic's usage API now returns a slightly different reset time on every call, which the apps took for a new 5-hour window, so they re-alerted and wiped usage history on each poll (the burn rate never got past "measuring…"). Reset times within 5 minutes of each other now count as the same window.
 - Internals: everything both apps decide — formatting, polling and back-off policy, alerts, the dropdown's rows, update and token rules — is now written once in Prolog (`logic/core.pl`) and compiled to Swift and C#. No visible change; the shared spec grew from 53 to 175 cases.
 - The Windows exe is ~10 KB smaller (135 KB).
 

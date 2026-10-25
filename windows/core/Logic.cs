@@ -237,6 +237,7 @@ public static partial class Logic
     public const double CappedAt = 99.5;
     public const double IdleBelow = 0.5;
     public const double BigDrop = 5.0;
+    public const double ResetJitter = 300.0;
     public const int MarqueeFrames = 60;
     public const double MarqueeSpeed = 1.17;
     public const int ErrorCycles = 3;
@@ -846,6 +847,7 @@ public static partial class Logic
     public static bool Rollover(double? lastU, double u, string lastR, string r, DateTime now)
     {
         var d = Format.ParseISO(r);
+        var moved = ResetMoved(lastR, r);
         if (lastU == null)
         {
             return false;
@@ -862,7 +864,7 @@ public static partial class Logic
         {
             return false;
         }
-         else if ((lastR != null) && (lastR != r))
+         else if ((lastR != null) && moved)
         {
             return true;
         }
@@ -981,7 +983,22 @@ public static partial class Logic
 
     public static bool NewWindow(string r, string key)
     {
-        if ((r != null) && (r != key))
+        return ResetMoved(key, r);
+    }
+
+    public static bool ResetMoved(string old, string new_)
+    {
+        var o = Format.ParseISO(old);
+        var n = Format.ParseISO(new_);
+        if (n == null)
+        {
+            return false;
+        }
+         else if (o == null)
+        {
+            return true;
+        }
+         else if (Math.Abs((n.Value - o.Value).TotalSeconds) > ResetJitter)
         {
             return true;
         }

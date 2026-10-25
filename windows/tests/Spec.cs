@@ -48,6 +48,7 @@ namespace ClaudeLimits.Spec
             Check("weekly_rows", Bars("{}"), "");
             Check("rollover", Replay(new[] { (-360.0, 40.0, "2030-01-15T13:00:00Z"), (-180.0, 42.0, "2030-01-15T13:00:00Z"), (0.0, 43.0, "2030-01-15T13:00:00Z") }), "3");
             Check("rollover", Replay(new[] { (-360.0, 40.0, "2030-01-15T13:00:00Z"), (-180.0, 41.0, "2030-01-15T13:00:00Z"), (0.0, 41.0, "2030-01-15T18:00:00Z") }), "1");
+            Check("rollover", Replay(new[] { (-360.0, 40.0, "2030-01-15T13:00:00Z"), (-180.0, 41.0, "2030-01-15T13:00:01Z"), (0.0, 42.0, "2030-01-15T12:59:59Z") }), "3");
             Check("rollover", Replay(new[] { (-180.0, 60.0, "2030-01-15T13:00:00Z"), (0.0, 2.0, "2030-01-15T13:00:00Z") }), "1");
             Check("rollover", Replay(new[] { (-180.0, 10.0, "2030-01-15T13:00:00Z"), (0.0, 6.0, "2030-01-15T13:00:00Z") }), "2");
             Check("countdown", Countdown("2030-01-15T14:30:30Z", now.AddSeconds(0)), "2:30");
@@ -99,9 +100,11 @@ namespace ClaudeLimits.Spec
             Check("wait_status", WaitStatus(null, now.AddSeconds(0)), null);
             Check("backoff_error", Msg(BackoffError(now.AddSeconds(120), now.AddSeconds(0))), "Rate limited by Anthropic — retrying in 120 seconds.");
             Check("backoff_error", Msg(BackoffError(null, now.AddSeconds(0))), null);
-            Check("new_window", NewWindow("A", "B").ToString().ToLowerInvariant(), "true");
-            Check("new_window", NewWindow("B", "B").ToString().ToLowerInvariant(), "false");
-            Check("new_window", NewWindow(null, "B").ToString().ToLowerInvariant(), "false");
+            Check("new_window", NewWindow("2030-01-15T18:00:00Z", "2030-01-15T13:00:00Z").ToString().ToLowerInvariant(), "true");
+            Check("new_window", NewWindow("2030-01-15T13:00:00Z", "2030-01-15T13:00:00Z").ToString().ToLowerInvariant(), "false");
+            Check("new_window", NewWindow("2030-01-15T13:00:00Z", null).ToString().ToLowerInvariant(), "true");
+            Check("new_window", NewWindow(null, "2030-01-15T13:00:00Z").ToString().ToLowerInvariant(), "false");
+            Check("new_window", NewWindow("2026-10-25T22:10:00.386504+00:00", "2026-10-25T22:09:59.633634+00:00").ToString().ToLowerInvariant(), "false");
             Check("filled_blocks", FilledBlocks(0.5, 24).ToString(), "1");
             Check("filled_blocks", FilledBlocks(50.0, 24).ToString(), "12");
             Check("filled_blocks", FilledBlocks(0.0, 24).ToString(), "0");
